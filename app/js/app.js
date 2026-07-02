@@ -32,9 +32,20 @@ function saveState() {
 function loadState() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) return migrateState(JSON.parse(raw));
   } catch (e) { /* corrupted state — fall through to wizard */ }
   return null;
+}
+
+/* Backfill fields added after a state was first saved. */
+function migrateState(s) {
+  if (!s) return s;
+  if (!Array.isArray(s.briefings)) s.briefings = [];
+  if (!Array.isArray(s.signal_keywords)) {
+    const preset = PRESETS.find(p => p.industry_id === s.industry_id);
+    s.signal_keywords = preset ? [...preset.signal_keywords] : [];
+  }
+  return s;
 }
 
 /* ---------- Blank diagnostic from a preset ---------- */
@@ -60,7 +71,8 @@ function stateFromPreset(preset, orgName) {
     lenses: JSON.parse(JSON.stringify(DEFAULT_LENSES)),
     rubric: JSON.parse(JSON.stringify(DEFAULT_RUBRIC)),
     patterns: JSON.parse(JSON.stringify(DEFAULT_PATTERNS)),
-    clusters, versions: [], changeLog: [],
+    clusters, versions: [], changeLog: [], briefings: [],
+    signal_keywords: [...(preset.signal_keywords || [])],
     currentVersion: "v0.1 (working)"
   };
 }
@@ -103,6 +115,7 @@ function renderView() {
   if (activeView === "matrix") el.innerHTML = viewMatrix();
   else if (activeView === "board") el.innerHTML = viewBoard();
   else if (activeView === "trajectory") el.innerHTML = viewTrajectory();
+  else if (activeView === "signals") el.innerHTML = viewSignals();
   else el.innerHTML = viewDelta();
   bindViewEvents();
 }
@@ -231,7 +244,118 @@ function viewTrajectory() {
     <section class="print-section">${alerts}<div class="traj-table">${rows}</div></section>`;
 }
 
-/* ---------- View 4: Delta ---------- */
+/* ---------- View 4: External Signals (Claude API) ---------- */
+let scanBusy = false;
+
+function viewSignals() {
+  const cfg = getApiConfig();
+  const kws = state.signal_keywords || [];
+  if (!cfg.apiKey) {
+    return `<div class="view-note">External calibration — scan the latest market research, competitor moves, and regulatory shifts, then apply them as leading indicators that recalibrate the trajectory forecast.</div>
+      <div class="delta-empty"><strong>No Claude API key configured.</strong><br><br>
+      Add your Anthropic API key under <em>Settings → External intelligence</em> to enable live scanning (the key stays in this browser and is never exported).<br>
+      No key yet? Enter <code>mock</code> as the key to explore this feature with simulated signals — free and offline.<br><br>
+      <button class="btn-navy" id="sig-open-settings">Open Settings</button></div>`;
+  }
+  const dirMeta = {
+    tailwind: { sym: "↗", word: "Tailwind", cls: "good" },
+    headwind: { sym: "↘", word: "Headwind", cls: "warn" },
+    neutral: { sym: "→", word: "Neutral", cls: "" }
+  };
+  const briefings = (state.briefings || []).slice().reverse().map(b => {
+    const cards = b.signals.map((sig, si) => {
+      const d = dirMeta[sig.direction] || dirMeta.neutral;
+      const clusters = sig.affected_cluster_ids.map(cid => {
+        const cl = state.clusters.find(c => c.id === cid);
+        if (!cl) return "";
+        const done = sig.applied && sig.applied[cid];
+        return `<button class="mini-btn ${done ? "" : ""}" data-apply-sig="${esc(b.id)}|${si}|${esc(cid)}" ${done ? "disabled" : ""}>
+          ${done ? "✓ Applied to " : "＋ Apply to "}${esc(cl.name)} · ${esc(sig.lens_key)}</button>`;
+      }).join(" ");
+      return `<div class="sig-card">
+        <div class="sig-head">
+          <span class="sig-dir ${d.cls}">${d.sym} ${d.word}</span>
+          <h3>${esc(sig.headline)}</h3>
+        </div>
+        <p class="sig-summary">${esc(sig.summary)}</p>
+        <p class="sig-meta">Source: ${esc(sig.source || "—")}${sig.calibration_note ? ` · <em>${esc(sig.calibration_note)}</em>` : ""}</p>
+        <div class="sig-actions">${clusters || '<span class="sig-meta">No matching clusters.</span>'}</div>
+      </div>`;
+    }).join("");
+    return `<section class="sig-briefing">
+      <div class="sig-brief-head">
+        <h2>Briefing — ${new Date(b.generated_at).toLocaleString()}</h2>
+        <span class="sig-meta">${b.signals.length} signals · model: ${esc(b.model)}</span>
+        <button class="mini-btn danger" data-del-brief="${esc(b.id)}">Delete</button>
+      </div>
+      ${cards}
+    </section>`;
+  }).join("");
+  return `<div class="view-note">External calibration — Claude scans the web for the latest market research and signals relevant to your industry, then you apply each signal to a cluster as a leading indicator. Applied signals feed the momentum model behind the Trajectory view. Findings are suggestions: you stay the calibrator.</div>
+    <div class="sig-controls">
+      <div>
+        <span class="sig-kw-label">Watch keywords:</span>
+        <input type="text" id="sig-keywords" value="${esc(kws.join(", "))}" placeholder="e.g. cargo tonnage, IATA, safety incidents">
+      </div>
+      <button class="btn-navy" id="sig-scan" ${scanBusy ? "disabled" : ""}>${scanBusy ? "Scanning…" : "Scan external signals"}</button>
+      <span class="sig-meta" id="sig-status">${scanBusy ? "Searching the latest research — this can take up to a minute." : ""}</span>
+    </div>
+    ${briefings || '<div class="delta-empty">No briefings yet. Run your first scan — results appear here and are saved locally.</div>'}`;
+}
+
+function bindSignalEvents() {
+  const open = $("sig-open-settings");
+  if (open) open.addEventListener("click", openSettings);
+  const scan = $("sig-scan");
+  if (scan) scan.addEventListener("click", runSignalScan);
+  document.querySelectorAll("[data-apply-sig]").forEach(b => b.addEventListener("click", () => {
+    const [bid, si, cid] = b.dataset.applySig.split("|");
+    applySignal(bid, parseInt(si, 10), cid);
+  }));
+  document.querySelectorAll("[data-del-brief]").forEach(b => b.addEventListener("click", () => {
+    state.briefings = state.briefings.filter(x => x.id !== b.dataset.delBrief);
+    renderAll();
+  }));
+}
+
+async function runSignalScan() {
+  const kwInput = $("sig-keywords");
+  state.signal_keywords = kwInput.value.split(",").map(s => s.trim()).filter(Boolean);
+  scanBusy = true;
+  renderView();
+  try {
+    const briefing = await scanExternalSignals(state, state.signal_keywords);
+    state.briefings = (state.briefings || []).concat([briefing]).slice(-10);
+    toast("Briefing ready — " + briefing.signals.length + " signals found.");
+  } catch (e) {
+    toast("Scan failed: " + e.message);
+  } finally {
+    scanBusy = false;
+    renderAll();
+  }
+}
+
+function applySignal(briefingId, sigIndex, clusterId) {
+  const briefing = (state.briefings || []).find(b => b.id === briefingId);
+  const sig = briefing && briefing.signals[sigIndex];
+  const cluster = state.clusters.find(c => c.id === clusterId);
+  if (!sig || !cluster) return;
+  const lensKey = cluster.cells[sig.lens_key] ? sig.lens_key : state.lenses[0].key;
+  const cell = cluster.cells[lensKey];
+  cell.leading = cell.leading || [];
+  cell.leading.push({ name: sig.headline.slice(0, 80), signal: directionToLeading(sig.direction) });
+  cell.evidence = cell.evidence || [];
+  cell.evidence.push({ label: sig.source || "External signal briefing", note: sig.calibration_note || sig.headline });
+  cell.last_updated = nowIso();
+  cell.updated_by = state.actor || "You";
+  sig.applied = sig.applied || {};
+  sig.applied[clusterId] = true;
+  state.changeLog.push({ at: nowIso(), cluster: cluster.name, lens: lensKey, from: cell.level, to: cell.level, rationale: "External signal applied as leading indicator: " + sig.headline, by: cell.updated_by });
+  renderAll();
+  toast("Signal applied — it now feeds the trajectory forecast for " + cluster.name + ".");
+}
+
+/* ---------- View 5: Delta ---------- */
 function viewDelta() {
   if (!state.versions.length) {
     return `<div class="delta-empty"><strong>No saved versions yet.</strong><br>
@@ -271,6 +395,7 @@ function bindViewEvents() {
   });
   const db = $("delta-base");
   if (db) db.addEventListener("change", renderView);
+  bindSignalEvents();
 }
 
 /* ============================================================
@@ -469,7 +594,7 @@ function openWizard(allowCancel) {
     </div>`);
   if (allowCancel) $("m-close").addEventListener("click", closeModal);
   document.querySelectorAll("[data-demo]").forEach(b => b.addEventListener("click", () => {
-    state = buildDemoState(); closeModal(); activeView = "matrix"; renderAll();
+    state = migrateState(buildDemoState()); closeModal(); activeView = "matrix"; renderAll();
     toast("Demo loaded — fictional data. Use the menu to start fresh anytime.");
   }));
   document.querySelectorAll("[data-preset]").forEach(b => b.addEventListener("click", () => wizardPreview(b.dataset.preset)));
@@ -533,6 +658,24 @@ function openSettings() {
     <h2>Settings</h2><p class="m-sub">Identity, hero patterns, and data management. Everything lives locally in your browser.</p>
     <div class="m-field"><label>Organisation name</label><input type="text" id="set-org" value="${esc(state.orgName)}"></div>
     <div class="m-field"><label>Your name (recorded as the actor on changes)</label><input type="text" id="set-actor" value="${esc(state.actor)}"></div>
+    <h2 style="font-size:15px;margin-top:18px">External intelligence (Claude API)</h2>
+    <p class="m-sub" style="margin-bottom:10px">Optional. Enables the <strong>Signals</strong> view: scanning the latest external market research and calibrating the diagnostic against it. Your key is stored only in this browser, is never included in exports, and is sent only to Anthropic's API. Enter <code>mock</code> to try the feature with simulated data at no cost.</p>
+    <div class="m-field"><label>Anthropic API key</label>
+      <input type="password" id="set-api-key" value="${esc(getApiConfig().apiKey)}" placeholder="sk-ant-… (or 'mock' to simulate)" autocomplete="off"></div>
+    <div class="m-field"><label>Model</label>
+      <select id="set-model">
+        ${MODEL_CHOICES.map(m => `<option value="${esc(m.id)}" ${getApiConfig().model === m.id ? "selected" : ""}>${esc(m.label)}</option>`).join("")}
+        <option value="__custom__" ${MODEL_CHOICES.every(m => m.id !== getApiConfig().model) ? "selected" : ""}>Custom model ID…</option>
+      </select></div>
+    <div class="m-field" id="set-model-custom-wrap" style="display:${MODEL_CHOICES.every(m => m.id !== getApiConfig().model) ? "block" : "none"}">
+      <label>Custom model ID</label>
+      <input type="text" id="set-model-custom" value="${esc(MODEL_CHOICES.every(m => m.id !== getApiConfig().model) ? getApiConfig().model : "")}" placeholder="e.g. claude-sonnet-4-6"></div>
+    <div class="m-row" style="margin-top:4px;margin-bottom:6px">
+      <button class="btn-plain" id="btn-test-conn">Test connection</button>
+      <button class="btn-plain" id="btn-clear-key" style="color:var(--amber-deep)">Remove key</button>
+      <span class="grow"></span>
+      <span id="conn-status" style="font-size:12px;color:var(--muted)"></span>
+    </div>
     <h2 style="font-size:15px;margin-top:18px">Priority Board hero patterns</h2>
     ${heroes}
     <div class="m-row">
@@ -542,9 +685,35 @@ function openSettings() {
       <button class="btn-navy" id="set-save">Save settings</button>
     </div>`);
   $("m-close").addEventListener("click", closeModal);
+  const readModelChoice = () => {
+    const sel = $("set-model").value;
+    if (sel !== "__custom__") return sel;
+    return $("set-model-custom").value.trim() || DEFAULT_MODEL;
+  };
+  const persistApiConfig = () => setApiConfig({ apiKey: $("set-api-key").value.trim(), model: readModelChoice() });
+  $("set-model").addEventListener("change", () => {
+    $("set-model-custom-wrap").style.display = $("set-model").value === "__custom__" ? "block" : "none";
+  });
+  $("btn-test-conn").addEventListener("click", async () => {
+    persistApiConfig();
+    const status = $("conn-status");
+    status.textContent = "Testing…";
+    try {
+      const r = await testConnection(getApiConfig());
+      status.textContent = "✓ " + r.note;
+    } catch (e) {
+      status.textContent = "✗ " + e.message;
+    }
+  });
+  $("btn-clear-key").addEventListener("click", () => {
+    clearApiConfig();
+    $("set-api-key").value = "";
+    $("conn-status").textContent = "Key removed from this browser.";
+  });
   $("set-save").addEventListener("click", () => {
     state.orgName = $("set-org").value.trim() || state.orgName;
     state.actor = $("set-actor").value.trim() || "You";
+    persistApiConfig();
     document.querySelectorAll("[data-hero-title]").forEach(inp => { state.patterns[parseInt(inp.dataset.heroTitle, 10)].title = inp.value.trim(); });
     document.querySelectorAll("[data-hero-body]").forEach(inp => { state.patterns[parseInt(inp.dataset.heroBody, 10)].body = inp.value.trim(); });
     closeModal(); renderAll(); toast("Settings saved.");
@@ -595,11 +764,12 @@ function importJson(file) {
   const reader = new FileReader();
   reader.onload = () => {
     try {
-      const parsed = JSON.parse(reader.result);
-      if (!parsed.clusters || !parsed.lenses) throw new Error("Not a Capability Compass file");
+      const parsed = migrateState(JSON.parse(reader.result));
+      const errs = validateState(parsed);
+      if (errs.length) throw new Error(errs[0]);
       state = parsed;
       renderAll();
-      toast("Import successful.");
+      toast("Import successful — file passed contract validation.");
     } catch (e) { toast("Import failed: " + e.message); }
   };
   reader.readAsText(file);

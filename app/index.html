@@ -30,6 +30,7 @@
       <button class="tab active" data-view="matrix">Signal Matrix</button>
       <button class="tab" data-view="board">Priority Board</button>
       <button class="tab" data-view="trajectory">Trajectory</button>
+      <button class="tab" data-view="signals">Signals</button>
       <button class="tab" data-view="delta">Delta</button>
     </nav>
   </header>
@@ -57,8 +58,10 @@
   <div class="toast" id="toast"></div>
   <input type="file" id="file-import" accept="application/json,.json" hidden>
 
+  <script src="js/schema.js"></script>
   <script src="js/presets.js"></script>
   <script src="js/engine.js"></script>
+  <script src="js/llm.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

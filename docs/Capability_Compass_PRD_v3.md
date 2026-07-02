@@ -111,7 +111,10 @@ React + FastAPI + ChromaDB RAG document ingestion, optional Claude API enrichmen
 | F15 | Predictive trajectory view | P0 | Alert strip (weak & declining / erosion / stalled / breakout); per-cluster now→projected dumbbell on an L1–L4 scale; per-lens momentum chips; all alerts click through to the drawer. |
 | F10 | Delta view | P0 *(promoted from P1)* | Declines sorted first; level pills old→new; rationale column; baseline selectable. |
 | F13 | Report export | P1 | Print-optimised briefing (browser print → PDF) with org header; JSON export for data. |
-| F8/F9/F11/F12 | Claude enrichment, sense-making chat, research engine, segment overlay | Pro | Per PRD v2. |
+| F8 | Claude API integration | P0 *(v3.1 — shipped in Local Edition)* | API key + model configurable in Settings; Test Connection; key stored separately from state (provably never exported — enforced by the contract test); graceful gating of dependent features when absent; deterministic mock mode (`mock` key) used by all automated tests — the real API is never called in tests. Direct browser→Anthropic calls (no intermediary server). |
+| F11 | Research & Recalibration engine (Signals view) | P0 *(v3.1 — shipped in Local Edition)* | On-demand scan via Claude + server-side web search using the preset's `signal_keywords` (user-editable); returns 3–5 validated signals (headline, summary, source, tailwind/headwind/neutral direction, affected clusters, lens, calibration note); each signal applies as a leading indicator + evidence source on the target cell, feeding the momentum model; briefings persist locally (last 10); human-in-the-loop — no rating changes automatically. |
+| F16 | Shared data contract | P0 *(v3.1 — new)* | `schema.js` defines the state and briefing shapes once; enforced at runtime (import validation, API-response validation) and by `tests/contract_test.js` (presets, demo data, engine output ranges, key isolation). This is the Local Edition analogue of PRD v2 Section 10's TypeScript/Pydantic contract mandate. |
+| F9/F12 | Sense-making chat, segment overlay | Pro | Per PRD v2. |
 
 ## 8. Design system
 
@@ -122,7 +125,8 @@ Unchanged from v2 / the dashboard skill: Archivo (700–900) headings + IBM Plex
 ## 9. Non-functional requirements (Local Edition)
 
 - **Zero-install**: opens from the filesystem (`file://`) with no server; also works via any static file server.
-- **Privacy**: no network calls except optional font loading; no analytics; no data leaves the machine.
+- **Privacy**: no network calls except optional font loading and — only when the user configures a key and clicks Scan — direct calls to Anthropic's API; no analytics; no intermediary server ever sees the data or the key.
+- **Key security**: the API key lives in browser storage separate from diagnostic state; the shared contract rejects any state object carrying a key, so exports/backups provably cannot leak it. Never logged, rendered only masked.
 - **Accessibility**: WCAG 2.1 AA contrast; all colour paired with text/shape; keyboard-dismissable overlays; aria-labels on cells.
 - **Performance**: full render < 1s for 8 clusters × 6 lenses; drawer < 100ms.
 - **Durability**: state survives browser restart (localStorage); JSON export is the durable backup and the migration path to Pro.
