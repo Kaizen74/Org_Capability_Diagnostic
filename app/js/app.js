@@ -45,6 +45,11 @@ function migrateState(s) {
     const preset = PRESETS.find(p => p.industry_id === s.industry_id);
     s.signal_keywords = preset ? [...preset.signal_keywords] : [];
   }
+  (s.clusters || []).forEach(cl => {
+    Object.values(cl.cells || {}).forEach(cell => {
+      if (!Array.isArray(cell.watch)) cell.watch = [];
+    });
+  });
   return s;
 }
 
@@ -56,7 +61,7 @@ function stateFromPreset(preset, orgName) {
       cells[l.key] = {
         level: 1, status: "Not yet assessed",
         rationale: "", intervention: "",
-        items: [], evidence: [], leading: [], history: [],
+        items: [], evidence: [], leading: [], watch: [], history: [],
         last_updated: nowIso(), updated_by: "—"
       };
     });
@@ -83,6 +88,8 @@ function stateFromPreset(preset, orgName) {
 function renderAll() {
   document.documentElement.style.setProperty("--lens-count", state.lenses.length);
   $("org-name").textContent = state.orgName + " · " + state.industry_name;
+  const fv = $("footer-version");
+  if (fv) fv.textContent = state.currentVersion + " · " + (state.versions.length ? state.versions.length + " saved snapshot" + (state.versions.length > 1 ? "s" : "") + " · " : "") + "stored locally only · ";
   $("print-org").textContent = state.orgName;
   $("print-meta").textContent = state.industry_name + " · " + state.currentVersion + " · printed " + new Date().toLocaleDateString();
   renderKpis();
@@ -92,21 +99,26 @@ function renderAll() {
 
 function renderKpis() {
   const k = enterpriseKpis(state);
-  const vel = momentumLabel(k.velocity);
+  const vel = trajectoryLabel({ m: k.velocity, known: k.velocityKnown });
   const risky = k.alerts.erosion.length + k.alerts.critical.length;
+  const evidenceGap = k.unknownPct > 25;
   $("kpis").innerHTML = `
     <div class="kpi"><div class="k-label">Average maturity</div>
       <div class="k-value">${fmt1(k.avg)}<span style="font-size:13px;color:var(--muted)"> / 4</span></div>
       <div class="k-note">${k.cells} cells across ${state.clusters.length} clusters</div></div>
     <div class="kpi ${k.weak ? "flag" : ""}"><div class="k-label">Cells needing action</div>
       <div class="k-value">${k.weak}</div><div class="k-note">rated Level 1–2 (amber flagged)</div></div>
-    <div class="kpi"><div class="k-label">Capability velocity</div>
-      <div class="k-value">${vel.sym} ${fmtSigned(k.velocity)}</div>
-      <div class="k-note">${vel.word} — momentum across all cells</div></div>
+    <div class="kpi ${evidenceGap ? "flag" : ""}"><div class="k-label">Capability velocity</div>
+      <div class="k-value">${k.velocityKnown ? `${vel.sym} ${fmtSigned(k.velocity)}` : "? n/a"}</div>
+      <div class="k-note">${k.velocityKnown
+        ? `${vel.word} — across ${k.cells - k.unknownCount} direction-assessed cells${k.unknownCount ? ` (${k.unknownCount} unknown)` : ""}`
+        : "no trajectory evidence yet — add leading indicators or save a version"}</div></div>
     <div class="kpi ${risky ? "flag" : ""}"><div class="k-label">Trajectory alerts</div>
       <div class="k-value">${risky}</div><div class="k-note">erosion / weak-and-declining cells</div></div>
     <div class="kpi ${k.groundedPct < 100 ? "flag" : ""}"><div class="k-label">Evidence coverage</div>
-      <div class="k-value">${k.groundedPct}%</div><div class="k-note">of ratings cite at least one source</div></div>`;
+      <div class="k-value">${k.groundedPct}%</div><div class="k-note">${evidenceGap
+        ? `⚑ ${k.unknownPct}% of directions unknown — the finding is an evidence gap`
+        : "of ratings cite at least one source"}</div></div>`;
 }
 
 function renderView() {
@@ -124,13 +136,16 @@ function renderView() {
 function cellHtml(cluster, lens) {
   const cell = cluster.cells[lens.key];
   if (!cell) return "<div></div>";
-  const m = cellMomentum(state, cluster, lens.key);
-  const ml = momentumLabel(m);
+  const t = cellTrajectory(state, cluster, lens.key);
+  const ml = trajectoryLabel(t);
   const conf = cellConfidence(cell);
+  const trajTitle = t.known
+    ? `Trajectory: ${ml.word} (${fmtSigned(t.m)}) · ${t.confidence} confidence · basis: ${t.basis}`
+    : "Trajectory unknown — no version history or leading indicators yet";
   const segs = [1, 2, 3, 4].map(i => `<span class="${i <= cell.level ? "on" : ""}"></span>`).join("");
   return `
   <button class="cell lv${cell.level}" data-cluster="${esc(cluster.id)}" data-lens="${esc(lens.key)}"
-      aria-label="${esc(cluster.name)} — ${esc(lens.name)}: level ${cell.level} of 4, ${esc(cell.status)}">
+      aria-label="${esc(cluster.name)} — ${esc(lens.name)}: level ${cell.level} of 4, ${esc(cell.status)}, trajectory ${ml.word}">
     ${cell.level <= 2 ? '<span class="action-pill">Action</span>' : ""}
     <span class="status">${esc(cell.status)}</span>
     <span class="meta">
@@ -138,7 +153,7 @@ function cellHtml(cluster, lens) {
       <span>L${cell.level} · ${["", "Absent", "Early", "Emerging", "Established"][cell.level]} · ${cell.level}/4</span>
     </span>
     <span class="meta">
-      <span class="momo"><span class="sym">${ml.sym}</span>${ml.word}</span>
+      <span class="momo ${t.known ? "" : "momo-unknown"}" title="${esc(trajTitle)}"><span class="sym">${ml.sym}</span>${ml.word}</span>
       ${conf.grounded ? `<span class="conf-dot">◈ ${esc(conf.label)}</span>` : '<span class="unsupported">Unsupported</span>'}
     </span>
   </button>`;
@@ -174,8 +189,10 @@ function viewBoard() {
   const cards = sorted.map((cl, i) => {
     const avg = clusterAvg(cl, state.lenses);
     const weak = clusterWeakCount(cl, state.lenses);
-    const mom = clusterMomentum(state, cl, state.lenses);
-    const ml = momentumLabel(mom);
+    const ct = clusterTrajectory(state, cl, state.lenses);
+    const ml = trajectoryLabel(ct);
+    const bind = bindingConstraint(state, cl, state.lenses);
+    const bindLabel = bind ? trajectoryLabel(bind.t) : null;
     const chips = state.lenses.map(l => {
       const cell = cl.cells[l.key];
       if (!cell) return "";
@@ -189,9 +206,10 @@ function viewBoard() {
       <div class="b-stats">
         <span class="b-avg">Avg ${fmt1(avg)} / 4</span>
         ${weak ? `<span class="b-flagpill">⚑ ${weak} ${weak > 1 ? "lenses need" : "lens needs"} action</span>` : ""}
-        <span class="b-velocity">${ml.sym} ${ml.word} (${fmtSigned(mom)})</span>
+        <span class="b-velocity">${ct.known ? `${ml.sym} ${ml.word} (${fmtSigned(ct.m)})` : "? direction unknown"}</span>
       </div>
       <div class="pm-banner"><span class="arrow">➜</span><span>${esc(cl.priority_move)}</span></div>
+      ${bind ? `<div class="b-binding" title="The lowest-level cell that is not already improving — where intervention bites first">Binding constraint: <button class="b-bind-link" data-cluster="${esc(cl.id)}" data-lens="${esc(bind.lensKey)}">${esc(bind.lensName)} · L${bind.cell.level} ${bindLabel.sym} ${bindLabel.word}</button></div>` : ""}
       <div class="lens-chips">${chips}</div>
     </div>`;
   }).join("");
@@ -203,45 +221,61 @@ function viewBoard() {
 function viewTrajectory() {
   const k = enterpriseKpis(state);
   const alertList = (items, empty) => items.length
-    ? `<ul>${items.map(a => `<li><button data-cluster="${esc(a.cluster.id)}" data-lens="${esc(a.lens.key)}">${esc(a.cluster.name)} · ${esc(a.lens.name)}</button> — ${esc(a.cell.status)} (L${a.cell.level}, ${fmtSigned(a.m)})</li>`).join("")}</ul>`
+    ? `<ul>${items.map(a => `<li><button data-cluster="${esc(a.cluster.id)}" data-lens="${esc(a.lens.key)}">${esc(a.cluster.name)} · ${esc(a.lens.name)}</button> — ${esc(a.cell.status)} (L${a.cell.level}${a.t.known ? ", " + fmtSigned(a.m) : ""})</li>`).join("")}</ul>`
     : `<div class="alert-empty">${empty}</div>`;
+  const unknownNote = k.unknownPct > 25
+    ? `<p class="alert-empty" style="margin-top:6px"><strong>${k.unknownPct}% of cells have no assessable direction — that IS the finding: an evidence-infrastructure gap. Build leading indicators before trusting any forecast.</strong></p>` : "";
   const alerts = `<div class="traj-alerts">
     <div class="alert-card warn"><h4>⚠ Weak &amp; declining</h4>${alertList(k.alerts.critical, "None — no weak cell is deteriorating.")}</div>
     <div class="alert-card warn"><h4>⚠ Erosion risk (strengths under threat)</h4>${alertList(k.alerts.erosion, "None — established capabilities are holding.")}</div>
     <div class="alert-card warn"><h4>⚑ Stalled weaknesses</h4>${alertList(k.alerts.stalled, "None — every weak cell has positive momentum.")}</div>
     <div class="alert-card good"><h4>↗ Breakouts underway</h4>${alertList(k.alerts.breakout, "None yet — add leading indicators to weak cells to track progress.")}</div>
+    <div class="alert-card"><h4>? Direction unknown</h4>${alertList(k.alerts.unassessed, "None — every cell has qualifying trajectory evidence.")}${unknownNote}</div>
   </div>`;
+
+  const patterns = detectCrossLensPatterns(state);
+  const patternSection = patterns.length ? `
+    <div class="xlens">
+      <h4 class="xlens-title">Cross-lens risk patterns <span class="sig-meta">— interdependencies the heatmap hides</span></h4>
+      <div class="xlens-grid">${patterns.map(p => `
+        <div class="pattern-card">
+          <span class="pattern-cluster">${esc(p.cluster)}</span>
+          <h5>${esc(p.title)}</h5>
+          <p>${esc(p.body)}</p>
+        </div>`).join("")}</div>
+    </div>` : "";
 
   const pos = v => (((v - 1) / 3) * 92 + 4) + "%";
   const rows = state.clusters.map(cl => {
     const cur = clusterAvg(cl, state.lenses);
     const proj = clusterProjectedAvg(state, cl, state.lenses);
-    const mom = clusterMomentum(state, cl, state.lenses);
-    const ml = momentumLabel(mom);
+    const ct = clusterTrajectory(state, cl, state.lenses);
+    const ml = trajectoryLabel(ct);
     const left = Math.min(cur, proj), right = Math.max(cur, proj);
+    const showProj = ct.known && Math.abs(proj - cur) > 0.01;
     const chips = state.lenses.map(l => {
       const cell = cl.cells[l.key];
       if (!cell) return "";
-      const m = cellMomentum(state, cl, l.key);
-      const mm = momentumLabel(m);
-      return `<button class="tl-chip lv${cell.level}" data-cluster="${esc(cl.id)}" data-lens="${esc(l.key)}" title="${esc(l.name)}: ${mm.word}">${esc(l.name)} L${cell.level} ${mm.sym}</button>`;
+      const t = cellTrajectory(state, cl, l.key);
+      const mm = trajectoryLabel(t);
+      return `<button class="tl-chip lv${cell.level}" data-cluster="${esc(cl.id)}" data-lens="${esc(l.key)}" title="${esc(l.name)}: ${mm.word}${t.known ? " · " + t.confidence + " confidence" : ""}">${esc(l.name)} L${cell.level} ${mm.sym}</button>`;
     }).join("");
     return `<div class="traj-row">
-      <div class="traj-name">${esc(cl.name)}<span class="t-sub">${ml.sym} ${ml.word} · momentum ${fmtSigned(mom)}</span></div>
+      <div class="traj-name">${esc(cl.name)}<span class="t-sub">${ct.known ? `${ml.sym} ${ml.word} · momentum ${fmtSigned(ct.m)} · ${ct.knownCount}/${ct.total} cells assessed` : "? direction unknown — no trajectory evidence yet"}</span></div>
       <div class="scale">
         <div class="track"></div>
         ${[1, 2, 3, 4].map(t => `<span class="tick" style="left:${pos(t)}">L${t}</span>`).join("")}
-        ${Math.abs(proj - cur) > 0.01 ? `<div class="link" style="left:${pos(left)};width:calc(${pos(right)} - ${pos(left)})"></div>` : ""}
+        ${showProj ? `<div class="link" style="left:${pos(left)};width:calc(${pos(right)} - ${pos(left)})"></div>` : ""}
         <span class="dot" style="left:${pos(cur)}" title="Current average"></span>
         <span class="dot-label" style="left:${pos(cur)}">now ${fmt1(cur)}</span>
-        ${Math.abs(proj - cur) > 0.01 ? `<span class="dot proj" style="left:${pos(proj)}" title="Projected average"></span><span class="dot-label" style="left:${pos(proj)};top:38px">proj ${fmt1(proj)}</span>` : ""}
+        ${showProj ? `<span class="dot proj" style="left:${pos(proj)}" title="Projected average, conditional on indicators holding"></span><span class="dot-label" style="left:${pos(proj)};top:38px">proj ${fmt1(proj)}</span>` : ""}
       </div>
       <div class="traj-lenses">${chips}</div>
     </div>`;
   }).join("");
 
-  return `<div class="view-note">Predictive read — trajectory over the next two review cycles, derived from version-over-version movement blended 50/50 with the leading indicators you maintain on each cell. Solid dot = today; outlined dot = projection. The model is deliberately transparent: open any cell to see its indicators.</div>
-    <section class="print-section">${alerts}<div class="traj-table">${rows}</div></section>`;
+  return `<div class="view-note">Predictive read — direction, never dates-and-points. Trajectory blends version-over-version movement 50/50 with the leading indicators you maintain; projections are conditional on those indicators holding and span two review cycles. Cells with no qualifying evidence honestly show “? Unknown” rather than a guessed arrow. Solid dot = today; outlined dot = conditional projection.</div>
+    <section class="print-section">${alerts}${patternSection}<div class="traj-table">${rows}</div></section>`;
 }
 
 /* ---------- View 4: External Signals (Claude API) ---------- */
@@ -419,11 +453,18 @@ function renderDrawer() {
   const cluster = state.clusters.find(c => c.id === drawerCtx.clusterId);
   const lens = state.lenses.find(l => l.key === drawerCtx.lensKey);
   const cell = cluster.cells[drawerCtx.lensKey];
-  const m = cellMomentum(state, cluster, drawerCtx.lensKey);
-  const ml = momentumLabel(m);
-  const proj = projectedLevel(cell, m);
+  const t = cellTrajectory(state, cluster, drawerCtx.lensKey);
+  const ml = trajectoryLabel(t);
+  const proj = projectedLevel(cell, t);
   const conf = cellConfidence(cell);
-  const cls = CLASS_META[classifyCell(cell, m)].label;
+  const mix = evidenceMix(cell);
+  const mixMeta = {
+    both: { label: "Leading + lagging evidence", cls: "good" },
+    leading: { label: "Leading evidence only", cls: "good" },
+    lagging: { label: "Rear-view evidence only — trajectory confidence capped", cls: "warn" },
+    none: { label: "No evidence recorded", cls: "warn" }
+  }[mix];
+  const cls = CLASS_META[classifyCell(cell, t)].label;
   const rubricText = (state.rubric[lens.key] || {})["L" + drawerCtx.pendingLevel] || "";
 
   const liRows = (cell.leading || []).map((li, i) => `
@@ -454,9 +495,13 @@ function renderDrawer() {
       <h2>${esc(cell.status)}</h2>
       <div class="d-meta">
         <span>L${cell.level} · ${["", "Absent", "Early", "Emerging", "Established"][cell.level]} · ${cell.level}/4</span>
-        <span>${ml.sym} ${ml.word} (${fmtSigned(m)})</span>
-        <span>Trajectory: ${esc(cls)}${proj !== cell.level ? " · projected L" + proj + " in 2 cycles" : ""}</span>
+        <span>${ml.sym} ${ml.word}${t.known ? ` (${fmtSigned(t.m)}) · ${t.confidence} confidence` : ""}</span>
+        <span>${esc(cls)}${t.known && proj !== cell.level ? ` · toward L${proj} within 2 cycles IF indicators hold` : ""}</span>
         ${conf.grounded ? "" : '<span class="unsupported">Unsupported — add evidence</span>'}
+      </div>
+      <div class="d-meta" style="margin-top:5px">
+        <span class="mix-badge ${mixMeta.cls}">${esc(mixMeta.label)}</span>
+        ${t.known ? `<span style="opacity:.85">Basis: ${esc(t.basis)}</span>` : '<span style="opacity:.85">No qualifying trajectory evidence — add leading indicators or save a version snapshot</span>'}
       </div>
     </div>
     <div class="drawer-body">
@@ -466,6 +511,7 @@ function renderDrawer() {
           ${[1, 2, 3, 4].map(i => `<button class="lv${i} ${i === drawerCtx.pendingLevel ? "sel" : ""}" data-lvl="${i}">L${i} ${["", "Absent", "Early", "Emerging", "Established"][i]}</button>`).join("")}
         </div>
         <p style="font-size:11.5px;color:var(--muted);margin:6px 0 0 0"><strong>Rubric — ${esc(lens.name)} L${drawerCtx.pendingLevel}:</strong> ${esc(rubricText)}</p>
+        <p style="font-size:11px;color:var(--amber-deep);margin:5px 0 0 0"><strong>Scoring discipline:</strong> between two levels, take the lower. Announcements and approvals justify an improving trajectory — not a higher level. Levels score what is operating today.</p>
       </div>
       <div class="d-field"><label>Status headline (2–4 words)</label>
         <input type="text" id="d-status" value="${esc(cell.status)}"></div>
@@ -479,6 +525,15 @@ function renderDrawer() {
         <h4>Leading indicators (drive the trajectory forecast)</h4>
         <div id="li-list">${liRows || '<p style="font-size:12px;color:var(--muted);margin:0">None yet. Add 1–3 forward-looking signals (e.g. hiring funnel, adoption rate, pulse trend).</p>'}</div>
         <button class="mini-btn" id="li-add" style="margin-top:6px">＋ Add leading indicator</button>
+      </div>
+      <div class="d-section">
+        <h4>Watch signals (falsifiers for the trajectory call)</h4>
+        <div id="w-list">${(cell.watch || []).map((w, i) => `
+          <div class="ev-row">
+            <input type="text" value="${esc(w)}" data-w="${i}" placeholder="Threshold + trigger, e.g. CRM adoption <60% by Oct → flip trajectory down">
+            <button class="mini-btn danger" data-w-del="${i}">✕</button>
+          </div>`).join("") || '<p style="font-size:12px;color:var(--muted);margin:0">None yet. A trajectory call without a falsifier is a hope, not a call — state what observable event, with a threshold, would prove it wrong and force a re-score.</p>'}</div>
+        <button class="mini-btn" id="w-add" style="margin-top:6px">＋ Add watch signal</button>
       </div>
       <div class="d-section">
         <h4>Evidence sources (grounding guardrail)</h4>
@@ -519,6 +574,16 @@ function renderDrawer() {
     cell.evidence.push({ label: "", note: "" });
     renderDrawer();
   });
+  $("w-add").addEventListener("click", () => {
+    persistDrawerFields(cluster, cell, false);
+    cell.watch = cell.watch || [];
+    cell.watch.push("");
+    renderDrawer();
+  });
+  document.querySelectorAll("[data-w-del]").forEach(b => b.addEventListener("click", () => {
+    persistDrawerFields(cluster, cell, false);
+    cell.watch.splice(parseInt(b.dataset.wDel, 10), 1); renderDrawer();
+  }));
   document.querySelectorAll("[data-li-del]").forEach(b => b.addEventListener("click", () => {
     persistDrawerFields(cluster, cell, false);
     cell.leading.splice(parseInt(b.dataset.liDel, 10), 1); renderDrawer();
@@ -539,8 +604,11 @@ function persistDrawerFields(cluster, cell, includeLevel) {
   document.querySelectorAll("[data-li-sig]").forEach(sel => { cell.leading[parseInt(sel.dataset.liSig, 10)].signal = sel.value; });
   document.querySelectorAll("[data-ev-label]").forEach(inp => { cell.evidence[parseInt(inp.dataset.evLabel, 10)].label = inp.value.trim(); });
   document.querySelectorAll("[data-ev-note]").forEach(inp => { cell.evidence[parseInt(inp.dataset.evNote, 10)].note = inp.value.trim(); });
+  cell.watch = cell.watch || [];
+  document.querySelectorAll("[data-w]").forEach(inp => { cell.watch[parseInt(inp.dataset.w, 10)] = inp.value.trim(); });
   cell.evidence = cell.evidence.filter(e => e.label || e.note);
   cell.leading = cell.leading.filter(l => l.name);
+  cell.watch = cell.watch.filter(Boolean);
   if (includeLevel) cell.level = drawerCtx.pendingLevel;
 }
 

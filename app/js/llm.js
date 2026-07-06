@@ -123,7 +123,7 @@ function buildScanPrompt(state, keywords) {
     '      "direction": "tailwind" | "headwind" | "neutral",',
     '      "affected_cluster_ids": ["one or more cluster ids from the list above"],',
     '      "lens_key": "the single most affected lens: one of ' + lensKeys + '",',
-    '      "calibration_note": "one sentence: how this should change the rating or its trajectory"',
+    '      "calibration_note": "one falsifiable sentence: how this should change the rating or its trajectory, with a threshold and re-score trigger where possible (e.g. adoption <60% by Oct -> flip trajectory down)"',
     "    }",
     "  ]",
     "}"

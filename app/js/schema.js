@@ -31,6 +31,12 @@ function validateCell(cell, where) {
   if (!_isArr(cell.items)) errs.push(where + ": items must be an array");
   if (!_isArr(cell.evidence)) errs.push(where + ": evidence must be an array");
   if (!_isArr(cell.leading)) errs.push(where + ": leading must be an array");
+  if (cell.watch !== undefined) {
+    if (!_isArr(cell.watch)) errs.push(where + ": watch must be an array");
+    else cell.watch.forEach(function (w, i) {
+      if (!_isStr(w)) errs.push(where + ".watch[" + i + "]: watch signals must be strings");
+    });
+  }
   (cell.leading || []).forEach(function (li, i) {
     if (!_isStr(li.name)) errs.push(where + ".leading[" + i + "]: name must be a string");
     if (LEADING_SIGNALS.indexOf(li.signal) === -1) errs.push(where + ".leading[" + i + "]: signal must be one of " + LEADING_SIGNALS.join("/"));

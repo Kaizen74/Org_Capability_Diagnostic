@@ -155,12 +155,13 @@ const PRESETS = [
    the full feature set, including momentum and delta analysis.
    ============================================================ */
 
-function demoCell(level, status, rationale, intervention, items, evidence, leading) {
+function demoCell(level, status, rationale, intervention, items, evidence, leading, watch) {
   return {
     level, status, rationale, intervention,
     items: items || [],
     evidence: evidence || [],
     leading: leading || [],
+    watch: watch || [],
     history: [],
     last_updated: "2026-07-01T09:00:00Z",
     updated_by: "Demo data"
@@ -189,7 +190,7 @@ const DEMO_STATE = {
         Structure: demoCell(4, "Reinforced structure", "Deputy CEO appointed; three regional CEOs plus a global commercial architecture in place.", "Sustain and extend the structure to hub-of-the-future scale.", ["Deputy CEO role created", "3 regional CEOs appointed", "Global commercial architecture live"], [{ label: "Org announcement Q1", note: "Leadership structure confirmed" }], [{ name: "Regional handover completion", signal: "improving" }]),
         People: demoCell(3, "Progressing bench", "94% contract renewal; two flagship-airline wins; specialist forwarder muscle still building.", "Acquire specialist forwarder and product-management talent.", ["94% renewal rate", "2 flagship wins", "Forwarder capability in build"], [{ label: "Workforce file Q2", note: "Bench-depth analysis" }], [{ name: "Specialist hiring funnel", signal: "improving" }]),
         Process: demoCell(4, "Live and scaling", "Computer-vision cargo readback at 96% accuracy; ops-assist tooling delivering +10–15% productivity across live stations.", "Scale the digital hub playbook to all regions.", ["CV readback 96% accuracy", "+10–15% productivity", "6 systems live"], [{ label: "Ops dashboard Q2", note: "Productivity metrics" }], [{ name: "Station rollout rate", signal: "improving" }]),
-        Culture: demoCell(2, "Safety concern", "Safety engagement 5 points below the high-performance norm; serious-incident count rising; regional trust gap persists in the Americas.", "Move safety from policy to embedded culture.", ["Safety −5 vs norm", "Incident severity rising", "Americas trust gap"], [{ label: "Engagement survey 2026", note: "Safety category detail" }], [{ name: "Near-miss reporting rate", signal: "improving" }, { name: "Americas engagement pulse", signal: "declining" }])
+        Culture: demoCell(2, "Safety concern", "Safety engagement 5 points below the high-performance norm; serious-incident count rising; regional trust gap persists in the Americas.", "Move safety from policy to embedded culture.", ["Safety −5 vs norm", "Incident severity rising", "Americas trust gap"], [{ label: "Engagement survey 2026", note: "Safety category detail" }], [{ name: "Near-miss reporting rate", signal: "improving" }, { name: "Americas engagement pulse", signal: "declining" }], ["Near-miss reporting rate falls for 2 consecutive months → flip trajectory down and escalate", "Americas pulse below 80 at next quarterly check → re-score Culture"])
       }
     },
     {
@@ -220,8 +221,8 @@ const DEMO_STATE = {
       priority_move: "Fill the commercial bench + activate global accounts + per-country growth plans.",
       cells: {
         Structure: demoCell(4, "Architecture defined", "Chief Commercial Officer in place with a full six-part commercial architecture designed.", "Complete staffing at pace.", ["CCO appointed", "6-part architecture designed"], [{ label: "Org announcement Q1", note: "" }], []),
-        People: demoCell(2, "Bench gaps", "Structure defined but pricing, revenue management, and bid-solution architect roles not yet visibly staffed.", "Acquire pricing, RevOps, and bid architects urgently.", ["Pricing roles unfilled", "RevOps gap", "Bid architects missing"], [{ label: "Workforce file Q2", note: "Open-roles report" }], [{ name: "Offer-acceptance rate", signal: "stable" }]),
-        Process: demoCell(3, "In rollout", "CRM programme commenced; contract-lifecycle system underway; multi-year EBITDA uplift targeted.", "Complete the CRM + CPQ + CLM stack.", ["CRM commenced", "CLM underway"], [{ label: "Programme board pack", note: "" }], [{ name: "CRM adoption rate", signal: "improving" }]),
+        People: demoCell(2, "Bench gaps", "Structure defined but pricing, revenue management, and bid-solution architect roles not yet visibly staffed.", "Acquire pricing, RevOps, and bid architects urgently.", ["Pricing roles unfilled", "RevOps gap", "Bid architects missing"], [{ label: "Workforce file Q2", note: "Open-roles report" }], [{ name: "Offer-acceptance rate", signal: "stable" }], ["Fewer than 3 specialist offers accepted by end of quarter → bench gap persists, hold L2 and flag to board"]),
+        Process: demoCell(3, "In rollout", "CRM programme commenced; contract-lifecycle system underway; multi-year EBITDA uplift targeted.", "Complete the CRM + CPQ + CLM stack.", ["CRM commenced", "CLM underway"], [{ label: "Programme board pack", note: "" }], [{ name: "CRM adoption rate", signal: "improving" }], ["CRM adoption below 60% at 90 days post-launch → flip trajectory down (adoption gap predicts stall)"]),
         Culture: demoCell(3, "Shift underway", "Brand architecture rolling out; commercial mindset shift underway; regional trust variance remains.", "Anchor the commercial narrative + rebuild regional trust.", ["Brand rollout live", "Regional trust variance"], [{ label: "Engagement survey 2026", note: "Regional cut" }], [{ name: "Cross-sell pipeline", signal: "improving" }])
       }
     },

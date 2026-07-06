@@ -1,16 +1,23 @@
 /* ============================================================
    Capability Compass — Predictive Engine
-   Pure functions: momentum, forecasting, classification,
-   confidence, and aggregate indices. No DOM access here.
+   Pure functions: trajectory, forecasting, classification,
+   confidence, evidence mix, cross-lens patterns, aggregates.
+   No DOM access here.
 
-   Momentum model (directionally predictive, transparent):
-   - Historical component: level change vs the most recent saved
-     version, clamped to [-1, +1].
-   - Leading-indicator component: mean of user-maintained leading
-     indicator signals (improving = +1, stable = 0, declining = -1).
-   - Blend: 50/50 when both exist; otherwise whichever exists.
-   The blend is deliberately simple and inspectable — every score
-   can be explained to a board in one sentence.
+   Methodology (capability-compass-rubric v4 — prediction honesty):
+   - Direction, never dates-and-points: outputs are conditional
+     vectors, not point forecasts.
+   - Trajectory requires qualifying evidence: version-over-version
+     movement and/or user-maintained leading indicators. With
+     neither, the trajectory is UNKNOWN — rendered honestly,
+     never guessed as "stable".
+   - Confidence is mechanical, about evidence not conviction:
+     High   = history + ≥2 leading indicators agree(able)
+     Medium = history OR ≥1 leading indicator
+     (unknown cells carry no confidence at all)
+   - Cells whose evidence is all rear-view (sources but no leading
+     indicators) are flagged evidence_mix: lagging and capped at
+     Medium confidence.
    ============================================================ */
 
 const SIGNAL_VALUE = { improving: 1, stable: 0, declining: -1 };
@@ -30,8 +37,13 @@ function priorLevel(state, clusterId, lensKey) {
   return cl.cells[lensKey].level;
 }
 
-/* Momentum score in [-1, +1] for a single cell. */
-function cellMomentum(state, cluster, lensKey) {
+/* ---------- Trajectory (the predictive channel) ----------
+   Returns { m, known, confidence, basis }:
+   m          momentum in [-1, +1] (0 when unknown)
+   known      false when there is NO qualifying evidence
+   confidence "High" | "Medium" | "None"
+   basis      human-readable one-liner of what the call rests on */
+function cellTrajectory(state, cluster, lensKey) {
   const cell = cluster.cells[lensKey];
   const prev = priorLevel(state, cluster.id, lensKey);
   const hasHist = prev !== null && prev !== undefined;
@@ -41,34 +53,69 @@ function cellMomentum(state, cluster, lensKey) {
   const hasLead = leads.length > 0;
   const lead = hasLead ? leads.reduce((a, l) => a + SIGNAL_VALUE[l.signal], 0) / leads.length : 0;
 
-  if (hasHist && hasLead) return clamp(0.5 * hist + 0.5 * lead, -1, 1);
-  if (hasHist) return hist;
-  if (hasLead) return lead;
-  return 0;
+  const known = hasHist || hasLead;
+  let m = 0;
+  if (hasHist && hasLead) m = clamp(0.5 * hist + 0.5 * lead, -1, 1);
+  else if (hasHist) m = hist;
+  else if (hasLead) m = lead;
+
+  let confidence = "None";
+  if (known) {
+    confidence = (hasHist && leads.length >= 2) ? "High" : "Medium";
+    // Rear-view-only evidence caps confidence (rubric: lagging photograph)
+    if (evidenceMix(cell) === "lagging" && confidence === "High") confidence = "Medium";
+  }
+
+  const parts = [];
+  if (hasHist) parts.push("movement since " + (latestVersion(state).version || "last snapshot"));
+  if (hasLead) parts.push(leads.length + " leading indicator" + (leads.length > 1 ? "s" : ""));
+  return { m, known, confidence, basis: parts.join(" + ") || "no qualifying evidence" };
 }
 
-/* Momentum descriptor: symbol + word, always paired (never colour-only). */
-function momentumLabel(m) {
-  if (m >= 0.25) return { sym: "↗", word: "Improving", dir: 1 };
-  if (m <= -0.25) return { sym: "↘", word: "At risk", dir: -1 };
+/* Legacy numeric accessor (kept for aggregates/tests). */
+function cellMomentum(state, cluster, lensKey) {
+  return cellTrajectory(state, cluster, lensKey).m;
+}
+
+/* Trajectory descriptor: symbol + word, always paired (never colour-only).
+   Unknown renders honestly — a "?" and the word, no fabricated arrow. */
+function trajectoryLabel(t) {
+  if (!t.known) return { sym: "?", word: "Unknown", dir: 0 };
+  if (t.m >= 0.25) return { sym: "↗", word: "Improving", dir: 1 };
+  if (t.m <= -0.25) return { sym: "↘", word: "At risk", dir: -1 };
   return { sym: "→", word: "Stable", dir: 0 };
 }
+/* Numeric variant for aggregate values that are known by construction. */
+function momentumLabel(m) { return trajectoryLabel({ m: m, known: true }); }
 
-/* Projected level over the next two review cycles. */
-function projectedLevel(cell, m) {
+/* Conditional projection over the next two review cycles.
+   Unknown trajectory → no projection (never guess). */
+function projectedLevel(cell, t) {
+  if (!t.known) return cell.level;
   let delta = 0;
-  if (m >= 0.25) delta = 1;
-  else if (m <= -0.25) delta = -1;
+  if (t.m >= 0.25) delta = 1;
+  else if (t.m <= -0.25) delta = -1;
   return clamp(cell.level + delta, 1, 4);
 }
 
-/* Trajectory classification — the predictive vocabulary of the app. */
-function classifyCell(cell, m) {
-  if (cell.level >= 3 && m <= -0.25) return "erosion";      // strength being lost
-  if (cell.level <= 2 && m >= 0.25) return "breakout";      // weakness on the move
-  if (cell.level <= 2 && m > -0.25 && m < 0.25) return "stalled"; // weak and static
-  if (cell.level <= 2 && m <= -0.25) return "critical";     // weak and worsening
-  if (cell.level === 4 && m >= 0) return "compounding";     // strength holding
+/* Evidence mix per rubric v4: leading | lagging | both | none. */
+function evidenceMix(cell) {
+  const hasLead = (cell.leading || []).length > 0;
+  const hasSrc = (cell.evidence || []).length > 0;
+  if (hasLead && hasSrc) return "both";
+  if (hasLead) return "leading";
+  if (hasSrc) return "lagging";
+  return "none";
+}
+
+/* Trajectory classification — the early-warning vocabulary. */
+function classifyCell(cell, t) {
+  if (!t.known) return "unassessed";
+  if (cell.level <= 2 && t.m <= -0.25) return "critical";
+  if (cell.level >= 3 && t.m <= -0.25) return "erosion";
+  if (cell.level <= 2 && t.m >= 0.25) return "breakout";
+  if (cell.level <= 2) return "stalled";
+  if (cell.level === 4 && t.m >= 0) return "compounding";
   return "steady";
 }
 
@@ -78,10 +125,11 @@ const CLASS_META = {
   stalled:     { label: "Stalled weakness", order: 2 },
   breakout:    { label: "Breakout underway", order: 3 },
   steady:      { label: "Steady", order: 4 },
-  compounding: { label: "Compounding strength", order: 5 }
+  compounding: { label: "Compounding strength", order: 5 },
+  unassessed:  { label: "Direction unknown", order: 6 }
 };
 
-/* Evidence confidence: grounding guardrail. */
+/* Evidence confidence (grounding guardrail — sources cited). */
 function cellConfidence(cell) {
   const n = (cell.evidence || []).length;
   if (n === 0) return { key: "unsupported", label: "Unsupported", grounded: false };
@@ -101,20 +149,48 @@ function clusterWeakCount(cluster, lenses) {
   return lenses.filter(l => cluster.cells[l.key] && cluster.cells[l.key].level <= 2).length;
 }
 
-function clusterMomentum(state, cluster, lenses) {
-  const ms = lenses.map(l => (cluster.cells[l.key] ? cellMomentum(state, cluster, l.key) : null)).filter(v => v !== null);
-  if (!ms.length) return 0;
-  return ms.reduce((a, b) => a + b, 0) / ms.length;
+/* Cluster trajectory: averaged over cells with KNOWN direction only. */
+function clusterTrajectory(state, cluster, lenses) {
+  const ts = lenses.map(l => (cluster.cells[l.key] ? cellTrajectory(state, cluster, l.key) : null)).filter(Boolean);
+  const known = ts.filter(t => t.known);
+  if (!known.length) return { m: 0, known: false, knownCount: 0, total: ts.length };
+  return {
+    m: known.reduce((a, t) => a + t.m, 0) / known.length,
+    known: true, knownCount: known.length, total: ts.length
+  };
 }
+/* Legacy numeric accessor. */
+function clusterMomentum(state, cluster, lenses) { return clusterTrajectory(state, cluster, lenses).m; }
 
 function clusterProjectedAvg(state, cluster, lenses) {
   const lv = lenses.map(l => {
     const cell = cluster.cells[l.key];
     if (!cell) return null;
-    return projectedLevel(cell, cellMomentum(state, cluster, l.key));
+    return projectedLevel(cell, cellTrajectory(state, cluster, l.key));
   }).filter(v => v !== null);
   if (!lv.length) return 0;
   return lv.reduce((a, b) => a + b, 0) / lv.length;
+}
+
+/* The binding constraint (rubric workflow #6): the lowest-level cell
+   with a down or flat/unknown trajectory — not simply the lowest level.
+   Improving cells are already being fixed; the constraint is what
+   is weak AND not moving. */
+function bindingConstraint(state, cluster, lenses) {
+  let best = null;
+  lenses.forEach(l => {
+    const cell = cluster.cells[l.key];
+    if (!cell) return;
+    const t = cellTrajectory(state, cluster, l.key);
+    const moving = t.known && t.m >= 0.25;
+    const cand = { lensKey: l.key, lensName: l.name, cell, t, moving };
+    if (!best) { best = cand; return; }
+    // Prefer non-moving over moving; then lower level; then worse momentum.
+    if (best.moving !== cand.moving) { if (!cand.moving) best = cand; return; }
+    if (cand.cell.level !== best.cell.level) { if (cand.cell.level < best.cell.level) best = cand; return; }
+    if (cand.t.m < best.t.m) best = cand;
+  });
+  return best;
 }
 
 /* Weakest-first sort for the Priority Board:
@@ -127,11 +203,47 @@ function sortWeakestFirst(clusters, lenses) {
   });
 }
 
+/* Cross-lens interdependency patterns (rubric indicator library).
+   Deterministic, evidence-based risk flags across lenses in one cluster. */
+function detectCrossLensPatterns(state) {
+  const out = [];
+  state.clusters.forEach(cl => {
+    const cells = cl.cells;
+    const people = cells.People, process = cells.Process, structure = cells.Structure, culture = cells.Culture;
+    if (people && process && people.level <= 2 && process.level >= 3) {
+      out.push({
+        clusterId: cl.id, cluster: cl.name, key: "bench-starves-rollout",
+        title: "Bench-starves-rollout risk",
+        body: "People at L" + people.level + " while Process sits at L" + process.level + ". Rollouts rarely hold an improving trajectory beyond two quarters when the bench running them is this thin — the Process rating is at risk of stalling."
+      });
+    }
+    if (structure && people && structure.level === 4 && people.level <= 2) {
+      out.push({
+        clusterId: cl.id, cluster: cl.name, key: "structure-without-people",
+        title: "Structure without people is scaffolding",
+        body: "Structure at L4 with People at L" + people.level + ". The architecture headline masks execution risk — the priority move belongs to People."
+      });
+    }
+    if (process && culture) {
+      const tp = cellTrajectory(state, cl, "Process");
+      const tc = cellTrajectory(state, cl, "Culture");
+      if (tp.known && tc.known && tp.m >= 0.25 && tc.m <= -0.25) {
+        out.push({
+          clusterId: cl.id, cluster: cl.name, key: "adoption-red-flag",
+          title: "Adoption red flag",
+          body: "Process is improving while Culture is declining in the same cluster. Culture normally lags process change — but declining during change signals an adoption problem, not normal lag."
+        });
+      }
+    }
+  });
+  return out;
+}
+
 /* Enterprise KPIs for the header strip. */
 function enterpriseKpis(state) {
   const { clusters, lenses } = state;
-  let sum = 0, n = 0, weak = 0, grounded = 0, msum = 0;
-  const alerts = { erosion: [], breakout: [], stalled: [], critical: [] };
+  let sum = 0, n = 0, weak = 0, grounded = 0, msum = 0, knownCount = 0, laggingOnly = 0;
+  const alerts = { erosion: [], breakout: [], stalled: [], critical: [], unassessed: [] };
   clusters.forEach(cl => {
     lenses.forEach(l => {
       const cell = cl.cells[l.key];
@@ -140,17 +252,22 @@ function enterpriseKpis(state) {
       sum += cell.level;
       if (cell.level <= 2) weak++;
       if (cellConfidence(cell).grounded) grounded++;
-      const m = cellMomentum(state, cl, l.key);
-      msum += m;
-      const cls = classifyCell(cell, m);
-      if (alerts[cls]) alerts[cls].push({ cluster: cl, lens: l, cell, m });
+      if (evidenceMix(cell) === "lagging") laggingOnly++;
+      const t = cellTrajectory(state, cl, l.key);
+      if (t.known) { msum += t.m; knownCount++; }
+      const cls = classifyCell(cell, t);
+      if (alerts[cls]) alerts[cls].push({ cluster: cl, lens: l, cell, t, m: t.m });
     });
   });
   return {
     avg: n ? sum / n : 0,
     cells: n,
     weak,
-    velocity: n ? msum / n : 0,
+    velocity: knownCount ? msum / knownCount : 0,
+    velocityKnown: knownCount > 0,
+    unknownCount: n - knownCount,
+    unknownPct: n ? Math.round(((n - knownCount) / n) * 100) : 0,
+    laggingOnly,
     groundedPct: n ? Math.round((grounded / n) * 100) : 0,
     alerts
   };

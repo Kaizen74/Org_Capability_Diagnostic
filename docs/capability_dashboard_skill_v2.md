@@ -27,7 +27,7 @@ Every rating shows **fill + segment bar + text label + n/4**, plus an **amber "A
 
 Direction and forecast get their own channels — and they are **shape/text channels, never colour**:
 
-- **Momentum** = arrow symbol + word, always paired: `↗ Improving`, `→ Stable`, `↘ At risk`. Never a red/green arrow.
+- **Momentum** = arrow symbol + word, always paired: `↗ Improving`, `→ Stable`, `↘ At risk` — and, critically, **`? Unknown`** when no qualifying evidence exists. Never render a guessed arrow, and never a red/green one. Confidence (High/Medium) accompanies the arrow as text in detail surfaces.
 - **Projection** = outlined dot vs solid dot (shape distinction), connected by a thin amber bar. Label both dots with their values (`now 3.5`, `proj 4.0`).
 - **Classification vocabulary** as text badges, not colours: *Weak & declining*, *Erosion risk*, *Stalled weakness*, *Breakout underway*, *Compounding strength*.
 - **Alert strip** above the trajectory table: warning cards on the amber background, positive cards on the light-navy background — reinforced by ⚠/⚑/↗ glyphs and headings so background colour is never the sole signal.

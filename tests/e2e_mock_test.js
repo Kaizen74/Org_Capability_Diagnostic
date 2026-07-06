@@ -58,15 +58,49 @@ function check(name, cond) {
     await page.locator(".hero").count() === 3 && await page.locator(".bcard").count() === 6);
   check("weakest-first sort puts Commercial Leadership on top",
     (await page.locator(".bcard h3").first().textContent()) === "Commercial Leadership");
+  check("every cluster card names its binding constraint",
+    await page.locator(".b-binding").count() === 6);
+  check("commercial binding constraint targets People",
+    (await page.locator(".bcard").first().locator(".b-bind-link").textContent()).includes("People"));
 
   await page.click('.tab[data-view="trajectory"]');
   await page.waitForTimeout(300);
-  check("trajectory renders 6 cluster rows + 4 alert groups",
-    await page.locator(".traj-row").count() === 6 && await page.locator(".alert-card").count() === 4);
+  check("trajectory renders 6 cluster rows + 5 alert groups (incl. direction-unknown)",
+    await page.locator(".traj-row").count() === 6 && await page.locator(".alert-card").count() === 5);
+  check("cross-lens risk patterns detected and shown",
+    await page.locator(".pattern-card").count() >= 3);
+  check("adoption red flag pattern present",
+    (await page.locator(".pattern-card h5").allTextContents()).some(t => t.includes("Adoption red flag")));
 
   await page.click('.tab[data-view="delta"]');
   await page.waitForTimeout(300);
   check("delta renders rows against demo baseline", await page.locator(".delta-table tbody tr").count() > 0);
+
+  // ---------- v4 rubric: drawer confidence, evidence mix, watch signals ----------
+  await page.click('.tab[data-view="matrix"]');
+  await page.waitForTimeout(300);
+  await page.click('.cell[data-cluster="commercial"][data-lens="Process"]');
+  await page.waitForTimeout(400);
+  const dMeta = await page.locator(".drawer-head").textContent();
+  check("drawer shows trajectory confidence", /High confidence|Medium confidence/.test(dMeta));
+  check("drawer shows evidence-mix badge", await page.locator(".mix-badge").count() === 1);
+  check("drawer shows conditional outlook wording (IF indicators hold)",
+    dMeta.includes("IF indicators hold") || !dMeta.includes("projected"));
+  check("demo watch signal rendered as falsifier", (await page.locator("[data-w]").count()) >= 1);
+  await page.click("#w-add");
+  await page.waitForTimeout(200);
+  const wInputs = page.locator("[data-w]");
+  await wInputs.last().fill("CPQ usage below 40% at next refresh → re-score Process");
+  await page.click("#d-save");
+  await page.waitForTimeout(400);
+  await page.click('.cell[data-cluster="commercial"][data-lens="Process"]');
+  await page.waitForTimeout(400);
+  const watchVals = await page.locator("[data-w]").evaluateAll(els => els.map(e => e.value));
+  check("added watch signal persists after save/reopen", watchVals.some(v => v.includes("CPQ usage below 40%")));
+  check("scoring-discipline hint visible at level picker",
+    (await page.locator(".drawer-body").textContent()).includes("between two levels, take the lower"));
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
 
   // ---------- New: Signals view gating ----------
   await page.click('.tab[data-view="signals"]');
@@ -162,6 +196,28 @@ function check(name, cond) {
   await page.click('.tab[data-view="signals"]');
   await page.waitForTimeout(300);
   check("signals view gates again after key removal", await page.locator("#sig-open-settings").count() === 1);
+
+  // ---------- Prediction honesty: a fresh diagnostic shows UNKNOWN, not "Stable" ----------
+  await page.click("#btn-settings");
+  await page.waitForTimeout(300);
+  await page.click("#set-wizard");
+  await page.waitForTimeout(300);
+  await page.click('[data-preset="generic"]');
+  await page.waitForTimeout(300);
+  await page.click("#wiz-go");
+  await page.waitForTimeout(500);
+  check("fresh diagnostic renders 24 cells", await page.locator(".cell").count() === 24);
+  check("fresh cells show '? Unknown' trajectory — never a guessed arrow",
+    await page.locator(".momo-unknown").count() === 24);
+  const velKpi = await page.locator(".kpi").nth(2).textContent();
+  check("velocity KPI honestly reports no trajectory evidence", velKpi.includes("? n/a"));
+  const evKpi = await page.locator(".kpi").nth(4).textContent();
+  check("evidence-gap finding surfaces when unknown > 25%", evKpi.includes("evidence gap"));
+  await page.click('.tab[data-view="trajectory"]');
+  await page.waitForTimeout(300);
+  const unknownCard = await page.locator(".alert-card").nth(4).textContent();
+  check("direction-unknown alert lists unassessed cells", unknownCard.includes("Direction unknown"));
+  check("evidence-infrastructure-gap message shown", unknownCard.includes("evidence-infrastructure gap"));
 
   const realErrors = jsErrors.filter(e => !e.includes("ERR_TUNNEL") && !e.includes("Failed to load resource"));
   check("no JavaScript errors during the whole run", realErrors.length === 0);

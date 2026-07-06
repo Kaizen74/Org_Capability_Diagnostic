@@ -65,7 +65,17 @@ Each cell carries 0–3 **leading indicators**: named, forward-looking signals t
 | **Compounding strength** | L4, m ≥ 0 | Sustain and harvest |
 | **Steady** | otherwise | Monitor |
 
-**Projection:** directional only — over two review cycles, +1 level if m ≥ +0.25, −1 if m ≤ −0.25, else hold. Projections are labelled *directional, not deterministic* wherever shown.
+**Projection:** directional only — over two review cycles, +1 level if m ≥ +0.25, −1 if m ≤ −0.25, else hold. Projections are labelled *directional, not deterministic* wherever shown, and phrased conditionally (*"toward L3 IF indicators hold"*).
+
+### v4.1 prediction-honesty extensions (implemented in the app)
+
+- **Unknown is a professional answer.** A cell with no qualifying trajectory evidence (no version history AND no leading indicators) renders **`? Unknown`** — never a guessed "stable" arrow — carries no projection, and is listed in a dedicated *Direction unknown* alert group. When >25% of cells are unknown, the dashboard states the real finding explicitly: an evidence-infrastructure gap.
+- **Trajectory confidence (mechanical, about evidence not conviction):** **High** = version history + ≥2 leading indicators; **Medium** = history *or* ≥1 indicator; unknown cells carry none. Shown with the trajectory in the drawer and cell tooltips.
+- **Evidence mix per cell:** `leading | lagging | both | none`. Cells citing only rear-view sources are badged *"Rear-view evidence only"* and their trajectory confidence is capped at Medium.
+- **Watch signals (falsifiers):** each cell holds 0–3 falsifiable signals with thresholds and re-score triggers (e.g. *"CRM adoption <60% at 90 days → flip trajectory down"*). A trajectory call without a falsifier is a hope, not a call.
+- **Binding constraint per cluster:** the intervention target is the lowest-level cell **that is not already improving** — not simply the lowest level. Named on every Priority Board card.
+- **Cross-lens interdependency patterns** (computed automatically): *bench-starves-rollout* (People ≤ L2 with Process ≥ L3), *structure-without-people* (Structure L4 with People ≤ L2), and the *adoption red flag* (Process improving while Culture declines in the same cluster — declining during change is an adoption problem, not normal lag).
+- **Scoring discipline surfaced at the point of scoring:** between two levels, take the lower; announcements and approvals justify trajectory, never a higher level — levels score what is operating today.
 
 ## 5. Attention flag rule
 

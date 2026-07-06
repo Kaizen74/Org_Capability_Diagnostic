@@ -2,6 +2,19 @@
 
 Date: 2026-07-02. This note records what was changed in the three source artefacts, and the best-practice research and emerging trends that motivated each change.
 
+## Update — coherence review against the packaged skills (v4.1)
+
+A full-code review against the two packaged skills (`capability-diagnostic-dashboard` and `capability-compass-rubric` v4, including its judgment-protocols, lens-indicator-library, and evidence-extraction references) found the app compliant on the visual system but short of the rubric's *prediction honesty* discipline. Fixes applied, all covered by tests:
+
+1. **Unknown, never guessed** (judgment protocol #11): cells without qualifying trajectory evidence previously rendered "→ Stable" — a fabricated flat call. They now render `? Unknown`, carry no projection, appear in a dedicated alert group, and when >25% of cells are unknown the dashboard names the real finding: an evidence-infrastructure gap.
+2. **Trajectory confidence** (H/M, mechanical): derived from evidence per the indicator library; rear-view-only cells are capped at Medium.
+3. **Evidence mix** (`leading | lagging | both`): lagging-only cells are badged as photographs, per the library's rule.
+4. **Watch signals** (protocol #10 — every trajectory has a falsifier): per-cell falsifiable thresholds with re-score triggers, editable in the drawer; the external-signals prompt now asks Claude for falsifiable calibration notes too.
+5. **Cross-lens interdependency patterns** (indicator library): bench-starves-rollout, structure-without-people, and the adoption red flag are computed automatically and shown as hero cards in the Trajectory view.
+6. **Binding constraint** (scoring workflow #6): each Priority Board card names the lowest-level cell that is *not already improving* — the true intervention target.
+7. **Scoring discipline at the point of use** (protocols #5–6): the drawer's level picker now carries the anti-inflation rule — between two levels take the lower; announcements justify trajectory, not level.
+8. Conditional outlook phrasing ("toward L3 within 2 cycles IF indicators hold") and a version/provenance footer per the dashboard skill's shipping checklist.
+
 ## Sources consulted
 
 - [AIHR — 10 Workforce Analytics Trends Shaping HR in 2026](https://www.aihr.com/blog/workforce-analytics-trends/)

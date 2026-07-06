@@ -65,7 +65,7 @@ for (const p of presets) {
       id: c.id, no: c.no, name: c.name, desc: c.desc, priority_move: c.priority_move,
       cells: Object.fromEntries(["Structure", "People", "Process", "Culture"].map(k => [k, {
         level: 1, status: "Not yet assessed", rationale: "", intervention: "",
-        items: [], evidence: [], leading: [], history: [],
+        items: [], evidence: [], leading: [], watch: [], history: [],
         last_updated: new Date().toISOString(), updated_by: "—"
       }]))
     }))
@@ -121,6 +121,66 @@ checkOk("scan prompt demands JSON-only output", prompt.includes("ONLY a JSON obj
 const extractJson = vm.runInContext("extractJson", sandbox);
 checkOk("extractJson parses fenced JSON", extractJson('Here you go:\n```json\n{"signals":[]}\n```').signals.length === 0);
 checkOk("extractJson parses prose-wrapped JSON", extractJson('Based on my research: {"signals": [{"headline":"x"}]} — done.').signals.length === 1);
+
+// ---- 9. Prediction honesty (rubric v4): unknown is rendered, never guessed ----
+const blankNoEvidence = {
+  schema: 1, orgName: "Blank", actor: "You", industry_id: "generic", industry_name: "Generic",
+  lenses: vm.runInContext("JSON.parse(JSON.stringify(DEFAULT_LENSES))", sandbox),
+  rubric: {}, patterns: [], versions: [], changeLog: [], briefings: [], signal_keywords: [],
+  currentVersion: "v0.1",
+  clusters: [{
+    id: "c1", no: 1, name: "Cluster One", desc: "", priority_move: "",
+    cells: Object.fromEntries(["Structure", "People", "Process", "Culture"].map(k => [k, {
+      level: 2, status: "Early", rationale: "", intervention: "",
+      items: [], evidence: [], leading: [], watch: [], history: [],
+      last_updated: new Date().toISOString(), updated_by: "—"
+    }]))
+  }]
+};
+vm.runInContext("globalThis.__blank = " + JSON.stringify(blankNoEvidence), sandbox);
+const tUnknown = vm.runInContext('cellTrajectory(__blank, __blank.clusters[0], "Structure")', sandbox);
+checkOk("no evidence → trajectory UNKNOWN (never a guessed 'stable')", tUnknown.known === false && tUnknown.confidence === "None");
+checkOk("unknown trajectory renders '?' not an arrow",
+  vm.runInContext("trajectoryLabel(" + JSON.stringify(tUnknown) + ").sym", sandbox) === "?");
+checkOk("unknown trajectory yields NO projection",
+  vm.runInContext('projectedLevel(__blank.clusters[0].cells.Structure, ' + JSON.stringify(tUnknown) + ')', sandbox) === 2);
+checkOk("unknown cells classified 'unassessed', not steady",
+  vm.runInContext('classifyCell(__blank.clusters[0].cells.Structure, ' + JSON.stringify(tUnknown) + ')', sandbox) === "unassessed");
+const blankKpis = vm.runInContext("enterpriseKpis(__blank)", sandbox);
+checkOk("enterprise velocity reported as not-known when nothing is assessable",
+  blankKpis.velocityKnown === false && blankKpis.unknownPct === 100);
+
+// ---- 10. Confidence + evidence mix rules (mechanical, per rubric) ----
+const demo2 = vm.runInContext("buildDemoState()", sandbox);
+vm.runInContext("globalThis.__d2 = " + JSON.stringify(demo2), sandbox);
+const tHigh = vm.runInContext('cellTrajectory(__d2, __d2.clusters.find(c=>c.id==="gateway"), "Culture")', sandbox);
+checkOk("history + ≥2 leading indicators → High confidence", tHigh.confidence === "High");
+const tMed = vm.runInContext('cellTrajectory(__d2, __d2.clusters.find(c=>c.id==="food"), "Structure")', sandbox);
+checkOk("history only (no leading indicators) → Medium confidence", tMed.confidence === "Medium");
+checkOk("evidenceMix: sources + leading indicators → 'both'",
+  vm.runInContext('evidenceMix(__d2.clusters.find(c=>c.id==="gateway").cells.Culture)', sandbox) === "both");
+checkOk("evidenceMix: sources only → 'lagging' (rear-view photograph)",
+  vm.runInContext('evidenceMix(__d2.clusters.find(c=>c.id==="food").cells.Structure)', sandbox) === "lagging");
+
+// ---- 11. Cross-lens interdependency patterns (rubric indicator library) ----
+const patterns = vm.runInContext("detectCrossLensPatterns(__d2)", sandbox);
+checkOk("detects bench-starves-rollout (People L2 + Process L3, commercial)",
+  patterns.some(p => p.key === "bench-starves-rollout" && p.clusterId === "commercial"));
+checkOk("detects structure-without-people (Structure L4 + People L2, commercial)",
+  patterns.some(p => p.key === "structure-without-people" && p.clusterId === "commercial"));
+checkOk("detects adoption red flag (Process up + Culture down, food)",
+  patterns.some(p => p.key === "adoption-red-flag" && p.clusterId === "food"));
+
+// ---- 12. Binding constraint targets weak-and-not-moving, not just lowest ----
+const bind = vm.runInContext('bindingConstraint(__d2, __d2.clusters.find(c=>c.id==="commercial"), __d2.lenses)', sandbox);
+checkOk("commercial binding constraint is People (L2, not improving)", bind.lensKey === "People");
+
+// ---- 13. Watch signals: contract accepts strings, rejects non-strings ----
+const withWatch = JSON.parse(JSON.stringify(demo2));
+withWatch.briefings = []; withWatch.signal_keywords = [];
+checkOk("demo watch signals validate", schema.validateState(withWatch).length === 0);
+withWatch.clusters[0].cells.Culture.watch = [{ bad: true }];
+checkOk("non-string watch signal rejected by contract", schema.validateState(withWatch).length > 0);
 
 console.log(failures ? `\n${failures} CONTRACT FAILURE(S)` : "\nAll contract checks passed.");
 process.exit(failures ? 1 : 0);
