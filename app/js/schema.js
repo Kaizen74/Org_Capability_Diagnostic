@@ -17,6 +17,9 @@
 var COMPASS_SCHEMA_VERSION = 1;
 var SIGNAL_DIRECTIONS = ["tailwind", "headwind", "neutral"];
 var LEADING_SIGNALS = ["improving", "stable", "declining"];
+var DOC_KINDS = ["text", "pdf", "image", "unsupported"];
+var DOC_TYPES = ["strategy-deck", "survey-report", "board-paper", "workforce-file", "annual-report", "org-chart", "program-update", "other"];
+var EVIDENCE_CLASSES = ["leading", "lagging"];
 
 function _isStr(v) { return typeof v === "string"; }
 function _isArr(v) { return Array.isArray(v); }
@@ -69,6 +72,14 @@ function validateState(s) {
   (s.briefings || []).forEach(function (b, i) {
     errs = errs.concat(validateBriefing(b).map(function (e) { return "briefings[" + i + "]: " + e; }));
   });
+  if (s.documents !== undefined && !_isArr(s.documents)) errs.push("documents must be an array");
+  (s.documents || []).forEach(function (d, i) {
+    errs = errs.concat(validateDocument(d).map(function (e) { return "documents[" + i + "]: " + e; }));
+  });
+  if (s.analyses !== undefined && !_isArr(s.analyses)) errs.push("analyses must be an array");
+  (s.analyses || []).forEach(function (a, i) {
+    errs = errs.concat(validateAnalysis(a).map(function (e) { return "analyses[" + i + "]: " + e; }));
+  });
   // The API key must NEVER live inside exported/persisted state.
   if (s.apiKey || s.api_key || (s.settings && s.settings.apiKey)) errs.push("state must not contain an API key");
   return errs;
@@ -92,6 +103,44 @@ function validateBriefing(b) {
   return errs;
 }
 
+/* Validate an ingested document's metadata (content itself may be
+   in-memory only — PDFs/images are never persisted to storage). */
+function validateDocument(d) {
+  var errs = [];
+  if (!_isObj(d)) return ["document is not an object"];
+  if (!_isStr(d.id)) errs.push("id required");
+  if (!_isStr(d.name)) errs.push("name required");
+  if (!_isStr(d.label)) errs.push("label must be a string");
+  if (DOC_KINDS.indexOf(d.kind) === -1) errs.push("kind must be one of " + DOC_KINDS.join("/"));
+  if (DOC_TYPES.indexOf(d.doc_type) === -1) errs.push("doc_type must be one of " + DOC_TYPES.join("/"));
+  if (d.text !== undefined && d.text !== null && !_isStr(d.text)) errs.push("text must be a string when present");
+  if (d.kind !== "text" && d.text) errs.push("only text documents may persist extracted text");
+  return errs;
+}
+
+/* Validate an evidence-analysis result (Claude extraction contract). */
+function validateAnalysis(a) {
+  var errs = [];
+  if (!_isObj(a)) return ["analysis is not an object"];
+  if (!_isStr(a.generated_at)) errs.push("generated_at must be a string");
+  if (!_isStr(a.model)) errs.push("model must be a string");
+  if (!_isArr(a.doc_ids)) errs.push("doc_ids must be an array");
+  if (!_isArr(a.findings) || !a.findings.length) errs.push("findings must be a non-empty array");
+  (a.findings || []).forEach(function (f, i) {
+    var w = "findings[" + i + "]";
+    if (!_isStr(f.cluster_id)) errs.push(w + ": cluster_id required");
+    if (!_isStr(f.lens_key)) errs.push(w + ": lens_key required");
+    if (!_isStr(f.quote) || !f.quote.trim()) errs.push(w + ": quote (verbatim evidence) required");
+    if (EVIDENCE_CLASSES.indexOf(f.classification) === -1) errs.push(w + ": classification must be leading|lagging");
+    if (f.direction !== null && f.direction !== undefined && LEADING_SIGNALS.indexOf(f.direction) === -1)
+      errs.push(w + ": direction must be null or one of " + LEADING_SIGNALS.join("/"));
+    if (f.suggested_level !== null && f.suggested_level !== undefined && !(f.suggested_level >= 1 && f.suggested_level <= 4))
+      errs.push(w + ": suggested_level must be null or 1-4");
+    if (f.watch !== null && f.watch !== undefined && !_isStr(f.watch)) errs.push(w + ": watch must be null or a string");
+  });
+  return errs;
+}
+
 /* Map a signal direction to a leading-indicator signal. */
 function directionToLeading(direction) {
   if (direction === "tailwind") return "improving";
@@ -105,9 +154,14 @@ if (typeof module !== "undefined" && module.exports) {
     COMPASS_SCHEMA_VERSION: COMPASS_SCHEMA_VERSION,
     SIGNAL_DIRECTIONS: SIGNAL_DIRECTIONS,
     LEADING_SIGNALS: LEADING_SIGNALS,
+    DOC_KINDS: DOC_KINDS,
+    DOC_TYPES: DOC_TYPES,
+    EVIDENCE_CLASSES: EVIDENCE_CLASSES,
     validateCell: validateCell,
     validateState: validateState,
     validateBriefing: validateBriefing,
+    validateDocument: validateDocument,
+    validateAnalysis: validateAnalysis,
     directionToLeading: directionToLeading
   };
 }

@@ -50,8 +50,13 @@ function migrateState(s) {
       if (!Array.isArray(cell.watch)) cell.watch = [];
     });
   });
+  if (!Array.isArray(s.documents)) s.documents = [];
+  if (!Array.isArray(s.analyses)) s.analyses = [];
   return s;
 }
+
+/* PDF/image payloads live in memory only — never in storage or exports. */
+const docBlobs = {};
 
 /* ---------- Blank diagnostic from a preset ---------- */
 function stateFromPreset(preset, orgName) {
@@ -128,6 +133,7 @@ function renderView() {
   else if (activeView === "board") el.innerHTML = viewBoard();
   else if (activeView === "trajectory") el.innerHTML = viewTrajectory();
   else if (activeView === "signals") el.innerHTML = viewSignals();
+  else if (activeView === "evidence") el.innerHTML = viewEvidence();
   else el.innerHTML = viewDelta();
   bindViewEvents();
 }
@@ -389,7 +395,213 @@ function applySignal(briefingId, sigIndex, clusterId) {
   toast("Signal applied — it now feeds the trajectory forecast for " + cluster.name + ".");
 }
 
-/* ---------- View 5: Delta ---------- */
+/* ---------- View 5: Evidence (document ingestion, PRD F6) ---------- */
+let analyzeBusy = false;
+
+const DOC_TYPE_LABELS = {
+  "strategy-deck": "Strategy deck", "survey-report": "Engagement survey",
+  "board-paper": "Board paper", "workforce-file": "Workforce file",
+  "annual-report": "Annual report", "org-chart": "Org chart / job titles",
+  "program-update": "Programme update", "other": "Other"
+};
+
+function docStatus(d) {
+  if (d.kind === "unsupported") return { label: "Unsupported — save as PDF or paste text", cls: "warn" };
+  if (d.kind === "text") return { label: "Ready (parsed locally)", cls: "good" };
+  return docBlobs[d.id]
+    ? { label: "Ready (" + d.kind.toUpperCase() + " → analysed by Claude)", cls: "good" }
+    : { label: "Re-attach file to analyse (content is never stored)", cls: "warn" };
+}
+
+function viewEvidence() {
+  const cfg = getApiConfig();
+  const docs = state.documents || [];
+  const docRows = docs.map(d => {
+    const st = docStatus(d);
+    return `<div class="doc-row">
+      <div class="doc-main">
+        <span class="doc-name" title="${esc(d.name)}">${esc(d.name)}</span>
+        <input type="text" class="doc-label" value="${esc(d.label)}" data-doc-label="${esc(d.id)}" placeholder="Source label (propagates to citations)">
+        <select data-doc-type="${esc(d.id)}">
+          ${Object.keys(DOC_TYPE_LABELS).map(k => `<option value="${k}" ${d.doc_type === k ? "selected" : ""}>${DOC_TYPE_LABELS[k]}</option>`).join("")}
+        </select>
+      </div>
+      <span class="doc-status ${st.cls}">${esc(st.label)}</span>
+      <button class="mini-btn danger" data-doc-del="${esc(d.id)}">✕</button>
+    </div>`;
+  }).join("");
+
+  const analyses = (state.analyses || []).slice().reverse().map(a => {
+    const cards = a.findings.map((f, fi) => {
+      const cl = state.clusters.find(c => c.id === f.cluster_id);
+      if (!cl) return "";
+      return `<div class="finding-card">
+        <div class="sig-head">
+          <span class="sig-dir ${f.classification === "leading" ? "good" : "warn"}">${f.classification === "leading" ? "◇ Leading" : "◆ Lagging"}</span>
+          <span class="finding-target">${esc(cl.name)} · ${esc(f.lens_key)}</span>
+          ${f.direction ? `<span class="sig-meta">direction: ${esc(f.direction)}</span>` : ""}
+        </div>
+        <p class="finding-quote">“${esc(f.quote)}”${f.figure ? ` — <strong>${esc(f.figure)}</strong>` : ""}${f.source_ref ? ` <span class="sig-meta">(${esc(f.source_ref)})</span>` : ""}</p>
+        <p class="sig-meta">${esc(f.rationale)}${f.suggested_level ? ` · Suggested level: <strong>L${f.suggested_level}${f.suggested_status ? " — " + esc(f.suggested_status) : ""}</strong> (you decide — open the cell to score)` : ""}</p>
+        ${f.watch ? `<p class="sig-meta">Watch: <em>${esc(f.watch)}</em></p>` : ""}
+        <div class="sig-actions">
+          <button class="mini-btn" data-apply-find="${esc(a.id)}|${fi}" ${f.applied ? "disabled" : ""}>${f.applied ? "✓ Applied to cell" : "＋ Apply to cell (evidence" + (f.classification === "leading" && f.direction ? " + leading indicator" : "") + (f.watch ? " + watch" : "") + ")"}</button>
+          <button class="mini-btn" data-open-cell="${esc(f.cluster_id)}|${esc(f.lens_key)}">Open cell</button>
+        </div>
+      </div>`;
+    }).join("");
+    return `<section class="sig-briefing">
+      <div class="sig-brief-head">
+        <h2>Analysis — ${new Date(a.generated_at).toLocaleString()}</h2>
+        <span class="sig-meta">${a.findings.length} findings · from: ${esc((a.doc_labels || []).join(", "))} · model: ${esc(a.model)}</span>
+        <button class="mini-btn danger" data-del-ana="${esc(a.id)}">Delete</button>
+      </div>
+      ${cards}
+    </section>`;
+  }).join("");
+
+  return `<div class="view-note">Evidence before scores — upload the documents your diagnostic should be grounded in (strategy decks, engagement surveys, annual reports, workforce files, org charts). Text files parse locally and free; PDFs and images are analysed by Claude with your API key. Claude extracts verbatim evidence mapped to your clusters and lenses, classified leading vs lagging — you apply each finding and you keep the scoring pen.</div>
+    <div class="sig-controls" style="flex-direction:column;align-items:stretch">
+      <div class="dropzone" id="ev-drop">
+        <strong>Drop files here</strong> or
+        <button class="mini-btn" id="ev-pick">Choose files</button>
+        <button class="mini-btn" id="ev-paste">Paste text instead</button>
+        <span class="sig-meta">Supported: .txt .md .csv .json (parsed locally) · .pdf .png .jpg (via Claude) · Word/PowerPoint/Excel: save as PDF or paste the text</span>
+      </div>
+      ${docRows ? `<div class="doc-list">${docRows}</div>` : ""}
+      <div class="m-row" style="margin-top:2px">
+        <button class="btn-navy" id="ev-analyze" ${analyzeBusy ? "disabled" : ""}>${analyzeBusy ? "Analysing…" : "Analyze & synthesize evidence"}</button>
+        <span class="sig-meta" id="ev-status">${analyzeBusy ? "Extracting evidence against your clusters and lenses — up to a minute for PDFs." : (cfg.apiKey ? "" : "Text analysis needs a Claude API key (Settings → External intelligence) — or enter the key 'mock' to simulate.")}</span>
+      </div>
+    </div>
+    ${analyses || '<div class="delta-empty">No analyses yet. Add a document and click <strong>Analyze &amp; synthesize evidence</strong> — findings arrive mapped to specific cluster × lens cells, ready to apply.</div>'}`;
+}
+
+function bindEvidenceEvents() {
+  const pick = $("ev-pick");
+  if (!pick) return;
+  pick.addEventListener("click", () => $("file-evidence").click());
+  $("ev-paste").addEventListener("click", openPasteModal);
+  $("ev-analyze").addEventListener("click", runEvidenceAnalysis);
+  const drop = $("ev-drop");
+  drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", e => {
+    e.preventDefault(); drop.classList.remove("over");
+    addEvidenceFiles(e.dataTransfer.files);
+  });
+  document.querySelectorAll("[data-doc-label]").forEach(inp => inp.addEventListener("change", () => {
+    const d = state.documents.find(x => x.id === inp.dataset.docLabel);
+    if (d) { d.label = inp.value.trim() || d.name; saveState(); }
+  }));
+  document.querySelectorAll("[data-doc-type]").forEach(sel => sel.addEventListener("change", () => {
+    const d = state.documents.find(x => x.id === sel.dataset.docType);
+    if (d) { d.doc_type = sel.value; saveState(); }
+  }));
+  document.querySelectorAll("[data-doc-del]").forEach(b => b.addEventListener("click", () => {
+    state.documents = state.documents.filter(x => x.id !== b.dataset.docDel);
+    delete docBlobs[b.dataset.docDel];
+    renderAll();
+  }));
+  document.querySelectorAll("[data-apply-find]").forEach(b => b.addEventListener("click", () => {
+    const [aid, fi] = b.dataset.applyFind.split("|");
+    applyFinding(aid, parseInt(fi, 10));
+  }));
+  document.querySelectorAll("[data-open-cell]").forEach(b => b.addEventListener("click", () => {
+    const [cid, lk] = b.dataset.openCell.split("|");
+    openDrawer(cid, lk);
+  }));
+  document.querySelectorAll("[data-del-ana]").forEach(b => b.addEventListener("click", () => {
+    state.analyses = state.analyses.filter(x => x.id !== b.dataset.delAna);
+    renderAll();
+  }));
+}
+
+async function addEvidenceFiles(fileList) {
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+  for (const f of files) {
+    if ((state.documents || []).length >= 15) { toast("Document limit reached (15) — remove one first."); break; }
+    try {
+      const doc = await ingestFile(f, docBlobs);
+      state.documents.push(doc);
+      if (doc.kind === "unsupported") toast(f.name + ": this format can't be parsed here — save it as PDF or use Paste text.");
+    } catch (e) {
+      toast(e.message);
+    }
+  }
+  renderAll();
+}
+
+function openPasteModal() {
+  openModal(`
+    <button class="m-close" id="m-close">✕</button>
+    <h2>Paste evidence text</h2>
+    <p class="m-sub">For content locked in Word/PowerPoint/Excel, emails, or intranet pages — paste the text and label the source. It is treated exactly like an uploaded text document.</p>
+    <div class="m-field"><label>Source label</label>
+      <input type="text" id="paste-label" placeholder="e.g. Engagement Survey 2026 — divisional cut"></div>
+    <div class="m-field"><label>Document type</label>
+      <select id="paste-type">${Object.keys(DOC_TYPE_LABELS).map(k => `<option value="${k}">${DOC_TYPE_LABELS[k]}</option>`).join("")}</select></div>
+    <div class="m-field"><label>Text</label>
+      <textarea id="paste-text" style="min-height:180px" placeholder="Paste the relevant content here…"></textarea></div>
+    <div class="m-row"><span class="grow"></span><button class="btn-navy" id="paste-save">Add as evidence</button></div>`);
+  $("m-close").addEventListener("click", closeModal);
+  $("paste-save").addEventListener("click", () => {
+    const text = $("paste-text").value.trim();
+    if (!text) { toast("Nothing pasted yet."); return; }
+    const label = $("paste-label").value.trim() || "Pasted text";
+    state.documents.push({
+      id: "doc_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7),
+      name: label + " (pasted)", label, doc_type: $("paste-type").value,
+      kind: "text", size: text.length, added_at: nowIso(),
+      text: text.slice(0, 100000)
+    });
+    closeModal(); renderAll(); toast("Pasted evidence added.");
+  });
+}
+
+async function runEvidenceAnalysis() {
+  analyzeBusy = true;
+  renderView();
+  try {
+    const analysis = await analyzeEvidence(state, state.documents || [], docBlobs);
+    state.analyses = (state.analyses || []).concat([analysis]).slice(-10);
+    toast("Analysis ready — " + analysis.findings.length + " findings mapped to your clusters.");
+  } catch (e) {
+    toast("Analysis failed: " + e.message);
+  } finally {
+    analyzeBusy = false;
+    renderAll();
+  }
+}
+
+function applyFinding(analysisId, findingIndex) {
+  const analysis = (state.analyses || []).find(a => a.id === analysisId);
+  const f = analysis && analysis.findings[findingIndex];
+  const cluster = f && state.clusters.find(c => c.id === f.cluster_id);
+  if (!f || !cluster) return;
+  const lensKey = cluster.cells[f.lens_key] ? f.lens_key : state.lenses[0].key;
+  const cell = cluster.cells[lensKey];
+  const srcLabel = (analysis.doc_labels || []).join(", ") || "Uploaded evidence";
+  cell.evidence = cell.evidence || [];
+  cell.evidence.push({ label: srcLabel + (f.source_ref ? " · " + f.source_ref : ""), note: f.quote + (f.figure ? " (" + f.figure + ")" : "") });
+  if (f.classification === "leading" && f.direction) {
+    cell.leading = cell.leading || [];
+    cell.leading.push({ name: (f.figure || f.quote).slice(0, 80), signal: f.direction });
+  }
+  if (f.watch) {
+    cell.watch = cell.watch || [];
+    if (cell.watch.indexOf(f.watch) === -1) cell.watch.push(f.watch);
+  }
+  cell.last_updated = nowIso();
+  cell.updated_by = state.actor || "You";
+  f.applied = true;
+  state.changeLog.push({ at: nowIso(), cluster: cluster.name, lens: lensKey, from: cell.level, to: cell.level, rationale: "Document evidence applied: " + f.quote.slice(0, 100), by: cell.updated_by });
+  renderAll();
+  toast("Finding applied to " + cluster.name + " · " + lensKey + ". Level stays yours — open the cell to score against the suggestion.");
+}
+
+/* ---------- View 6: Delta ---------- */
 function viewDelta() {
   if (!state.versions.length) {
     return `<div class="delta-empty"><strong>No saved versions yet.</strong><br>
@@ -430,6 +642,7 @@ function bindViewEvents() {
   const db = $("delta-base");
   if (db) db.addEventListener("change", renderView);
   bindSignalEvents();
+  bindEvidenceEvents();
 }
 
 /* ============================================================
@@ -852,6 +1065,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("btn-export").addEventListener("click", exportJson);
   $("btn-import").addEventListener("click", () => $("file-import").click());
   $("file-import").addEventListener("change", e => { if (e.target.files[0]) importJson(e.target.files[0]); e.target.value = ""; });
+  $("file-evidence").addEventListener("change", e => { addEvidenceFiles(e.target.files); e.target.value = ""; });
   $("btn-report").addEventListener("click", () => window.print());
   $("btn-settings").addEventListener("click", openSettings);
   $("drawer-backdrop").addEventListener("click", closeDrawer);

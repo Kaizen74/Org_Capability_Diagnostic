@@ -182,5 +182,70 @@ checkOk("demo watch signals validate", schema.validateState(withWatch).length ==
 withWatch.clusters[0].cells.Culture.watch = [{ bad: true }];
 checkOk("non-string watch signal rejected by contract", schema.validateState(withWatch).length > 0);
 
+// ---- 14. Document ingestion contracts (PRD F6) ----
+const docKindFor = vm.runInContext("docKindFor", sandbox);
+checkOk("file-kind routing: txt/md/csv local, pdf/png via API, docx unsupported",
+  docKindFor("strategy.txt", "text/plain") === "text" &&
+  docKindFor("survey.md", "") === "text" &&
+  docKindFor("headcount.csv", "text/csv") === "text" &&
+  docKindFor("board-deck.pdf", "application/pdf") === "pdf" &&
+  docKindFor("org-chart.png", "image/png") === "image" &&
+  docKindFor("plan.docx", "") === "unsupported" &&
+  docKindFor("model.xlsx", "") === "unsupported");
+
+const textDoc = {
+  id: "doc_1", name: "survey.txt", label: "Engagement Survey 2026", doc_type: "survey-report",
+  kind: "text", size: 100, added_at: new Date().toISOString(),
+  text: "Safety engagement fell 5 points below the high-performance norm in 2026."
+};
+check("text document conforms to document contract", schema.validateDocument(textDoc));
+checkOk("contract rejects persisted text on a PDF document (binary must stay in memory)",
+  schema.validateDocument({ ...textDoc, kind: "pdf", text: "leak" }).length > 0);
+checkOk("contract rejects unknown document type",
+  schema.validateDocument({ ...textDoc, doc_type: "resume" }).length > 0);
+
+// ---- 15. Evidence analysis: prompt, content blocks, mock, contract ----
+const anaPrompt = vm.runInContext("buildAnalysisPrompt(buildDemoState())", sandbox);
+checkOk("analysis prompt names every cluster id", demo.clusters.every(c => anaPrompt.includes('"' + c.id + '"')));
+checkOk("analysis prompt names every lens key", demo.lenses.every(l => anaPrompt.includes(l.key)));
+checkOk("analysis prompt encodes extraction discipline (stated ≠ demonstrated, verbatim, lower level)",
+  anaPrompt.includes("Stated is not demonstrated") && anaPrompt.includes("verbatim") && anaPrompt.includes("suggest the lower"));
+checkOk("analysis prompt demands JSON-only output", anaPrompt.includes("ONLY a JSON object"));
+
+vm.runInContext("globalThis.__docs = " + JSON.stringify([textDoc]) + "; globalThis.__blobs = { doc_2: { media_type: 'application/pdf', data: 'QUJD' } }", sandbox);
+const blocks = vm.runInContext("buildAnalysisContent(buildDemoState(), __docs.concat([{id:'doc_2',name:'deck.pdf',label:'Board deck',doc_type:'board-paper',kind:'pdf',size:9,added_at:''}]), __blobs)", sandbox);
+checkOk("text document becomes a labelled text block", blocks.some(b => b.type === "text" && b.text.includes("Engagement Survey 2026") && b.text.includes("5 points below")));
+checkOk("PDF document becomes a native base64 document block",
+  blocks.some(b => b.type === "document" && b.source && b.source.media_type === "application/pdf" && b.source.data === "QUJD"));
+
+const rawAna = vm.runInContext("mockAnalysis(buildDemoState(), __docs)", sandbox);
+const normAna = {
+  id: "ana_test", generated_at: new Date().toISOString(), model: "mock",
+  doc_ids: ["doc_1"], doc_labels: ["Engagement Survey 2026"],
+  findings: rawAna.findings.map(f => ({ ...f, applied: false }))
+};
+check("mock evidence analysis conforms to analysis contract", schema.validateAnalysis(normAna));
+checkOk("mock findings map to real clusters and lenses",
+  normAna.findings.every(f => demo.clusters.some(c => c.id === f.cluster_id) && demo.lenses.some(l => l.key === f.lens_key)));
+checkOk("mock quotes the uploaded document's own text (proof of ingestion)",
+  normAna.findings.some(f => f.quote.includes("Safety engagement fell 5 points")));
+checkOk("leading findings carry a direction; suggested levels are conservative or null",
+  normAna.findings.every(f => (f.classification !== "leading" || f.direction === null || ["improving", "stable", "declining"].includes(f.direction))
+    && (f.suggested_level === null || (f.suggested_level >= 1 && f.suggested_level <= 4))));
+checkOk("contract rejects a finding with an invalid classification",
+  schema.validateAnalysis({ ...normAna, findings: [{ ...normAna.findings[0], classification: "vibes" }] }).length > 0);
+
+// ---- 16. Applying a finding keeps the state contract-valid ----
+const demoForApply = JSON.parse(JSON.stringify(demo));
+const fApply = normAna.findings[0];
+const clApply = demoForApply.clusters.find(c => c.id === fApply.cluster_id);
+const cellApply = clApply.cells[fApply.lens_key];
+cellApply.evidence.push({ label: "Engagement Survey 2026", note: fApply.quote });
+if (fApply.classification === "leading" && fApply.direction) cellApply.leading.push({ name: fApply.quote.slice(0, 80), signal: fApply.direction });
+if (fApply.watch) cellApply.watch.push(fApply.watch);
+demoForApply.documents = [textDoc];
+demoForApply.analyses = [normAna];
+check("state with documents + analyses + applied finding stays contract-valid", schema.validateState(demoForApply));
+
 console.log(failures ? `\n${failures} CONTRACT FAILURE(S)` : "\nAll contract checks passed.");
 process.exit(failures ? 1 : 0);

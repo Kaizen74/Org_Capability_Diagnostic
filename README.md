@@ -8,6 +8,7 @@ A **holistic and directionally predictive** capability diagnostic you run entire
 - **Priority Board** — the action read: cross-cluster hero patterns on top, clusters sorted weakest-first, the priority move for each always visible.
 - **Trajectory** — the predictive read: momentum per cell (from version history + leading indicators you maintain), early-warning alerts (*erosion risk*, *stalled weakness*, *breakout underway*), and a directional projection two review cycles ahead.
 - **Signals** — the external read (optional, uses your own Claude API key): scans the latest market research, competitor moves, and regulatory shifts for your industry, then lets you apply each signal to a cluster as a leading indicator — recalibrating the trajectory forecast against the outside world.
+- **Evidence** — the grounding read: upload your own documents (strategy decks, engagement surveys, annual reports, workforce files, org charts) and Claude runs an evidence-extraction protocol against your clusters and lenses — verbatim figures, leading vs lagging classification, conservative level suggestions, and falsifiable watch signals — each finding one click away from landing in the right cell.
 - **Delta** — the recalibration read: exactly what changed since any saved baseline, declines first, with the logged rationale for every move.
 
 ![Signal Matrix](docs/screenshots/signal-matrix.png)
@@ -73,6 +74,19 @@ Then open **http://localhost:8080** in your browser. (Any static file server wor
 ![Signals view](docs/screenshots/signals.png)
 
 **Key safety:** your API key lives only in this browser, in storage separate from the diagnostic data, so it can never appear in an Export file, a report, or a backup. It is sent only to Anthropic's API, directly from your machine. Remove it anytime with **Settings → Remove key**.
+
+### Grounding the diagnostic in your own documents (Evidence)
+
+1. Open the **Evidence** tab and drop in your files — strategy decks, engagement survey results, annual reports, workforce files, org charts and job-title lists.
+   - **.txt / .md / .csv / .json** parse instantly in your browser — offline and free.
+   - **.pdf / .png / .jpg** (decks, scans, org charts) are read natively by Claude using your API key.
+   - **Word / PowerPoint / Excel** can't be parsed inside a zero-install app — save them as PDF, or use **Paste text instead** (great for survey exports and intranet content).
+2. Give each document a **source label** (it propagates to every citation) and a **type** (strategy deck, engagement survey, board paper, workforce file, org chart…).
+3. Click **Analyze & synthesize evidence**. Claude runs a strict extraction protocol — verbatim figures only, *stated ≠ demonstrated* (announcements count as trajectory evidence, never level evidence), between two levels suggest the lower — and returns findings mapped to specific **cluster × lens** cells, each classified **Leading** or **Lagging** with a rationale and a falsifiable watch signal.
+4. Click **Apply to cell** on any finding: it lands in the cell as an evidence citation, plus a leading indicator (if directional) and a watch signal — feeding the momentum model immediately. **Level suggestions are never auto-applied** — click *Open cell* to score it yourself, with the suggestion in view. You keep the pen.
+5. Privacy: text extracts live only in this browser; **PDF/image content is held in memory only** — it is never written to storage or exports, and after a restart the app honestly asks you to re-attach the file.
+
+![Evidence view](docs/screenshots/evidence.png)
 
 ### How the prediction works (in one paragraph)
 

@@ -155,6 +155,80 @@ function check(name, cond) {
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
 
+  // ---------- New: Evidence view — upload, ingest, synthesize, apply ----------
+  await page.click('.tab[data-view="evidence"]');
+  await page.waitForTimeout(300);
+  check("evidence view renders dropzone + picker + paste option",
+    await page.locator("#ev-drop").count() === 1 && await page.locator("#ev-paste").count() === 1);
+
+  const surveyText = [
+    "Engagement Survey 2026 — divisional summary",
+    "Safety engagement fell 5 points below the high-performance norm.",
+    "Attrition in critical commercial roles: 14% (up from 9%).",
+    "CRM deployed to 8 of 12 sites; active usage 55%."
+  ].join("\n");
+  await page.setInputFiles("#file-evidence", [
+    { name: "survey2026.txt", mimeType: "text/plain", buffer: Buffer.from(surveyText) },
+    { name: "board-deck.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 fake minimal pdf for status test") },
+    { name: "old-plan.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: Buffer.from("zip") }
+  ]);
+  await page.waitForTimeout(600);
+  check("three documents ingested into the list", await page.locator(".doc-row").count() === 3);
+  const statuses = await page.locator(".doc-status").allTextContents();
+  check("txt parsed locally, pdf ready via Claude, docx flagged unsupported",
+    statuses.some(s => s.includes("parsed locally")) &&
+    statuses.some(s => s.includes("PDF")) &&
+    statuses.some(s => s.toLowerCase().includes("unsupported")));
+
+  await page.locator("[data-doc-label]").first().fill("Engagement Survey 2026");
+  await page.locator("[data-doc-label]").first().press("Enter");
+  await page.locator("[data-doc-type]").first().selectOption("survey-report");
+  await page.waitForTimeout(200);
+
+  // Paste-text path (Word/Excel escape hatch)
+  await page.click("#ev-paste");
+  await page.waitForTimeout(300);
+  await page.fill("#paste-label", "Org chart extract");
+  await page.selectOption("#paste-type", "org-chart");
+  await page.fill("#paste-text", "CCO in place. Pricing architect: vacant. RevOps lead: vacant. Bid manager: interim.");
+  await page.click("#paste-save");
+  await page.waitForTimeout(400);
+  check("pasted text becomes a fourth (text) document", await page.locator(".doc-row").count() === 4);
+
+  await page.click("#ev-analyze");
+  await page.waitForTimeout(1200);
+  check("analysis produces findings mapped to cluster × lens", await page.locator(".finding-card").count() === 3);
+  check("findings quote the uploaded document's own content (proof of ingestion)",
+    (await page.locator(".finding-quote").allTextContents()).some(t => t.includes("Engagement Survey 2026") || t.includes("Safety engagement")));
+  check("findings carry leading/lagging classification badges",
+    (await page.locator(".finding-card .sig-dir").allTextContents()).some(t => t.includes("Leading")) &&
+    (await page.locator(".finding-card .sig-dir").allTextContents()).some(t => t.includes("Lagging")));
+
+  // Apply the leading finding (index 1: commercial × People, improving)
+  await page.locator("[data-apply-find]").nth(1).click();
+  await page.waitForTimeout(400);
+  check("applied finding marks as applied",
+    (await page.locator("[data-apply-find]").nth(1).textContent()).includes("Applied"));
+  const applied = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("capability_compass_state_v1"));
+    const f = s.analyses[s.analyses.length - 1].findings[1];
+    const cell = s.clusters.find(c => c.id === f.cluster_id).cells[f.lens_key];
+    return {
+      evidenceHit: cell.evidence.some(e => e.note && e.note.length > 5),
+      leadingHit: f.classification !== "leading" || cell.leading.some(l => l.signal === f.direction),
+      watchHit: !f.watch || cell.watch.includes(f.watch)
+    };
+  });
+  check("applied finding lands in the cell as evidence + leading indicator + watch",
+    applied.evidenceHit && applied.leadingHit && applied.watchHit);
+
+  // "Open cell" click-through from a finding
+  await page.locator("[data-open-cell]").first().click();
+  await page.waitForTimeout(400);
+  check("finding click-through opens the target cell drawer", await page.locator(".drawer.open").count() === 1);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+
   // ---------- New: persistence + key isolation ----------
   await page.reload();
   await page.waitForTimeout(600);
@@ -162,6 +236,17 @@ function check(name, cond) {
   await page.click('.tab[data-view="signals"]');
   await page.waitForTimeout(300);
   check("briefing persists after reload", await page.locator(".sig-card").count() === 3);
+
+  await page.click('.tab[data-view="evidence"]');
+  await page.waitForTimeout(300);
+  check("document list persists after reload", await page.locator(".doc-row").count() === 4);
+  check("analysis + applied flag persist after reload",
+    await page.locator(".finding-card").count() === 3 &&
+    (await page.locator("[data-apply-find]").nth(1).textContent()).includes("Applied"));
+  const statusesAfter = await page.locator(".doc-status").allTextContents();
+  check("text docs stay ready; PDF honestly asks for re-attach (binary never persisted)",
+    statusesAfter.filter(s => s.includes("parsed locally")).length === 2 &&
+    statusesAfter.some(s => s.includes("Re-attach")));
 
   const isolation = await page.evaluate(() => {
     const stateRaw = localStorage.getItem("capability_compass_state_v1");
@@ -176,6 +261,7 @@ function check(name, cond) {
   // Export must never contain the API key; import must round-trip.
   const exported = await page.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem("capability_compass_state_v1"))));
   check("exported state contains no API key material", !exported.includes('"apiKey"') && !exported.includes("sk-ant"));
+  check("exported state contains no binary document payloads", !exported.includes("JVBERi") && !exported.includes('"data":'));
   const importOk = await page.evaluate((raw) => {
     const parsed = JSON.parse(raw);
     return validateState(parsed).length === 0;
