@@ -82,6 +82,7 @@ function stateFromPreset(preset, orgName) {
     rubric: JSON.parse(JSON.stringify(DEFAULT_RUBRIC)),
     patterns: JSON.parse(JSON.stringify(DEFAULT_PATTERNS)),
     clusters, versions: [], changeLog: [], briefings: [],
+    documents: [], analyses: [],
     signal_keywords: [...(preset.signal_keywords || [])],
     currentVersion: "v0.1 (working)"
   };
@@ -406,10 +407,15 @@ const DOC_TYPE_LABELS = {
 };
 
 function docStatus(d) {
-  if (d.kind === "unsupported") return { label: "Unsupported — save as PDF or paste text", cls: "warn" };
-  if (d.kind === "text") return { label: "Ready (parsed locally)", cls: "good" };
+  if (d.kind === "unsupported") {
+    return { label: d.parse_error ? "Could not parse — " + d.parse_error : "Unsupported format — save as PDF or paste text", cls: "warn" };
+  }
+  if (d.kind === "text") {
+    const from = d.parsed_from ? { docx: "Word", pptx: "PowerPoint", xlsx: "Excel", pdf: "PDF" }[d.parsed_from] : null;
+    return { label: from ? "Ready (" + from + " parsed locally)" : "Ready (parsed locally)", cls: "good" };
+  }
   return docBlobs[d.id]
-    ? { label: "Ready (" + d.kind.toUpperCase() + " → analysed by Claude)", cls: "good" }
+    ? { label: d.kind === "pdf" ? "Ready (scanned PDF → read by Claude)" : "Ready (image → read by Claude)", cls: "good" }
     : { label: "Re-attach file to analyse (content is never stored)", cls: "warn" };
 }
 
@@ -466,7 +472,7 @@ function viewEvidence() {
         <strong>Drop files here</strong> or
         <button class="mini-btn" id="ev-pick">Choose files</button>
         <button class="mini-btn" id="ev-paste">Paste text instead</button>
-        <span class="sig-meta">Supported: .txt .md .csv .json (parsed locally) · .pdf .png .jpg (via Claude) · Word/PowerPoint/Excel: save as PDF or paste the text</span>
+        <span class="sig-meta">Supported: .pdf .docx .pptx .xlsx .xls .txt .md .csv .json — all parsed locally in your browser · scanned PDFs &amp; images (.png .jpg) are read by Claude with your API key · anything else: Paste text</span>
       </div>
       ${docRows ? `<div class="doc-list">${docRows}</div>` : ""}
       <div class="m-row" style="margin-top:2px">
@@ -520,12 +526,14 @@ function bindEvidenceEvents() {
 async function addEvidenceFiles(fileList) {
   const files = Array.from(fileList || []);
   if (!files.length) return;
+  state.documents = state.documents || [];   // defensive: pre-migration states
+  state.analyses = state.analyses || [];
   for (const f of files) {
     if ((state.documents || []).length >= 15) { toast("Document limit reached (15) — remove one first."); break; }
     try {
       const doc = await ingestFile(f, docBlobs);
       state.documents.push(doc);
-      if (doc.kind === "unsupported") toast(f.name + ": this format can't be parsed here — save it as PDF or use Paste text.");
+      if (doc.kind === "unsupported") toast(f.name + ": " + (doc.parse_error ? "could not be parsed (" + doc.parse_error + ")" : "this format can't be parsed here") + " — save it as PDF or use Paste text.");
     } catch (e) {
       toast(e.message);
     }
@@ -903,7 +911,7 @@ function wizardPreview(presetId) {
     </div>`);
   $("wiz-back").addEventListener("click", () => openWizard(!!state));
   $("wiz-go").addEventListener("click", () => {
-    state = stateFromPreset(p, $("wiz-org").value.trim());
+    state = migrateState(stateFromPreset(p, $("wiz-org").value.trim()));
     closeModal(); activeView = "matrix"; renderAll();
     toast("Diagnostic scaffold created. Click any cell to start rating with evidence.");
   });

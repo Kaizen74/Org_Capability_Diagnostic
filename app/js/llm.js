@@ -244,52 +244,109 @@ async function scanExternalSignals(state, keywords) {
 
 var TEXT_EXTENSIONS = ["txt", "md", "markdown", "csv", "tsv", "json", "log"];
 var IMAGE_TYPES = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif" };
-var UNSUPPORTED_EXTENSIONS = ["docx", "pptx", "xlsx", "doc", "ppt", "xls"];
 var MAX_TEXT_CHARS = 100000;   // per document, persisted
 var MAX_BINARY_BYTES = 10 * 1024 * 1024; // 10 MB per PDF/image (API limit is 32MB/request)
+var MIN_PDF_TEXT_CHARS = 200;  // below this the PDF is treated as scanned → Claude vision
 
+/* Routing: which ingestion path a file takes. Office formats parse
+   locally via the vendored libraries; the stored doc.kind afterwards
+   is always one of the contract's DOC_KINDS. */
 function docKindFor(fileName, mimeType) {
   var ext = (fileName.split(".").pop() || "").toLowerCase();
   if (TEXT_EXTENSIONS.indexOf(ext) !== -1 || /^text\//.test(mimeType || "")) return "text";
   if (ext === "pdf" || mimeType === "application/pdf") return "pdf";
   if (IMAGE_TYPES[ext]) return "image";
-  if (UNSUPPORTED_EXTENSIONS.indexOf(ext) !== -1) return "unsupported";
-  return "unsupported";
+  if (ext === "docx") return "docx";
+  if (ext === "pptx") return "pptx";
+  if (ext === "xlsx" || ext === "xls") return "xlsx";
+  return "unsupported"; // legacy binary .doc/.ppt and everything else
 }
 
-/* Read a File into {kind, text?} + registers binary payloads into blobStore. */
-function ingestFile(file, blobStore) {
+function readAs(file, mode) {
   return new Promise(function (resolve, reject) {
-    var kind = docKindFor(file.name, file.type);
-    var id = "doc_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
-    var base = {
-      id: id, name: file.name, label: file.name.replace(/\.[^.]+$/, ""),
-      doc_type: "other", kind: kind, size: file.size,
-      added_at: new Date().toISOString()
-    };
-    if (kind === "unsupported") { resolve(base); return; }
-    if (kind === "text") {
-      var r1 = new FileReader();
-      r1.onerror = function () { reject(new Error("Could not read " + file.name)); };
-      r1.onload = function () {
-        base.text = String(r1.result || "").slice(0, MAX_TEXT_CHARS);
-        resolve(base);
-      };
-      r1.readAsText(file);
-      return;
-    }
-    // pdf / image → base64, memory only
-    if (file.size > MAX_BINARY_BYTES) { reject(new Error(file.name + " is over 10 MB — split it or export a lighter PDF.")); return; }
-    var r2 = new FileReader();
-    r2.onerror = function () { reject(new Error("Could not read " + file.name)); };
-    r2.onload = function () {
-      var data = String(r2.result || "").split(",")[1] || "";
-      var ext = (file.name.split(".").pop() || "").toLowerCase();
-      blobStore[id] = { media_type: kind === "pdf" ? "application/pdf" : (IMAGE_TYPES[ext] || file.type), data: data };
-      resolve(base);
-    };
-    r2.readAsDataURL(file);
+    var r = new FileReader();
+    r.onerror = function () { reject(new Error("Could not read " + file.name)); };
+    r.onload = function () { resolve(r.result); };
+    if (mode === "text") r.readAsText(file);
+    else if (mode === "dataurl") r.readAsDataURL(file);
+    else r.readAsArrayBuffer(file);
   });
+}
+
+function bufferToBase64(buf) {
+  var bytes = new Uint8Array(buf);
+  var chunks = [];
+  for (var i = 0; i < bytes.length; i += 32768) {
+    chunks.push(String.fromCharCode.apply(null, bytes.subarray(i, i + 32768)));
+  }
+  return btoa(chunks.join(""));
+}
+
+/* Read a File → document record. Office formats and text-layer PDFs
+   become kind "text" (parsed locally); scanned PDFs and images keep
+   a memory-only base64 payload for Claude vision. */
+async function ingestFile(file, blobStore) {
+  var route = docKindFor(file.name, file.type);
+  var id = "doc_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7);
+  var base = {
+    id: id, name: file.name, label: file.name.replace(/\.[^.]+$/, ""),
+    doc_type: "other", kind: "unsupported", size: file.size,
+    added_at: new Date().toISOString()
+  };
+  if (route === "unsupported") return base;
+
+  if (route === "text") {
+    base.kind = "text";
+    base.text = String(await readAs(file, "text") || "").slice(0, MAX_TEXT_CHARS);
+    return base;
+  }
+
+  if (route === "docx" || route === "pptx" || route === "xlsx") {
+    var canParse = (route === "xlsx") ? PARSER_SUPPORT.sheets : PARSER_SUPPORT.office;
+    if (!canParse) return base; // vendored parser missing → unsupported
+    var buf = await readAs(file, "arraybuffer");
+    try {
+      var text = route === "docx" ? await extractDocxText(buf)
+        : route === "pptx" ? await extractPptxText(buf)
+        : extractXlsxText(buf);
+      if (!text || !text.trim()) throw new Error("no text found");
+      base.kind = "text";
+      base.parsed_from = route;
+      base.text = text.slice(0, MAX_TEXT_CHARS);
+      return base;
+    } catch (e) {
+      base.parse_error = String(e.message || e).slice(0, 120);
+      return base; // stays unsupported, with the reason
+    }
+  }
+
+  if (file.size > MAX_BINARY_BYTES) throw new Error(file.name + " is over 10 MB — split it or export a lighter version.");
+
+  if (route === "pdf") {
+    var pdfBuf = await readAs(file, "arraybuffer");
+    if (PARSER_SUPPORT.pdf) {
+      try {
+        // pdf.js consumes the buffer — keep a copy for the vision fallback
+        var textOut = await extractPdfText(pdfBuf.slice(0));
+        if (textOut && textOut.length >= MIN_PDF_TEXT_CHARS) {
+          base.kind = "text";
+          base.parsed_from = "pdf";
+          base.text = textOut.slice(0, MAX_TEXT_CHARS);
+          return base;
+        }
+      } catch (e) { /* fall through to Claude vision */ }
+    }
+    base.kind = "pdf"; // scanned / no text layer → Claude reads it natively
+    blobStore[id] = { media_type: "application/pdf", data: bufferToBase64(pdfBuf) };
+    return base;
+  }
+
+  // image
+  var dataUrl = await readAs(file, "dataurl");
+  var ext = (file.name.split(".").pop() || "").toLowerCase();
+  base.kind = "image";
+  blobStore[id] = { media_type: IMAGE_TYPES[ext] || file.type, data: String(dataUrl).split(",")[1] || "" };
+  return base;
 }
 
 function buildAnalysisPrompt(state) {

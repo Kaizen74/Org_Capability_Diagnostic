@@ -184,14 +184,37 @@ checkOk("non-string watch signal rejected by contract", schema.validateState(wit
 
 // ---- 14. Document ingestion contracts (PRD F6) ----
 const docKindFor = vm.runInContext("docKindFor", sandbox);
-checkOk("file-kind routing: txt/md/csv local, pdf/png via API, docx unsupported",
+checkOk("file-kind routing: text local; pdf/image native; Word/PowerPoint/Excel to local parsers; legacy binary unsupported",
   docKindFor("strategy.txt", "text/plain") === "text" &&
   docKindFor("survey.md", "") === "text" &&
   docKindFor("headcount.csv", "text/csv") === "text" &&
   docKindFor("board-deck.pdf", "application/pdf") === "pdf" &&
   docKindFor("org-chart.png", "image/png") === "image" &&
-  docKindFor("plan.docx", "") === "unsupported" &&
-  docKindFor("model.xlsx", "") === "unsupported");
+  docKindFor("plan.docx", "") === "docx" &&
+  docKindFor("offsite.pptx", "") === "pptx" &&
+  docKindFor("model.xlsx", "") === "xlsx" &&
+  docKindFor("model.xls", "") === "xlsx" &&
+  docKindFor("legacy.doc", "") === "unsupported" &&
+  docKindFor("legacy.ppt", "") === "unsupported");
+
+// ---- 14b. Office XML → text extraction (pure helpers, same file the app loads) ----
+const parsers = require(path.join(__dirname, "..", "app", "js", "parsers.js"));
+const docxText = parsers.docxXmlToText(
+  '<w:document><w:body><w:p><w:r><w:t>Attrition in critical roles: 14%</w:t></w:r></w:p>' +
+  '<w:tbl><w:tr><w:tc><w:p><w:r><w:t>Pricing architect</w:t></w:r></w:p></w:tc>' +
+  '<w:tc><w:p><w:r><w:t>Vacant</w:t></w:r></w:p></w:tc></w:tr></w:tbl>' +
+  '<w:p><w:r><w:t>Safety &amp; trust: &#8722;5 vs norm</w:t></w:r></w:p></w:body></w:document>');
+checkOk("docx extraction keeps figures, tables, and decodes entities",
+  docxText.includes("Attrition in critical roles: 14%") &&
+  docxText.includes("Pricing architect") && docxText.includes("Vacant") &&
+  docxText.includes("Safety & trust: −5 vs norm"));
+const pptxText = parsers.pptxXmlToText(
+  '<p:sld><p:txBody><a:p><a:r><a:t>Transform to Win</a:t></a:r><a:r><a:t> 2026</a:t></a:r></a:p>' +
+  '<a:p><a:r><a:t>CRM adoption 55% &lt; target</a:t></a:r></a:p></p:txBody></p:sld>');
+checkOk("pptx extraction joins runs per paragraph and skips layout XML",
+  pptxText === "Transform to Win 2026\nCRM adoption 55% < target");
+checkOk("slide ordering is natural (slide2 before slide10)",
+  ["ppt/slides/slide10.xml", "ppt/slides/slide2.xml"].sort(parsers.slideOrder)[0] === "ppt/slides/slide2.xml");
 
 const textDoc = {
   id: "doc_1", name: "survey.txt", label: "Engagement Survey 2026", doc_type: "survey-report",

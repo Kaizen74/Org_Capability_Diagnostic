@@ -16,6 +16,28 @@ const path = require("path");
 const CHROMIUM = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
 const APP_URL = "file://" + path.resolve(__dirname, "..", "app", "index.html");
 
+/* Build a small but fully valid PDF with a real text layer (exact xref
+   offsets), so the vendored pdf.js extractor is exercised end-to-end. */
+function makeTextPdf(lines) {
+  const streamBody = "BT /F1 12 Tf 40 760 Td " +
+    lines.map((l, i) => (i ? "0 -16 Td " : "") + "(" + l.replace(/[\\()]/g, "") + ") Tj ").join("") + "ET";
+  const objects = [
+    "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+    "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n",
+    "4 0 obj\n<< /Length " + streamBody.length + " >>\nstream\n" + streamBody + "\nendstream\nendobj\n",
+    "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n"
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [];
+  for (const o of objects) { offsets.push(pdf.length); pdf += o; }
+  const xrefPos = pdf.length;
+  pdf += "xref\n0 6\n0000000000 65535 f \n" +
+    offsets.map(o => String(o).padStart(10, "0") + " 00000 n \n").join("") +
+    "trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n" + xrefPos + "\n%%EOF";
+  return Buffer.from(pdf, "ascii");
+}
+
 let failures = 0;
 function check(name, cond) {
   console.log(`${cond ? "✓" : "✗"} ${name}`);
@@ -169,16 +191,63 @@ function check(name, cond) {
   ].join("\n");
   await page.setInputFiles("#file-evidence", [
     { name: "survey2026.txt", mimeType: "text/plain", buffer: Buffer.from(surveyText) },
-    { name: "board-deck.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 fake minimal pdf for status test") },
-    { name: "old-plan.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: Buffer.from("zip") }
+    { name: "scan-only.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 fake scanned pdf with no text layer") },
+    { name: "legacy-plan.doc", mimeType: "application/msword", buffer: Buffer.from("old binary word file") }
   ]);
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(800);
   check("three documents ingested into the list", await page.locator(".doc-row").count() === 3);
   const statuses = await page.locator(".doc-status").allTextContents();
-  check("txt parsed locally, pdf ready via Claude, docx flagged unsupported",
+  check("txt parsed locally, scanned pdf routed to Claude, legacy .doc flagged",
     statuses.some(s => s.includes("parsed locally")) &&
-    statuses.some(s => s.includes("PDF")) &&
-    statuses.some(s => s.toLowerCase().includes("unsupported")));
+    statuses.some(s => s.includes("scanned PDF")) &&
+    statuses.some(s => s.toLowerCase().includes("unsupported") || s.toLowerCase().includes("could not parse")));
+
+  // ---------- Broader formats: real .xlsx/.docx/.pptx built by the vendored libs, real text-layer PDF ----------
+  const office = await page.evaluate(async () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+      ["Role", "Status"], ["Pricing architect", "Vacant"], ["RevOps lead", "Vacant"], ["Attrition critical roles", "14%"]
+    ]), "Workforce");
+    const xlsxB64 = XLSX.write(wb, { bookType: "xlsx", type: "base64" });
+    const z1 = new JSZip();
+    z1.file("word/document.xml", "<w:document><w:body><w:p><w:r><w:t>Strategy 2026: scale hub-of-the-future globally.</w:t></w:r></w:p><w:p><w:r><w:t>Safety engagement sits 5 points below the norm.</w:t></w:r></w:p></w:body></w:document>");
+    const docxB64 = await z1.generateAsync({ type: "base64" });
+    const z2 = new JSZip();
+    z2.file("ppt/slides/slide1.xml", "<p:sld><p:txBody><a:p><a:r><a:t>Transform to Win offsite</a:t></a:r></a:p><a:p><a:r><a:t>CRM adoption at 55 percent of deployed sites</a:t></a:r></a:p></p:txBody></p:sld>");
+    const pptxB64 = await z2.generateAsync({ type: "base64" });
+    return { xlsxB64, docxB64, pptxB64 };
+  });
+  const pdfLines = [
+    "Annual report extract for capability diagnostic evidence.",
+    "Cargo tonnage grew 8 percent year on year across the network.",
+    "Ground handling productivity improved 12 percent after automation rollout.",
+    "Safety incident severity remains above tolerance in two regions.",
+    "Successor coverage for critical leadership roles reached 90 percent."
+  ];
+  await page.setInputFiles("#file-evidence", [
+    { name: "workforce.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from(office.xlsxB64, "base64") },
+    { name: "strategy.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: Buffer.from(office.docxB64, "base64") },
+    { name: "offsite.pptx", mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation", buffer: Buffer.from(office.pptxB64, "base64") },
+    { name: "annual-report.pdf", mimeType: "application/pdf", buffer: makeTextPdf(pdfLines) }
+  ]);
+  await page.waitForTimeout(1500);
+  check("office + PDF batch ingests (7 documents total)", await page.locator(".doc-row").count() === 7);
+  const statuses2 = await page.locator(".doc-status").allTextContents();
+  check("Excel, Word, PowerPoint and text-layer PDF all parsed locally",
+    statuses2.some(s => s.includes("Excel parsed locally")) &&
+    statuses2.some(s => s.includes("Word parsed locally")) &&
+    statuses2.some(s => s.includes("PowerPoint parsed locally")) &&
+    statuses2.some(s => s.includes("PDF parsed locally")));
+  const parsedTexts = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("capability_compass_state_v1"));
+    return s.documents.map(d => d.text || "").join("\n");
+  });
+  check("Excel content extracted (roles + figures survive as a table)",
+    parsedTexts.includes("Pricing architect,Vacant") && parsedTexts.includes("Attrition critical roles,14%"));
+  check("Word content extracted verbatim", parsedTexts.includes("scale hub-of-the-future globally"));
+  check("PowerPoint content extracted per slide", parsedTexts.includes("CRM adoption at 55 percent"));
+  check("PDF text layer extracted by pdf.js (page-marked)",
+    parsedTexts.includes("Cargo tonnage grew 8 percent") && parsedTexts.includes("--- Page 1 ---"));
 
   await page.locator("[data-doc-label]").first().fill("Engagement Survey 2026");
   await page.locator("[data-doc-label]").first().press("Enter");
@@ -193,7 +262,7 @@ function check(name, cond) {
   await page.fill("#paste-text", "CCO in place. Pricing architect: vacant. RevOps lead: vacant. Bid manager: interim.");
   await page.click("#paste-save");
   await page.waitForTimeout(400);
-  check("pasted text becomes a fourth (text) document", await page.locator(".doc-row").count() === 4);
+  check("pasted text becomes an eighth (text) document", await page.locator(".doc-row").count() === 8);
 
   await page.click("#ev-analyze");
   await page.waitForTimeout(1200);
@@ -239,13 +308,13 @@ function check(name, cond) {
 
   await page.click('.tab[data-view="evidence"]');
   await page.waitForTimeout(300);
-  check("document list persists after reload", await page.locator(".doc-row").count() === 4);
+  check("document list persists after reload", await page.locator(".doc-row").count() === 8);
   check("analysis + applied flag persist after reload",
     await page.locator(".finding-card").count() === 3 &&
     (await page.locator("[data-apply-find]").nth(1).textContent()).includes("Applied"));
   const statusesAfter = await page.locator(".doc-status").allTextContents();
-  check("text docs stay ready; PDF honestly asks for re-attach (binary never persisted)",
-    statusesAfter.filter(s => s.includes("parsed locally")).length === 2 &&
+  check("all locally-parsed docs stay ready; scanned PDF honestly asks for re-attach (binary never persisted)",
+    statusesAfter.filter(s => s.includes("parsed locally")).length === 6 &&
     statusesAfter.some(s => s.includes("Re-attach")));
 
   const isolation = await page.evaluate(() => {
@@ -304,6 +373,17 @@ function check(name, cond) {
   const unknownCard = await page.locator(".alert-card").nth(4).textContent();
   check("direction-unknown alert lists unassessed cells", unknownCard.includes("Direction unknown"));
   check("evidence-infrastructure-gap message shown", unknownCard.includes("evidence-infrastructure gap"));
+
+  // Regression for the fresh-state crash: uploading evidence on a
+  // wizard-created diagnostic must work (state.documents backfilled).
+  await page.click('.tab[data-view="evidence"]');
+  await page.waitForTimeout(300);
+  await page.setInputFiles("#file-evidence", [
+    { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("Fresh diagnostic evidence upload should not crash.") }
+  ]);
+  await page.waitForTimeout(500);
+  check("REGRESSION FIX: upload works on a fresh wizard-created diagnostic (no 'push of undefined')",
+    await page.locator(".doc-row").count() === 1);
 
   const realErrors = jsErrors.filter(e => !e.includes("ERR_TUNNEL") && !e.includes("Failed to load resource"));
   check("no JavaScript errors during the whole run", realErrors.length === 0);

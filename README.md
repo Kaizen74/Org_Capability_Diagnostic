@@ -78,9 +78,9 @@ Then open **http://localhost:8080** in your browser. (Any static file server wor
 ### Grounding the diagnostic in your own documents (Evidence)
 
 1. Open the **Evidence** tab and drop in your files — strategy decks, engagement survey results, annual reports, workforce files, org charts and job-title lists.
-   - **.txt / .md / .csv / .json** parse instantly in your browser — offline and free.
-   - **.pdf / .png / .jpg** (decks, scans, org charts) are read natively by Claude using your API key.
-   - **Word / PowerPoint / Excel** can't be parsed inside a zero-install app — save them as PDF, or use **Paste text instead** (great for survey exports and intranet content).
+   - **.pdf, .docx (Word), .pptx (PowerPoint), .xlsx/.xls (Excel), .txt, .md, .csv, .json** all parse **locally in your browser** — offline, free, nothing leaves your machine. (The app ships with three bundled open-source parsers: pdf.js, SheetJS, and JSZip — still zero-install for you.) PowerPoint extraction includes speaker notes; Excel comes in as per-sheet tables.
+   - **Scanned/image-only PDFs and images (.png/.jpg)** — org charts, photographed documents — are read natively by Claude using your API key.
+   - Anything else (legacy .doc/.ppt, intranet pages, emails): use **Paste text instead**.
 2. Give each document a **source label** (it propagates to every citation) and a **type** (strategy deck, engagement survey, board paper, workforce file, org chart…).
 3. Click **Analyze & synthesize evidence**. Claude runs a strict extraction protocol — verbatim figures only, *stated ≠ demonstrated* (announcements count as trajectory evidence, never level evidence), between two levels suggest the lower — and returns findings mapped to specific **cluster × lens** cells, each classified **Leading** or **Lagging** with a rationale and a falsifiable watch signal.
 4. Click **Apply to cell** on any finding: it lands in the cell as an evidence citation, plus a leading indicator (if directional) and a watch signal — feeding the momentum model immediately. **Level suggestions are never auto-applied** — click *Open cell* to score it yourself, with the suggestion in view. You keep the pen.
