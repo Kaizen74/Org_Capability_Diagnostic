@@ -1,0 +1,12 @@
+# Files graphify should not index into the knowledge graph.
+#
+# app/js/vendor/ holds third-party minified bundles (pdf.js, SheetJS,
+# JSZip) that are deliberately committed so the app stays zero-install.
+# Indexing them buries this project's ~200 real code nodes under ~3,900
+# nodes of minified library internals, which makes the graph actively
+# misleading for anyone asking questions about the app.
+app/js/vendor/
+
+# Generated artefacts and binaries — no source structure to extract.
+docs/screenshots/
+graphify-out/
