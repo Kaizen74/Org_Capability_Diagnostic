@@ -94,12 +94,43 @@ async function testConnection(cfg) {
 
 /* ---------- External signal scan ---------- */
 
+/* The money map, rendered for a prompt. Research and extraction are both
+   far sharper when the model knows which capabilities carry the P&L —
+   a benchmark on a 2% lever is trivia, the same benchmark on a 30% lever
+   is a board decision. Returns "" when nothing has been mapped, so the
+   prompt never implies economics that were not supplied. */
+function valueChainBrief(state) {
+  var vc = state.valueChain || {};
+  var levers = (vc.levers || []).filter(function (l) { return (l.share_pct || 0) > 0; });
+  if (!levers.length) return "";
+  levers = levers.slice().sort(function (a, b) { return (b.share_pct || 0) - (a.share_pct || 0); });
+  var lines = levers.map(function (l) {
+    var owner = (state.clusters.filter(function (c) { return c.id === l.cluster_id; })[0] || {}).name;
+    return "- " + l.name + " — " + l.share_pct + "% of economic weight" +
+      (l.figure ? " (" + l.figure + ")" : "") +
+      (l.capability ? " | capability that moves it: " + l.capability : "") +
+      " | owned by: " + (owner || "NO CLUSTER — accountability gap");
+  });
+  return [
+    "",
+    "WHERE THE MONEY IS (follow-the-money map" + (vc.as_of ? ", " + vc.as_of : "") +
+      (vc.revenue ? ", revenue " + (vc.currency || "") + vc.revenue : "") + "):",
+    lines.join("\n"),
+    "Weight the analysis accordingly: a finding on a high-weight lever outranks a finding on a low-weight one, and you must say which lever a finding touches."
+  ].join("\n");
+}
+
 function buildScanPrompt(state, keywords) {
   var clusterLines = state.clusters.map(function (c) {
     var weak = state.lenses.filter(function (l) { return c.cells[l.key] && c.cells[l.key].level <= 2; }).map(function (l) { return l.key; });
-    return '- id: "' + c.id + '" | ' + c.name + " — " + c.desc + (weak.length ? " | weak lenses: " + weak.join(", ") : "");
+    var wt = typeof clusterEconomicWeight === "function" ? clusterEconomicWeight(state, c.id) : 0;
+    return '- id: "' + c.id + '" | ' + c.name + " — " + c.desc +
+      (wt ? " | economic weight: " + wt + "%" : "") +
+      (weak.length ? " | weak lenses: " + weak.join(", ") : "");
   }).join("\n");
   var lensKeys = state.lenses.map(function (l) { return l.key; }).join(", ");
+  var money = valueChainBrief(state);
+  if (money) money = money + "\n";
   return [
     "You are a strategy analyst preparing an external-signal briefing for an organizational capability diagnostic.",
     "",
@@ -110,7 +141,7 @@ function buildScanPrompt(state, keywords) {
     "Capability clusters being assessed (with their ids):",
     clusterLines,
     "Assessment lenses: " + lensKeys,
-    "",
+    money,
     "HARVEST DISCIPLINE (follow literally — this is what separates a defensible briefing from a plausible one):",
     "1. Query triangulation — run at least three vocabularies before concluding: the user's words (the keywords above), the practitioner's words (how an expert in this industry would name it), and the document's words (terms that would appear IN the target page). Stop when the last query returns no new credible sources, or the top three sources agree, or six queries have run.",
     "2. Source quality — rate every source before trusting it: 5 primary (the organisation's own site, regulator, filings, peer-reviewed), 4 reputable secondary (established news, named industry analysts), 3 useful aggregate (trade press, detailed comparisons), 2 SEO-farm signals (listicles, no named author, identical phrasing across sites), 1 content mill. Prefer 4-5. Two low-quality sources agreeing does NOT outrank one primary source.",
@@ -236,6 +267,210 @@ async function scanExternalSignals(state, keywords) {
   var errs = validateBriefing(briefing);
   if (errs.length) throw new Error("Signal briefing failed contract validation: " + errs[0]);
   return briefing;
+}
+
+/* ============================================================
+   Cluster calibration — tune the cluster set to the value chain
+   AND to the industry.
+
+   The deterministic engine (calibrateClusters) already catches the
+   arithmetic mismatches: money with no owner, clusters with no money,
+   clusters carrying too much. What it cannot do is know that a peer
+   in this industry treats "revenue management" as its own capability,
+   or that the two levers piled into one cluster are recognised
+   elsewhere as separate disciplines. That is what the harvest is for.
+
+   Every proposal is a PROPOSAL. Nothing is applied without a click.
+   ============================================================ */
+
+function buildCalibrationPrompt(state) {
+  var levers = ((state.valueChain || {}).levers) || [];
+  var leverLines = levers.length ? levers.map(function (l) {
+    var owner = (state.clusters.filter(function (c) { return c.id === l.cluster_id; })[0] || {}).name;
+    return '- lever_id: "' + l.id + '" | ' + l.name + " | weight " + (l.share_pct || 0) + "%" +
+      (l.figure ? " (" + l.figure + ")" : "") +
+      " | capability: " + (l.capability || "NOT NAMED") +
+      " | owned by: " + (owner || "NO CLUSTER");
+  }).join("\n") : "(no levers mapped)";
+  var clusterLines = state.clusters.map(function (c) {
+    var wt = typeof clusterEconomicWeight === "function" ? clusterEconomicWeight(state, c.id) : 0;
+    return '- cluster_id: "' + c.id + '" | ' + c.name + " — " + c.desc + " | economic weight " + wt + "%";
+  }).join("\n");
+
+  return [
+    "You are an organisation-design analyst auditing whether a capability-diagnostic's CLUSTER SET is the right one for this specific organisation's economics and for its industry.",
+    "",
+    "Organisation: " + state.orgName,
+    "Industry: " + state.industry_name,
+    "",
+    "Current capability clusters (these are the rows of the diagnostic):",
+    clusterLines,
+    "",
+    "The organisation's follow-the-money map:",
+    leverLines,
+    "",
+    "HARVEST DISCIPLINE (follow literally):",
+    "1. Query triangulation — before proposing anything, research how capability is actually organised in this industry using at least three vocabularies: the organisation's words (the cluster and lever names above), the practitioner's words (how an operator in this industry names the same discipline), and the document's words (terms that would appear in a peer's annual report, org announcement, or an industry capability model). Stop when the last query returns no new credible sources, or the top three sources agree, or six queries have run.",
+    "2. Source quality — 5 primary (peer filings, regulator, the organisation's own disclosures), 4 reputable secondary (established industry analysts), 3 trade press, 2 SEO-farm, 1 content mill. Prefer 4-5. Two weak sources agreeing does not outrank one primary source.",
+    "3. Anti-fabrication — every claim about industry practice must be traceable to a page you actually fetched. Do NOT invent a benchmark, a peer's structure, or a 'commonly accepted' capability model from memory. If you cannot source it, say so and lower the confidence.",
+    "4. Do not propose change for its own sake. If a cluster is right, return action \"keep\" and say why. A calibration that changes everything is a rewrite, not a calibration.",
+    "",
+    "THE TESTS a cluster set must pass:",
+    "- Every material P&L lever has exactly one cluster accountable for it.",
+    "- Every cluster carries economic weight, or a stated non-financial licence-to-operate reason for existing.",
+    "- No single cluster hides two disciplines that move on different capabilities and different clocks.",
+    "- The names are the organisation's own language, not consultant vocabulary.",
+    "",
+    "Propose 3 to 6 changes maximum. Respond with ONLY a JSON object, no prose:",
+    "{",
+    '  "proposals": [',
+    "    {",
+    '      "action": "add" | "merge" | "rename" | "split" | "keep",',
+    '      "cluster_id": "existing cluster_id this acts on (null only for add)",',
+    '      "merge_into_id": "target cluster_id (merge only, else null)",',
+    '      "name": "proposed cluster name (add/split/rename; else null)",',
+    '      "desc": "one line describing what the cluster covers",',
+    '      "priority_move": "one imperative sentence — what must be done next",',
+    '      "lever_ids": ["lever ids this cluster should own, from the list above"],',
+    '      "rationale": "one sentence tying the change to a named P&L lever or a sourced industry practice",',
+    '      "evidence": "source and year for any industry claim, or empty string if this rests only on the money map",',
+    '      "confidence": "high" | "medium" | "low"',
+    "    }",
+    "  ]",
+    "}"
+  ].join("\n");
+}
+
+/* Deterministic offline stand-in. Derived from the real money map so it
+   exercises every branch the applier supports. */
+function mockClusterCalibration(state) {
+  var levers = ((state.valueChain || {}).levers) || [];
+  var weightOf = function (id) {
+    return levers.filter(function (l) { return l.cluster_id === id; })
+      .reduce(function (a, l) { return a + (l.share_pct || 0); }, 0);
+  };
+  var proposals = [];
+
+  levers.filter(function (l) { return !l.cluster_id && (l.share_pct || 0) > 0; }).forEach(function (l) {
+    proposals.push({
+      action: "add", cluster_id: null, merge_into_id: null,
+      name: (l.capability || l.name).split(",")[0].slice(0, 40),
+      desc: "Owns the capability behind “" + l.name + "”.",
+      priority_move: "Name an accountable owner and score this cluster before the next review.",
+      lever_ids: [l.id],
+      rationale: l.share_pct + "% of economic weight currently has no cluster accountable for it (simulated calibration).",
+      evidence: "", confidence: "high"
+    });
+  });
+
+  var empty = state.clusters.filter(function (c) { return weightOf(c.id) === 0; });
+  var biggest = state.clusters.slice().sort(function (a, b) { return weightOf(b.id) - weightOf(a.id); })[0];
+  if (empty.length && biggest) {
+    proposals.push({
+      action: "merge", cluster_id: empty[0].id, merge_into_id: biggest.id,
+      name: null, desc: "", priority_move: "",
+      lever_ids: [],
+      rationale: "“" + empty[0].name + "” carries no economic weight; its levers and roles belong with “" + biggest.name + "” (simulated calibration).",
+      evidence: "", confidence: "medium"
+    });
+  }
+
+  var overloaded = state.clusters.filter(function (c) {
+    return levers.filter(function (l) { return l.cluster_id === c.id && (l.share_pct || 0) > 0; }).length >= 2;
+  })[0];
+  if (overloaded) {
+    var own = levers.filter(function (l) { return l.cluster_id === overloaded.id && (l.share_pct || 0) > 0; });
+    proposals.push({
+      action: "split", cluster_id: overloaded.id, merge_into_id: null,
+      name: own[own.length - 1].name.split("(")[0].trim().slice(0, 40),
+      desc: "Split out of “" + overloaded.name + "” so each lever carries its own rating.",
+      priority_move: "Assign a distinct owner and re-score the split cluster from evidence.",
+      lever_ids: [own[own.length - 1].id],
+      rationale: "“" + overloaded.name + "” answers for " + own.length + " levers that move on different capabilities and different clocks (simulated calibration).",
+      evidence: "", confidence: "medium"
+    });
+  }
+
+  if (biggest) {
+    proposals.push({
+      action: "keep", cluster_id: biggest.id, merge_into_id: null,
+      name: null, desc: "", priority_move: "", lever_ids: [],
+      rationale: "“" + biggest.name + "” carries the largest share of economic weight and maps cleanly to one discipline — no change needed (simulated calibration).",
+      evidence: "", confidence: "high"
+    });
+  }
+  if (!proposals.length) {
+    proposals.push({
+      action: "keep", cluster_id: state.clusters[0].id, merge_into_id: null,
+      name: null, desc: "", priority_move: "", lever_ids: [],
+      rationale: "Nothing to calibrate against yet — map P&L weights first (simulated calibration).",
+      evidence: "", confidence: "low"
+    });
+  }
+  return { proposals: proposals };
+}
+
+/* Propose cluster-set changes. Returns a validated calibration object. */
+async function proposeClusterCalibration(state) {
+  var cfg = getApiConfig();
+  if (!cfg.apiKey) throw new Error("Add a Claude API key in Settings first (or use the key 'mock').");
+  var raw;
+  if (isMockKey(cfg.apiKey)) {
+    await new Promise(function (r) { setTimeout(r, 500); });
+    raw = mockClusterCalibration(state);
+  } else {
+    var messages = [{ role: "user", content: buildCalibrationPrompt(state) }];
+    var resp = null;
+    for (var attempt = 0; attempt < 4; attempt++) {
+      resp = await anthropicRequest(cfg, {
+        model: cfg.model, max_tokens: 4096,
+        tools: [webSearchToolFor(cfg.model)],
+        messages: messages
+      });
+      if (resp.stop_reason === "pause_turn") {
+        messages = messages.concat([{ role: "assistant", content: resp.content }]);
+        continue;
+      }
+      break;
+    }
+    if (resp.stop_reason === "refusal") throw new Error("The model declined this calibration request.");
+    var text = (resp.content || []).filter(function (b) { return b.type === "text"; }).map(function (b) { return b.text; }).join("\n");
+    raw = extractJson(text);
+  }
+
+  var leverIds = (((state.valueChain || {}).levers) || []).map(function (l) { return l.id; });
+  var clusterIds = state.clusters.map(function (c) { return c.id; });
+  var calibration = {
+    id: "cal_" + Date.now(),
+    generated_at: new Date().toISOString(),
+    model: isMockKey(cfg.apiKey) ? "mock" : cfg.model,
+    proposals: (raw.proposals || []).map(function (p) {
+      return {
+        action: CALIBRATION_ACTIONS.indexOf(p.action) !== -1 ? p.action : "keep",
+        cluster_id: clusterIds.indexOf(p.cluster_id) !== -1 ? p.cluster_id : null,
+        merge_into_id: clusterIds.indexOf(p.merge_into_id) !== -1 ? p.merge_into_id : null,
+        name: typeof p.name === "string" && p.name.trim() ? p.name.trim().slice(0, 60) : null,
+        desc: String(p.desc || "").trim(),
+        priority_move: String(p.priority_move || "").trim(),
+        lever_ids: (Array.isArray(p.lever_ids) ? p.lever_ids : []).filter(function (id) { return leverIds.indexOf(id) !== -1; }),
+        rationale: String(p.rationale || "").trim(),
+        evidence: String(p.evidence || "").trim(),
+        confidence: CONFIDENCE_LEVELS.indexOf(p.confidence) !== -1 ? p.confidence : "low",
+        applied: false, dismissed: false
+      };
+    }).filter(function (p) {
+      // Drop proposals the applier could not honour — a structural change
+      // aimed at a cluster that does not exist is worse than no proposal.
+      if (!p.rationale) return false;
+      if (p.action === "add" || p.action === "split") return !!p.name;
+      if (p.action === "merge") return !!p.cluster_id && !!p.merge_into_id && p.cluster_id !== p.merge_into_id;
+      return !!p.cluster_id;
+    })
+  };
+  if (!calibration.proposals.length) throw new Error("No actionable calibration proposals came back — try again once more of the value chain is mapped.");
+  var errs = validateCalibration(calibration);
+  if (errs.length) throw new Error("Calibration failed contract validation: " + errs[0]);
+  return calibration;
 }
 
 /* ============================================================
@@ -371,6 +606,7 @@ function buildAnalysisPrompt(state) {
     clusterLines,
     "Assessment lenses (use these exact keys): " + lensKeys,
     "Maturity scale: 1 Absent, 2 Early, 3 Emerging, 4 Established.",
+    valueChainBrief(state),
     "",
     "Extraction discipline (mandatory):",
     "- Numbers verbatim — exact value, unit, base, comparison period. Never round or invent.",
@@ -577,6 +813,9 @@ if (typeof module !== "undefined" && module.exports) {
     DEFAULT_MODEL: DEFAULT_MODEL,
     MODEL_CHOICES: MODEL_CHOICES,
     buildScanPrompt: buildScanPrompt,
+    valueChainBrief: valueChainBrief,
+    buildCalibrationPrompt: buildCalibrationPrompt,
+    mockClusterCalibration: mockClusterCalibration,
     extractJson: extractJson,
     mockBriefing: mockBriefing,
     webSearchToolFor: webSearchToolFor,

@@ -97,6 +97,16 @@ function check(name, cond) {
     await page.locator(".traj-row").count() === 6 && await page.locator(".alert-card").count() === 5);
   check("cross-lens risk patterns detected and shown",
     await page.locator(".pattern-card").count() >= 3);
+  check("trajectory alerts carry the economic weight riding on each cluster",
+    await page.locator(".alert-wt").count() >= 1);
+  check("every trajectory alert group leads with the biggest money at risk",
+    await page.evaluate(() => {
+      const groups = enterpriseKpis(state).alerts;
+      return Object.keys(groups).every(k => {
+        const w = groups[k].map(a => clusterEconomicWeight(state, a.cluster.id));
+        return w.every((v, i) => i === 0 || w[i - 1] >= v);
+      });
+    }));
   check("adoption red flag pattern present",
     (await page.locator(".pattern-card h5").allTextContents()).some(t => t.includes("Adoption red flag")));
 
@@ -136,6 +146,94 @@ function check(name, cond) {
     (await page.locator(".view-note").textContent()).includes("weakest-first"));
   await page.selectOption("#board-sort", "auto");
   await page.waitForTimeout(300);
+
+  // ---------- Calibration: the value chain tunes the cluster set ----------
+  await page.click('.tab[data-view="matrix"]');
+  await page.waitForTimeout(400);
+  check("every matrix row carries its share of the P&L", await page.locator(".mat-chip").count() === 6);
+  check("matrix rows follow the same money order as the Priority Board",
+    (await page.locator(".matrix-row .c-name").first().textContent()) ===
+    (await page.evaluate(() => orderClustersForBoard(state, state.boardSort || "auto").clusters[0].name)));
+  check("a fully-mapped cluster set shows no calibration banner",
+    await page.locator(".calib-banner").count() === 0);
+
+  await page.click('.tab[data-view="valuechain"]');
+  await page.waitForTimeout(400);
+  check("value chain view carries a cluster-calibration verdict", await page.locator(".calib-verdict").count() === 1);
+  check("aligned cluster set is reported as fitting the economics",
+    (await page.locator(".calib-fit").textContent()).includes("Fits"));
+
+  // Orphan the biggest lever: 40% of the P&L now has no capability owner.
+  await page.locator('[data-lv^="cluster_id|0"]').selectOption("");
+  await page.waitForTimeout(500);
+  const orphanFind = await page.locator(".calib-find").allTextContents();
+  check("unmapping a lever raises a material accountability-gap finding",
+    orphanFind.some(t => t.includes("No cluster owns") && t.includes("40%")));
+  check("the cluster left with no money is flagged for merge or removal",
+    orphanFind.some(t => t.includes("carries no economic weight")));
+  check("calibration verdict flips to misaligned",
+    (await page.locator(".calib-fit").textContent()).includes("Misaligned"));
+
+  await page.click('.tab[data-view="matrix"]');
+  await page.waitForTimeout(400);
+  check("misalignment surfaces as a banner on the Signal Matrix",
+    await page.locator(".calib-banner.hot").count() === 1);
+  check("the banner routes the user to the calibration panel",
+    await page.locator('.calib-banner [data-goto="valuechain"]').count() === 1);
+  await page.click('.calib-banner [data-goto="valuechain"]');
+  await page.waitForTimeout(400);
+  check("banner click-through lands on the Value Chain view",
+    await page.locator(".calib-verdict").count() === 1);
+
+  // One-click structural fix: add the missing cluster from the orphan lever.
+  const clustersBefore = await page.evaluate(() => state.clusters.length);
+  page.once("dialog", d => d.accept("Revenue Management"));
+  await page.locator("[data-calib-add]").first().click();
+  await page.waitForTimeout(600);
+  const afterAdd = await page.evaluate(() => ({
+    n: state.clusters.length,
+    added: state.clusters.find(c => c.name === "Revenue Management"),
+    leverOwned: state.valueChain.levers[0].cluster_id
+  }));
+  check("adding a cluster from an orphan lever grows the Signal Matrix",
+    afterAdd.n === clustersBefore + 1 && !!afterAdd.added);
+  check("the new cluster takes ownership of the orphan lever",
+    afterAdd.leverOwned === afterAdd.added.id);
+  check("the new cluster starts unassessed — never a fabricated rating",
+    Object.values(afterAdd.added.cells).every(c => c.level === 1 && c.status === "Not yet assessed"));
+  check("the orphan finding clears once the money has an owner",
+    !(await page.locator(".calib-find").allTextContents()).some(t => t.includes("No cluster owns")));
+
+  await page.click('.tab[data-view="matrix"]');
+  await page.waitForTimeout(400);
+  check("the added cluster appears in the matrix with its own row of cells",
+    await page.locator(".matrix-row").count() === clustersBefore + 1 &&
+    await page.locator(".cell").count() === (clustersBefore + 1) * 4);
+
+  // Undo the structural change through the UI: merge it back via the
+  // cluster editor, restoring the demo shape for the rest of the run.
+  await page.click('.tab[data-view="matrix"]');
+  await page.waitForTimeout(400);
+  const addedId = afterAdd.added.id;
+  await page.click(`[data-editcluster="${addedId}"]`);
+  await page.waitForTimeout(300);
+  check("cluster editor states the cluster's economic weight",
+    (await page.locator(".cm-materiality").textContent()).includes("Economic weight: 40%"));
+  await page.selectOption("#cm-merge-into", "commercial");
+  page.once("dialog", d => d.accept());
+  await page.click("#cm-merge");
+  await page.waitForTimeout(600);
+  const merged = await page.evaluate(() => ({
+    n: state.clusters.length,
+    leverOwner: state.valueChain.levers[0].cluster_id,
+    numbering: state.clusters.map(c => c.no).join(",")
+  }));
+  check("merging a cluster removes it and moves its levers to the target",
+    merged.n === clustersBefore && merged.leverOwner === "commercial");
+  check("cluster numbering stays contiguous after a structural change",
+    merged.numbering === Array.from({ length: clustersBefore }, (_, i) => i + 1).join(","));
+  check("state stays contract-valid after add + merge",
+    await page.evaluate(() => validateState(JSON.parse(localStorage.getItem("capability_compass_state_v1"))).length === 0));
 
   // ---------- Roles: two-axis critical-role rubric ----------
   await page.click('.tab[data-view="roles"]');
@@ -265,6 +363,36 @@ function check(name, cond) {
   check("applied signal appears as a leading indicator in the cell", liNames.some(n => n.length > 10));
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
+
+  // ---------- New: Claude-assisted cluster tuning (mock, proposals only) ----------
+  await page.click('.tab[data-view="valuechain"]');
+  await page.waitForTimeout(400);
+  check("cluster tuning unlocks once an API key is present",
+    await page.locator("#calib-scan").count() === 1 && await page.locator("#calib-settings").count() === 0);
+  const clustersPreTune = await page.evaluate(() => state.clusters.length);
+  await page.click("#calib-scan");
+  await page.waitForTimeout(1200);
+  check("cluster tuning returns calibration proposals", await page.locator(".calib-card").count() >= 2);
+  check("proposals state an action, a rationale and a confidence level",
+    (await page.locator(".calib-action").allTextContents()).length >= 2 &&
+    await page.locator(".calib-why").count() >= 2 && await page.locator(".conf-pill").count() >= 2);
+  check("a proposal resting only on the money map says so rather than citing a source",
+    (await page.locator(".calib-src").allTextContents()).some(t => t.includes("no external source cited")));
+  check("PROPOSALS ONLY: nothing is applied to the cluster set automatically",
+    await page.evaluate(() => state.clusters.length) === clustersPreTune &&
+    await page.evaluate(() => state.calibrations[0].proposals.every(p => !p.applied)));
+  check("a 'keep' proposal offers no apply button — it is not a change",
+    (await page.locator(".calib-card.keep .applied-note").textContent()).includes("No action needed"));
+
+  const dismissBefore = await page.locator("[data-cal-skip]").count();
+  await page.locator("[data-cal-skip]").first().click();
+  await page.waitForTimeout(400);
+  check("dismissing a proposal records the decision and removes its buttons",
+    await page.locator("[data-cal-skip]").count() === dismissBefore - 1 &&
+    (await page.locator(".applied-note").allTextContents()).some(t => t.includes("Dismissed")));
+  check("calibration record persists in state and stays contract-valid",
+    await page.evaluate(() => validateState(JSON.parse(localStorage.getItem("capability_compass_state_v1"))).length === 0 &&
+      JSON.parse(localStorage.getItem("capability_compass_state_v1")).calibrations.length === 1));
 
   // ---------- New: Evidence view — upload, ingest, synthesize, apply ----------
   await page.click('.tab[data-view="evidence"]');
@@ -478,6 +606,25 @@ function check(name, cond) {
   check("velocity KPI honestly reports no trajectory evidence", velKpi.includes("? n/a"));
   const evKpi = await page.locator(".kpi").nth(4).textContent();
   check("evidence-gap finding surfaces when unknown > 25%", evKpi.includes("evidence gap"));
+
+  // A fresh diagnostic ships the industry's money map STRUCTURE, no numbers.
+  await page.click('.tab[data-view="valuechain"]');
+  await page.waitForTimeout(400);
+  check("a fresh diagnostic seeds the industry's typical P&L levers",
+    await page.locator(".vc-table tbody tr").count() === 6);
+  check("HONESTY: seeded levers carry no invented weights",
+    await page.evaluate(() => state.valueChain.levers.every(l => l.share_pct === 0 && l.seeded)));
+  check("every seeded lever already points at a real cluster",
+    await page.evaluate(() => state.valueChain.levers.every(l =>
+      state.clusters.some(c => c.id === l.cluster_id))));
+  check("the calibration verdict asks for weights rather than claiming a fit",
+    (await page.locator(".calib-fit").textContent()).includes("No weights"));
+  await page.click('.tab[data-view="board"]');
+  await page.waitForTimeout(400);
+  check("unweighted starter levers do NOT switch the board to value ordering",
+    (await page.locator(".view-note").textContent()).includes("weakest-first"));
+  await page.click('.tab[data-view="matrix"]');
+  await page.waitForTimeout(300);
   await page.click('.tab[data-view="trajectory"]');
   await page.waitForTimeout(300);
   const unknownCard = await page.locator(".alert-card").nth(4).textContent();

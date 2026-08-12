@@ -48,6 +48,20 @@ function mkClusters(list) {
   return list.map((c, i) => ({ id: c[0], no: i + 1, name: c[1], desc: c[2], priority_move: c[3] }));
 }
 
+/* Starter P&L levers per industry — the typical places money is made
+   and consumed, each pointing at the preset cluster that should own it.
+   Weights are deliberately ZERO: the app never invents an economic
+   figure. The preset supplies the STRUCTURE of the money map ("here is
+   what usually matters in your industry"); the user supplies the
+   materiality. Until a real weight is entered the Priority Board keeps
+   falling back to weakest-first and says so. */
+function mkLevers(list) {
+  return list.map((l, i) => ({
+    id: "lv_seed_" + (i + 1), name: l[0], figure: "", share_pct: 0,
+    capability: l[1], pillar: "", cluster_id: l[2], seeded: true
+  }));
+}
+
 const PRESETS = [
   {
     industry_id: "generic",
@@ -61,7 +75,15 @@ const PRESETS = [
       ["leadership", "Enterprise Leadership", "Leadership depth, succession, and organisational agility.", "Close the leadership long-tail + strengthen succession cover."],
       ["enabling", "People & Enabling Functions", "HR, finance, procurement, and shared services.", "Build people analytics + digitise enabling workflows."]
     ]),
-    signal_keywords: ["operating model", "productivity", "AI adoption", "engagement", "succession"]
+    signal_keywords: ["operating model", "productivity", "AI adoption", "engagement", "succession"],
+    value_levers: mkLevers([
+      ["Revenue growth & pricing", "Commercial operating model, pricing discipline, key-account management", "growth"],
+      ["Cost to serve / productivity", "Standardised operating model, process excellence, automation", "core-ops"],
+      ["Technology & data spend", "Platform engineering, data standardisation, applied AI", "digital"],
+      ["New-product revenue", "Portfolio management, R&D throughput, commercialisation", "innovation"],
+      ["Leadership & organisation cost", "Span-and-layer discipline, succession, leadership productivity", "leadership"],
+      ["Enabling-function cost base", "Shared services, HR/finance digitisation, procurement", "enabling"]
+    ])
   },
   {
     industry_id: "aviation-logistics",
@@ -75,7 +97,16 @@ const PRESETS = [
       ["leadership", "Enterprise Leadership", "Leadership bench, succession, and organisational effectiveness.", "Scale leadership development + close the bottom-quintile long tail."],
       ["enabling", "Human Capital & Enabling", "Future-ready HR, finance, and support capabilities.", "Build people analytics + embed non-negotiable behaviours."]
     ]),
-    signal_keywords: ["cargo tonnage", "on-time performance", "ground handling", "IATA CEIV", "safety incidents"]
+    signal_keywords: ["cargo tonnage", "on-time performance", "ground handling", "IATA CEIV", "safety incidents"],
+    value_levers: mkLevers([
+      ["Revenue quality (yield per tonne / turn)", "Pricing & revenue management, bid architecture, global key accounts", "commercial"],
+      ["Staff-cost productivity", "AI workforce optimisation, predictive rostering, job redesign", "tdx"],
+      ["Food input & materials", "Culinary innovation, food technology, procurement, waste intelligence", "food"],
+      ["Assets, hubs & capital", "Hub development & automation engineering, asset management, capital allocation", "gateway"],
+      ["Synergy & integration", "M&A integration leadership, PMO & benefits realisation", "leadership"],
+      ["Licence to operate", "Safety & HSSE leadership, security, quality and compliance", "gateway"],
+      ["Enabling cost base", "People analytics, HRIS, procurement, shared services", "enabling"]
+    ])
   },
   {
     industry_id: "financial-services",
@@ -89,7 +120,15 @@ const PRESETS = [
       ["leadership", "Enterprise Leadership", "Leadership depth, succession, and agility.", "Deepen succession cover for material risk-taker roles."],
       ["enabling", "People & Enabling Functions", "HR, finance, and operations enablement.", "Build skills intelligence + automate control-heavy workflows."]
     ]),
-    signal_keywords: ["Basel", "AML", "open banking", "CET1", "conduct risk"]
+    signal_keywords: ["Basel", "AML", "open banking", "CET1", "conduct risk"],
+    value_levers: mkLevers([
+      ["Net interest & fee income quality", "Pricing, product design, digital distribution, customer analytics", "digital-cx"],
+      ["Credit & operational risk losses", "Risk analytics, underwriting discipline, second-line independence", "risk"],
+      ["Regulatory & compliance cost", "Automated monitoring, financial-crime operations, conduct governance", "regulatory"],
+      ["Technology & data spend", "Core modernisation, data platform, model risk management", "data-ai"],
+      ["Staff cost & productivity", "Skills intelligence, workflow automation, span discipline", "enabling"],
+      ["Leadership & key-person risk", "Succession for material risk-takers, leadership depth", "leadership"]
+    ])
   },
   {
     industry_id: "technology-saas",
@@ -103,7 +142,15 @@ const PRESETS = [
       ["leadership", "Leadership & Scaling", "Leadership depth for the next stage of scale.", "Hire ahead of scale in 2 exec seats + build manager capability."],
       ["enabling", "People & Enabling Functions", "HR, finance, and business operations.", "Build skills-based workforce planning + tighten spend discipline."]
     ]),
-    signal_keywords: ["ARR", "NRR", "CAC", "PLG", "developer experience"]
+    signal_keywords: ["ARR", "NRR", "CAC", "PLG", "developer experience"],
+    value_levers: mkLevers([
+      ["New ARR / bookings", "Structured GTM, sales productivity, pricing & packaging", "gtm"],
+      ["Net revenue retention", "Onboarding, adoption instrumentation, expansion playbook", "customer"],
+      ["R&D / engineering cost", "Platform team model, cycle-time discipline, product management", "product-eng"],
+      ["AI & infrastructure cost", "Data platform economics, model serving, applied AI in product", "data-ai"],
+      ["Leadership cost of scale", "Exec bench ahead of scale, manager capability", "leadership"],
+      ["G&A / enabling cost", "Skills-based workforce planning, spend discipline, business operations", "enabling"]
+    ])
   },
   {
     industry_id: "healthcare",
@@ -117,7 +164,15 @@ const PRESETS = [
       ["workforce", "Clinical Workforce & Leadership", "Talent supply, retention, and leadership depth.", "Fix the retention hotspots + build clinical leadership pipeline."],
       ["enabling", "Enabling Functions", "HR, finance, supply chain, and shared services.", "Digitise supply chain + build workforce analytics."]
     ]),
-    signal_keywords: ["patient outcomes", "value-based care", "FDA", "interoperability", "clinical trials"]
+    signal_keywords: ["patient outcomes", "value-based care", "FDA", "interoperability", "clinical trials"],
+    value_levers: mkLevers([
+      ["Reimbursement & payer mix", "Access design, coding & documentation, payer negotiation", "access"],
+      ["Cost of clinical variation", "Standardised pathways, outcome measurement, clinical governance", "clinical"],
+      ["Workforce cost & agency spend", "Retention, rostering, clinical leadership pipeline", "workforce"],
+      ["Digital & data investment", "Interoperable data layer, analytics, applied AI in care", "data-ai"],
+      ["Regulatory & quality cost", "Automated quality management, audit readiness, GxP discipline", "regulatory"],
+      ["Supply chain & enabling cost", "Digitised supply chain, procurement, shared services", "enabling"]
+    ])
   },
   {
     industry_id: "manufacturing",
@@ -131,7 +186,15 @@ const PRESETS = [
       ["safety", "Safety, Quality & Sustainability", "HSE performance, quality systems, and ESG.", "Move safety from compliance to embedded culture."],
       ["people", "Workforce & Leadership", "Frontline skills, technical talent, and leadership.", "Build technical skills academies + succession for plant leaders."]
     ]),
-    signal_keywords: ["OEE", "supply chain disruption", "IIoT", "decarbonisation", "safety incidents"]
+    signal_keywords: ["OEE", "supply chain disruption", "IIoT", "decarbonisation", "safety incidents"],
+    value_levers: mkLevers([
+      ["Price realisation & aftermarket revenue", "Pricing discipline, service & aftermarket commercialisation", "commercial"],
+      ["Plant productivity (OEE)", "Production system deployment, lean, asset reliability", "operations"],
+      ["Materials & supply cost", "n-tier visibility, dual sourcing, planning & inventory discipline", "supply"],
+      ["Industry 4.0 investment", "IIoT, digital twin, factory analytics at scale", "digital"],
+      ["Safety, quality & ESG cost", "Embedded safety culture, quality systems, decarbonisation delivery", "safety"],
+      ["Workforce cost & technical skills", "Skills academies, frontline capability, plant-leader succession", "people"]
+    ])
   },
   {
     industry_id: "public-sector",
@@ -145,7 +208,15 @@ const PRESETS = [
       ["workforce", "Workforce & Leadership", "Public-service talent, skills, and leadership depth.", "Compete for digital talent + build leadership mobility."],
       ["enabling", "Corporate & Enabling", "Finance, procurement, HR, and shared services.", "Modernise procurement + consolidate shared services."]
     ]),
-    signal_keywords: ["digital government", "service standard", "budget cycle", "workforce attrition"]
+    signal_keywords: ["digital government", "service standard", "budget cycle", "workforce attrition"],
+    value_levers: mkLevers([
+      ["Programme outcome per dollar", "Outcome measurement, prioritisation, delivery management", "mission"],
+      ["Cost to serve the citizen", "End-to-end journey digitisation, channel shift, service design", "citizen"],
+      ["Digital & data investment", "Data-sharing backbone, platforms, responsible-AI guardrails", "digital"],
+      ["Policy & regulatory delivery cost", "Policy design, evaluation muscle, regulatory operations", "policy"],
+      ["Workforce cost & capability", "Digital talent competitiveness, mobility, leadership depth", "workforce"],
+      ["Corporate & procurement cost", "Procurement modernisation, shared services consolidation", "enabling"]
+    ])
   }
 ];
 

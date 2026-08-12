@@ -2,6 +2,30 @@
 
 Date: 2026-07-02. This note records what was changed in the three source artefacts, and the best-practice research and emerging trends that motivated each change.
 
+## Update — end-to-end coherence review (v4.3): the value chain calibrates the cluster set
+
+A review across every element of the diagnostic — rubric, engine, contract, all eight views, both AI prompts — found the app internally consistent on prediction honesty and role rigour, but carrying one structural incoherence worth more than the rest combined.
+
+**The finding.** The value chain was built as a *downstream consumer*. A P&L lever picked its owning cluster from a dropdown of whatever the industry preset happened to ship, and the only thing the money map influenced was the Priority Board's sort order. Nothing ever asked the more important question: **are these the right clusters at all?** An industry preset supplies a plausible set of six; it cannot know where a particular organisation's money actually flows. The result is a rigorous, well-evidenced, carefully-scored answer to the wrong question — the exact failure mode §4b of the rubric was written to prevent, reproduced one level up.
+
+Three smaller incoherences fell out of the same root cause:
+
+- The Signal Matrix — the "analytical read" — was **money-blind**. Rows carried a maturity level and a trajectory but no materiality, which invites a board to fix the cheapest gap first.
+- The Matrix, Board and Trajectory views **ordered clusters three different ways**, so the same six clusters told three different priority stories depending on which tab was open.
+- The role rubric's *value-chain pivotalness* criterion (15% of the Criticality Index) was scored **by impression**, with the actual value chain sitting one tab away.
+- Both AI prompts — external scan and document extraction — were sent the cluster list but **not the money map**, so a benchmark on a 2% lever came back weighted the same as one on a 30% lever.
+
+**What was changed.**
+
+1. **Four deterministic calibration tests** (`calibrateClusters`), re-run on every lever and weight change: *ownership* (a lever ≥3% weight with no cluster accountable), *materiality* (a cluster carrying 0% while others carry weight — usually a preset default that does not fit), *separability* (one cluster ≥30% across ≥2 distinct levers — two disciplines sharing one score), *diagnosability* (a weighted lever with no capability named). Plus overall coverage: below 80% mapped, the app says the ranking is reading a partial map instead of ranking confidently.
+2. **A Cluster calibration panel** in the Value Chain view with a plain-English verdict and a one-click structural fix per finding; a banner on the Signal Matrix when the mismatch is material.
+3. **An optional Claude calibration pass** for what arithmetic cannot know — how the industry organises the same capability. Full harvest discipline (triangulation, source quality 1–5, anti-fabrication), returning *add / merge / rename / split / **keep*** proposals with rationale, source and confidence. The prompt explicitly forbids change for its own sake: a calibration that changes everything is a rewrite.
+4. **Nothing structural is auto-applied.** Every proposal needs a click; merge and remove state exactly what they discard; cluster numbering re-flows and orphaned levers are unmapped rather than left dangling (the contract would reject them).
+5. **Starter money maps per industry, at 0% weight.** All seven presets now ship the levers that usually matter in that industry, each pointed at the cluster that should own it. Weights are zero on purpose — the same anti-fabrication rule that produced `? Unknown` for trajectories applies to economics. Until real weights exist, `hasValueChain` stays false and the board keeps ranking weakest-first and says so.
+6. **Materiality propagates**: per-row P&L share in the matrix, one shared ordering basis across the three reads, trajectory alerts ordered by money at risk, the cluster editor stating economic weight before a merge or removal, the roles view grounding *pivotalness* in the cluster's real weight, and the money map injected into both AI prompts (and omitted entirely when no weights exist).
+
+Rubric extended with §4d. Coverage: contract 98 → 142 checks, end-to-end 93 → 128.
+
 ## Update — coherence review against the packaged skills (v4.1)
 
 A full-code review against the two packaged skills (`capability-diagnostic-dashboard` and `capability-compass-rubric` v4, including its judgment-protocols, lens-indicator-library, and evidence-extraction references) found the app compliant on the visual system but short of the rubric's *prediction honesty* discipline. Fixes applied, all covered by tests:

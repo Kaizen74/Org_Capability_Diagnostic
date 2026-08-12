@@ -325,6 +325,151 @@ function clusterValueExposure(state, cluster, lenses) {
   return { weight, gap, exposure: weight * gap };
 }
 
+/* ============================================================
+   Value chain → cluster CALIBRATION
+   The value chain is not only grounding context. It is the test of
+   whether the cluster set itself is the right one for THIS
+   organisation's economics:
+     - money with no cluster is an accountability gap;
+     - a cluster with no money is a category, not a priority — very
+       often an industry-preset default that does not fit;
+     - one cluster carrying a third of the P&L across several
+       distinct levers is usually two clusters wearing one name.
+   These are deterministic, checkable findings — never auto-applied.
+   The user approves every structural change.
+   ============================================================ */
+
+const CALIB_MIN_LEVER = 3;      // below this share a lever is noise, not a finding
+const CALIB_SPLIT_WEIGHT = 30;  // one cluster carrying this much across ≥2 levers
+const CALIB_COVERAGE_MIN = 80;  // % of weight that must have a capability owner
+
+function valueChainCoverage(state) {
+  const levers = ((state.valueChain || {}).levers) || [];
+  const total = levers.reduce((a, l) => a + (l.share_pct || 0), 0);
+  const mapped = levers.filter(l => l.cluster_id).reduce((a, l) => a + (l.share_pct || 0), 0);
+  return {
+    levers: levers.length, weighted: levers.filter(l => (l.share_pct || 0) > 0).length,
+    total, mapped, unmapped: total - mapped,
+    pct: total ? Math.round((mapped / total) * 100) : 0
+  };
+}
+
+function clusterLevers(state, clusterId) {
+  return (((state.valueChain || {}).levers) || []).filter(l => l.cluster_id === clusterId);
+}
+
+/* Materiality of one cluster: economic weight, share of the mapped
+   weight, and rank. This is what the Signal Matrix shows per row so
+   the analytical read is never money-blind. */
+function clusterMateriality(state, cluster) {
+  const cov = valueChainCoverage(state);
+  const weight = clusterEconomicWeight(state, cluster.id);
+  const weights = state.clusters.map(c => clusterEconomicWeight(state, c.id)).sort((a, b) => b - a);
+  return {
+    weight,
+    share: cov.mapped ? Math.round((weight / cov.mapped) * 100) : 0,
+    rank: weights.indexOf(weight) + 1,
+    of: state.clusters.length,
+    levers: clusterLevers(state, cluster.id),
+    mapped: cov.mapped > 0
+  };
+}
+
+/* The calibration findings themselves. */
+function calibrateClusters(state) {
+  const out = [];
+  const levers = ((state.valueChain || {}).levers) || [];
+  if (!levers.length) return out;
+  const cov = valueChainCoverage(state);
+
+  // 1. Money with no capability owner — the accountability gap.
+  levers.forEach(l => {
+    if (l.cluster_id || (l.share_pct || 0) < CALIB_MIN_LEVER) return;
+    out.push({
+      key: "orphan-lever", severity: "high", leverId: l.id, action: "add-cluster",
+      title: "No cluster owns “" + (l.name || "this lever") + "”",
+      body: l.share_pct + "% of economic weight has no capability owner in the Signal Matrix" +
+        (l.capability
+          ? " — the capability it needs is “" + l.capability + "”. Add it as a cluster, or map the lever to the cluster that already carries it."
+          : ". Name the capability that moves it, then add or map a cluster.")
+    });
+  });
+
+  // 2. Clusters carrying no money — preset defaults that may not fit.
+  if (cov.mapped > 0) {
+    state.clusters.forEach(c => {
+      if (clusterEconomicWeight(state, c.id) > 0) return;
+      out.push({
+        key: "unweighted-cluster", severity: "medium", clusterId: c.id, action: "review-cluster",
+        title: "“" + c.name + "” carries no economic weight",
+        body: "No P&L lever maps to this cluster, so it cannot be ranked by money at risk. Either it is genuinely material and a lever is missing, or it is an industry-preset default that does not fit this business — in which case merge or remove it rather than scoring four cells nobody will act on."
+      });
+    });
+  }
+
+  // 3. Clusters carrying too much across distinct levers — split candidates.
+  state.clusters.forEach(c => {
+    const ls = clusterLevers(state, c.id).filter(l => (l.share_pct || 0) > 0);
+    const w = ls.reduce((a, l) => a + (l.share_pct || 0), 0);
+    if (ls.length >= 2 && w >= CALIB_SPLIT_WEIGHT) {
+      out.push({
+        key: "overloaded-cluster", severity: "medium", clusterId: c.id, action: "split-cluster",
+        title: "“" + c.name + "” carries " + w + "% across " + ls.length + " distinct levers",
+        body: "One maturity score now has to answer for " + ls.map(l => "“" + l.name + "”").join(" and ") +
+          ". Levers this different usually move on different capabilities and different clocks — consider splitting so each carries its own rating and its own owner."
+      });
+    }
+  });
+
+  // 4. Weighted levers with no capability named — undiagnosable.
+  levers.forEach(l => {
+    if ((l.share_pct || 0) < CALIB_MIN_LEVER) return;
+    if (l.capability && l.capability.trim()) return;
+    out.push({
+      key: "lever-no-capability", severity: "low", leverId: l.id, action: "name-capability",
+      title: "“" + (l.name || "Unnamed lever") + "” has no capability named",
+      body: "A P&L lever with no named capability cannot be diagnosed. State the capability that actually moves this number before scoring anything against it."
+    });
+  });
+
+  // 5. Overall coverage of the money map.
+  if (cov.total > 0 && cov.pct < CALIB_COVERAGE_MIN) {
+    out.push({
+      key: "coverage-gap", severity: "high", action: "none",
+      title: "Only " + cov.pct + "% of economic weight has a capability owner",
+      body: "Below " + CALIB_COVERAGE_MIN + "% the value-exposure ranking is reading a partial map. Map the remaining levers before letting the board order drive investment."
+    });
+  }
+
+  const sev = { high: 0, medium: 1, low: 2 };
+  return out.sort((a, b) => sev[a.severity] - sev[b.severity]);
+}
+
+/* One-line verdict on whether the cluster set fits the economics. */
+function calibrationSummary(state) {
+  const findings = calibrateClusters(state);
+  const cov = valueChainCoverage(state);
+  const high = findings.filter(f => f.severity === "high").length;
+  const medium = findings.filter(f => f.severity === "medium").length;
+  let fit = "aligned", verdict;
+  if (!cov.levers) {
+    fit = "unmapped";
+    verdict = "No value chain mapped — the cluster set is the industry preset's, not this organisation's. Map the money first.";
+  } else if (!cov.weighted) {
+    fit = "unweighted";
+    verdict = cov.levers + " starter levers are listed but carry no weight yet. Put a rough share of economic significance on each — materiality, not precision.";
+  } else if (high) {
+    fit = "misaligned";
+    verdict = high + " material mismatch" + (high > 1 ? "es" : "") + " between where the money is and which clusters exist. Tune the cluster set before trusting the ratings.";
+  } else if (medium) {
+    fit = "tuning";
+    verdict = medium + " cluster" + (medium > 1 ? "s" : "") + " to review — the money map and the cluster set are close but not yet clean.";
+  } else {
+    verdict = "Every material lever has a capability owner and every cluster carries weight. The cluster set fits this organisation's economics.";
+  }
+  return { findings, high, medium, low: findings.length - high - medium, fit, verdict, coverage: cov };
+}
+
 /* Weakest-first sort for the Priority Board:
    avg level ascending, tie-break by count of L<=2 descending. */
 function sortWeakestFirst(clusters, lenses) {
@@ -423,6 +568,15 @@ function enterpriseKpis(state) {
       if (t.known) { msum += t.m; knownCount++; }
       const cls = classifyCell(cell, t);
       if (alerts[cls]) alerts[cls].push({ cluster: cl, lens: l, cell, t, m: t.m });
+    });
+  });
+  /* Order every alert group by money first, then by how bad the momentum
+     is. An erosion alert on a 30% lever and one on a 2% lever are not the
+     same alert, and a list that treats them alike buries the first. */
+  Object.keys(alerts).forEach(k => {
+    alerts[k].sort((a, b) => {
+      const d = clusterEconomicWeight(state, b.cluster.id) - clusterEconomicWeight(state, a.cluster.id);
+      return Math.abs(d) > 1e-9 ? d : a.m - b.m;
     });
   });
   return {
