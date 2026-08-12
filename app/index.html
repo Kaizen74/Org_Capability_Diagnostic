@@ -27,12 +27,17 @@
       </div>
     </div>
     <nav class="tabs" aria-label="Dashboard views">
+      <span class="tab-group-label">Diagnose</span>
       <button class="tab active" data-view="matrix">Signal Matrix</button>
       <button class="tab" data-view="board">Priority Board</button>
       <button class="tab" data-view="trajectory">Trajectory</button>
-      <button class="tab" data-view="signals">Signals</button>
-      <button class="tab" data-view="evidence">Evidence</button>
       <button class="tab" data-view="delta">Delta</button>
+      <span class="tab-divider" aria-hidden="true"></span>
+      <span class="tab-group-label">Ground it</span>
+      <button class="tab" data-view="valuechain">Value Chain</button>
+      <button class="tab" data-view="roles">Roles</button>
+      <button class="tab" data-view="evidence">Evidence</button>
+      <button class="tab" data-view="signals">Signals</button>
     </nav>
   </header>
 
@@ -59,6 +64,7 @@
   <div class="toast" id="toast"></div>
   <input type="file" id="file-import" accept="application/json,.json" hidden>
   <input type="file" id="file-evidence" accept=".txt,.md,.markdown,.csv,.tsv,.json,.log,.pdf,.png,.jpg,.jpeg,.webp,.gif,.docx,.pptx,.xlsx" multiple hidden>
+  <input type="file" id="file-roles" accept=".csv,.tsv,text/csv" hidden>
 
   <script src="js/vendor/jszip.min.js"></script>
   <script src="js/vendor/xlsx.full.min.js"></script>

@@ -52,8 +52,25 @@ function migrateState(s) {
   });
   if (!Array.isArray(s.documents)) s.documents = [];
   if (!Array.isArray(s.analyses)) s.analyses = [];
+  (s.clusters || []).forEach(cl => { if (!Array.isArray(cl.roles)) cl.roles = []; });
+  if (!s.valueChain || typeof s.valueChain !== "object") {
+    s.valueChain = { currency: "$", revenue: "", as_of: "", stages: DEFAULT_VC_STAGES.map(x => ({ ...x })), levers: [] };
+  }
+  if (!Array.isArray(s.valueChain.stages) || !s.valueChain.stages.length) {
+    s.valueChain.stages = DEFAULT_VC_STAGES.map(x => ({ ...x }));
+  }
+  if (!Array.isArray(s.valueChain.levers)) s.valueChain.levers = [];
+  if (!s.boardSort) s.boardSort = "auto";
   return s;
 }
+
+const DEFAULT_VC_STAGES = [
+  { key: "demand", label: "Demand owner", note: "Who creates and controls the volume?" },
+  { key: "platform", label: "Platform", note: "What do we operate to serve it?" },
+  { key: "billing", label: "Billing unit", note: "What exactly do we invoice?" },
+  { key: "cost", label: "Cost consumption", note: "Where does the revenue go?" },
+  { key: "value", label: "Value created", note: "What lands as profit and return?" }
+];
 
 /* PDF/image payloads live in memory only — never in storage or exports. */
 const docBlobs = {};
@@ -70,7 +87,7 @@ function stateFromPreset(preset, orgName) {
         last_updated: nowIso(), updated_by: "—"
       };
     });
-    return { id: c.id, no: c.no, name: c.name, desc: c.desc, priority_move: c.priority_move, cells };
+    return { id: c.id, no: c.no, name: c.name, desc: c.desc, priority_move: c.priority_move, cells, roles: [] };
   });
   return {
     schema: 1,
@@ -135,6 +152,8 @@ function renderView() {
   else if (activeView === "trajectory") el.innerHTML = viewTrajectory();
   else if (activeView === "signals") el.innerHTML = viewSignals();
   else if (activeView === "evidence") el.innerHTML = viewEvidence();
+  else if (activeView === "valuechain") el.innerHTML = viewValueChain();
+  else if (activeView === "roles") el.innerHTML = viewRoles();
   else el.innerHTML = viewDelta();
   bindViewEvents();
 }
@@ -192,7 +211,8 @@ function viewBoard() {
   const heroes = state.patterns.map(p => `
     <div class="hero"><div class="h-kicker">Cross-cluster pattern ${p.num}</div>
       <h3>${esc(p.title)}</h3><p>${esc(p.body)}</p></div>`).join("");
-  const sorted = sortWeakestFirst(state.clusters, state.lenses);
+  const ordered = orderClustersForBoard(state, state.boardSort || "auto");
+  const sorted = ordered.clusters;
   const cards = sorted.map((cl, i) => {
     const avg = clusterAvg(cl, state.lenses);
     const weak = clusterWeakCount(cl, state.lenses);
@@ -200,6 +220,8 @@ function viewBoard() {
     const ml = trajectoryLabel(ct);
     const bind = bindingConstraint(state, cl, state.lenses);
     const bindLabel = bind ? trajectoryLabel(bind.t) : null;
+    const exp = clusterValueExposure(state, cl, state.lenses);
+    const cov = roleCoverage(cl);
     const chips = state.lenses.map(l => {
       const cell = cl.cells[l.key];
       if (!cell) return "";
@@ -214,13 +236,26 @@ function viewBoard() {
         <span class="b-avg">Avg ${fmt1(avg)} / 4</span>
         ${weak ? `<span class="b-flagpill">⚑ ${weak} ${weak > 1 ? "lenses need" : "lens needs"} action</span>` : ""}
         <span class="b-velocity">${ct.known ? `${ml.sym} ${ml.word} (${fmtSigned(ct.m)})` : "? direction unknown"}</span>
+        ${exp.weight ? `<span class="b-exposure" title="Economic weight ${exp.weight}% × capability gap">◧ Exposure ${Math.round(exp.exposure)}</span>` : ""}
+        ${cov.gaps.length ? `<span class="b-flagpill" title="${esc(cov.gaps.map(r => r.title).join('; '))}">⚑ ${cov.gaps.length} anchor seat${cov.gaps.length > 1 ? "s" : ""} ${cov.gaps.every(r => r.status === "absent") ? "absent" : "at risk"}</span>` : ""}
       </div>
       <div class="pm-banner"><span class="arrow">➜</span><span>${esc(cl.priority_move)}</span></div>
       ${bind ? `<div class="b-binding" title="The lowest-level cell that is not already improving — where intervention bites first">Binding constraint: <button class="b-bind-link" data-cluster="${esc(cl.id)}" data-lens="${esc(bind.lensKey)}">${esc(bind.lensName)} · L${bind.cell.level} ${bindLabel.sym} ${bindLabel.word}</button></div>` : ""}
       <div class="lens-chips">${chips}</div>
     </div>`;
   }).join("");
-  return `<div class="view-note">Action read — hero patterns on top, clusters sorted weakest-first (average level ascending, tie-break by count of weak lenses). Edit hero patterns in Settings.</div>
+  const basisNote = ordered.basis === "value"
+    ? "ranked by <strong>value exposure</strong> — economic weight from the Value Chain × capability gap, so the money at risk leads"
+    : "ranked <strong>weakest-first</strong> (average level ascending, tie-break by count of weak lenses). Map your P&amp;L levers in the Value Chain view to rank by money at risk instead";
+  return `<div class="view-note">Action read — hero patterns on top, clusters ${basisNote}. Edit hero patterns in Settings.</div>
+    <div class="board-controls">
+      <label class="sig-kw-label" for="board-sort">Order by</label>
+      <select id="board-sort">
+        <option value="auto" ${(state.boardSort || "auto") === "auto" ? "selected" : ""}>Automatic (value exposure when mapped)</option>
+        <option value="value" ${state.boardSort === "value" ? "selected" : ""}>Value exposure — money at risk</option>
+        <option value="weakest" ${state.boardSort === "weakest" ? "selected" : ""}>Weakest capability first</option>
+      </select>
+    </div>
     <section class="print-section"><div class="hero-row">${heroes}</div><div class="board">${cards}</div></section>`;
 }
 
@@ -319,7 +354,7 @@ function viewSignals() {
           <h3>${esc(sig.headline)}</h3>
         </div>
         <p class="sig-summary">${esc(sig.summary)}</p>
-        <p class="sig-meta">Source: ${esc(sig.source || "—")}${sig.calibration_note ? ` · <em>${esc(sig.calibration_note)}</em>` : ""}</p>
+        <p class="sig-meta">Source: ${esc(sig.source || "—")}${sig.source_quality ? ` <span class="src-q q${sig.source_quality}" title="Source quality 1–5: 5 = primary (filings, regulator, the organisation itself), 4 = reputable secondary, 3 = trade aggregate, 2 = SEO farm, 1 = content mill">Q${sig.source_quality}</span>` : ""}${sig.calibration_note ? ` · <em>${esc(sig.calibration_note)}</em>` : ""}</p>
         <div class="sig-actions">${clusters || '<span class="sig-meta">No matching clusters.</span>'}</div>
       </div>`;
     }).join("");
@@ -396,6 +431,227 @@ function applySignal(briefingId, sigIndex, clusterId) {
   toast("Signal applied — it now feeds the trajectory forecast for " + cluster.name + ".");
 }
 
+/* ---------- View: Value Chain (follow the money) ---------- */
+function viewValueChain() {
+  const vc = state.valueChain;
+  const total = vc.levers.reduce((a, l) => a + (l.share_pct || 0), 0);
+  const mapped = vc.levers.filter(l => l.cluster_id).reduce((a, l) => a + (l.share_pct || 0), 0);
+  const unmapped = vc.levers.filter(l => !l.cluster_id);
+
+  const stages = vc.stages.map((s, i) => `
+    <div class="vc-stage">
+      <span class="vc-stage-label">${esc(s.label)}</span>
+      <input type="text" data-vc-stage="${i}" value="${esc(s.note || "")}" placeholder="…">
+    </div>${i < vc.stages.length - 1 ? '<span class="vc-arrow">→</span>' : ""}`).join("");
+
+  const rows = vc.levers.map((l, i) => {
+    const cl = state.clusters.find(c => c.id === l.cluster_id);
+    const gap = cl ? clusterValueExposure(state, cl, state.lenses) : null;
+    return `<tr>
+      <td><input type="text" class="vc-in" data-lv="name|${i}" value="${esc(l.name)}" placeholder="P&L lever"></td>
+      <td><input type="text" class="vc-in narrow" data-lv="figure|${i}" value="${esc(l.figure || "")}" placeholder="figure"></td>
+      <td><input type="number" class="vc-in tiny" data-lv="share_pct|${i}" value="${l.share_pct}" min="0" max="100" step="1"></td>
+      <td><input type="text" class="vc-in" data-lv="capability|${i}" value="${esc(l.capability || "")}" placeholder="capability that moves it"></td>
+      <td><select data-lv="cluster_id|${i}">
+        <option value="">— unmapped —</option>
+        ${state.clusters.map(c => `<option value="${esc(c.id)}" ${c.id === l.cluster_id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
+      </select></td>
+      <td class="vc-exposure">${gap ? `<span class="exposure-pill ${gap.exposure >= 10 ? "hot" : ""}" title="Economic weight × capability gap">${Math.round(gap.exposure)}</span>` : "—"}</td>
+      <td><button class="mini-btn danger" data-lv-del="${i}">✕</button></td>
+    </tr>`;
+  }).join("");
+
+  return `<div class="view-note"><strong>Follow the money first.</strong> A capability is only critical if money, risk or the strategy actually rides on it. Map each P&L lever to the capability that moves it and the cluster that owns it — the Priority Board then ranks by <em>value exposure</em> (economic weight × capability gap), not by weakness alone. ${total ? "" : "Nothing mapped yet: the board falls back to weakest-first."}</div>
+    <section class="print-section">
+      <div class="vc-band">
+        <div class="vc-head">
+          <div><label>Currency</label><input type="text" id="vc-currency" value="${esc(vc.currency || "")}" style="width:70px"></div>
+          <div><label>Revenue</label><input type="text" id="vc-revenue" value="${esc(vc.revenue || "")}" placeholder="e.g. 6.35B"></div>
+          <div><label>As of</label><input type="text" id="vc-asof" value="${esc(vc.as_of || "")}" placeholder="e.g. FY2026"></div>
+        </div>
+        <div class="vc-flow">${stages}</div>
+      </div>
+
+      <div class="vc-tablewrap">
+        <div class="sig-brief-head">
+          <h2>From P&amp;L lever to critical capability</h2>
+          <span class="sig-meta">${vc.levers.length} levers · ${mapped}% of weight mapped to clusters${total !== 100 && total > 0 ? ` · weights total ${total}% (they need not sum to 100)` : ""}</span>
+          <button class="mini-btn" id="vc-add">＋ Add lever</button>
+        </div>
+        <table class="vc-table">
+          <thead><tr><th>P&amp;L lever</th><th>Figure</th><th title="Share of economic weight">Weight %</th><th>Capability that moves it</th><th>Cluster that owns it</th><th title="Economic weight × capability gap">Exposure</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="7" style="text-align:center;color:var(--muted)">No levers yet — add the handful of drivers that actually move your P&L.</td></tr>'}</tbody>
+        </table>
+        ${unmapped.length ? `<p class="sig-meta" style="margin-top:8px">⚑ ${unmapped.length} lever${unmapped.length > 1 ? "s" : ""} not yet mapped to a cluster — that money has no capability owner in this diagnostic.</p>` : ""}
+      </div>
+    </section>`;
+}
+
+function bindValueChainEvents() {
+  const cur = $("vc-currency");
+  if (!cur) return;
+  const save = () => { saveState(); renderKpis(); };
+  cur.addEventListener("change", () => { state.valueChain.currency = cur.value.trim(); save(); });
+  $("vc-revenue").addEventListener("change", () => { state.valueChain.revenue = $("vc-revenue").value.trim(); save(); });
+  $("vc-asof").addEventListener("change", () => { state.valueChain.as_of = $("vc-asof").value.trim(); save(); });
+  document.querySelectorAll("[data-vc-stage]").forEach(inp => inp.addEventListener("change", () => {
+    state.valueChain.stages[parseInt(inp.dataset.vcStage, 10)].note = inp.value.trim(); save();
+  }));
+  $("vc-add").addEventListener("click", () => {
+    state.valueChain.levers.push({ id: "lv_" + Date.now(), name: "", figure: "", share_pct: 0, capability: "", pillar: "", cluster_id: "" });
+    renderAll();
+  });
+  document.querySelectorAll("[data-lv]").forEach(el => el.addEventListener("change", () => {
+    const [field, idx] = el.dataset.lv.split("|");
+    const lever = state.valueChain.levers[parseInt(idx, 10)];
+    lever[field] = field === "share_pct" ? Math.max(0, Math.min(100, parseFloat(el.value) || 0)) : el.value.trim();
+    renderAll();
+  }));
+  document.querySelectorAll("[data-lv-del]").forEach(b => b.addEventListener("click", () => {
+    state.valueChain.levers.splice(parseInt(b.dataset.lvDel, 10), 1);
+    renderAll();
+  }));
+}
+
+/* ---------- View: Roles (two-axis critical-role rubric) ---------- */
+let rolesCluster = null;
+
+function roleMatrixCell(rows, label, hint) {
+  return `<div class="rm-quadrant">
+    <div class="rm-q-head"><strong>${esc(label)}</strong><span>${rows.length}</span></div>
+    <p class="rm-q-hint">${esc(hint)}</p>
+    <ul>${rows.length ? rows.map(r => `<li><button data-role-open="${esc(r.cluster.id)}|${esc(r.role.id)}">${esc(r.role.title)}</button> <span class="rm-status ${r.status.cls}">${r.status.label}</span></li>`).join("") : '<li class="rm-empty">—</li>'}</ul>
+  </div>`;
+}
+
+function viewRoles() {
+  const clusterId = rolesCluster || state.clusters[0].id;
+  const cluster = state.clusters.find(c => c.id === clusterId) || state.clusters[0];
+  const all = [];
+  state.clusters.forEach(cl => (cl.roles || []).forEach(r => all.push({ cluster: cl, role: r, ...roleSummary(r) })));
+  const byRoute = k => all.filter(r => r.route === k);
+  const critReg = criticalRoleRegister(state);
+  const keyReg = keyPersonRegister(state);
+  const absent = critReg.filter(r => r.role.status === "absent");
+
+  const roleRows = (cluster.roles || []).map(r => {
+    const s = roleSummary(r);
+    return `<tr>
+      <td><input type="text" class="vc-in" data-role="title|${esc(r.id)}" value="${esc(r.title)}"></td>
+      <td><select data-role="status|${esc(r.id)}">
+        ${Object.keys(STATUS_META).map(k => `<option value="${k}" ${r.status === k ? "selected" : ""}>${STATUS_META[k].label}</option>`).join("")}
+      </select></td>
+      ${AXIS_A_WEIGHTS.map(w => `<td><input type="number" class="vc-in tiny" data-role="axisA.${w.key}|${esc(r.id)}" value="${r.axisA[w.key]}" min="1" max="5" step="0.5" title="${esc(w.label)} (${Math.round(w.wt * 100)}%)"></td>`).join("")}
+      <td class="rt-calc">${fmt1(s.idx)}</td>
+      ${TKI_FACTORS.map(f => `<td><input type="number" class="vc-in tiny" data-role="tki.${f.key}|${esc(r.id)}" value="${r.tki[f.key]}" min="1" max="5" step="0.5" title="${esc(f.label)}"></td>`).join("")}
+      <td class="rt-calc">${fmt1(s.tki)}</td>
+      <td><span class="route-pill rt-${s.route}">${s.meta.label}</span></td>
+      <td><button class="mini-btn danger" data-role-del="${esc(r.id)}">✕</button></td>
+    </tr>`;
+  }).join("");
+
+  return `<div class="view-note"><strong>Roles are the checkable half of the rubric.</strong> A capability nobody is accountable for is not a Level 3. Each role is scored on two independent axes — <em>Criticality</em> (strategic leverage &amp; market scarcity: hard to hire) and <em>Tacit-Knowledge Intensity</em> (hard to rebuild internally, regardless of hiring). They are different risks with different fixes, which is exactly what a seniority-only view misses. Thresholds are explicit: ≥ ${HIGH_LEVERAGE} is high on either axis.</div>
+    <section class="print-section">
+      <div class="rm-grid">
+        ${roleMatrixCell(byRoute("critical"), "Critical role", "Succession bench — acquire or build ahead of need.")}
+        ${roleMatrixCell(byRoute("dual"), "Dual-critical", "Succession AND knowledge capture. A successor name alone is insufficient.")}
+        ${roleMatrixCell(byRoute("standard"), "Standard population", "Productivity, automation, standard resourcing.")}
+        ${roleMatrixCell(byRoute("specialist"), "Specialist / key-person", "Knowledge transfer, apprenticeship, retention — not the succession list.")}
+      </div>
+      <p class="rm-axis-note">↑ Strategic leverage &amp; scarcity (Criticality Index) · → Tacit-knowledge intensity (hard to rebuild)</p>
+
+      ${absent.length ? `<div class="xlens"><h4 class="xlens-title">Highest succession risk <span class="sig-meta">— anchor seats with no internal successor pool</span></h4>
+        <div class="xlens-grid">${absent.slice(0, 3).map(r => `
+          <div class="pattern-card">
+            <span class="pattern-cluster">${esc(r.cluster.name)}</span>
+            <h5>${esc(r.role.title)}</h5>
+            <p>Absent today · criticality ${fmt1(r.idx)} / 5 · ${esc(r.meta.fix)}</p>
+          </div>`).join("")}</div></div>` : ""}
+
+      <div class="sig-brief-head">
+        <h2>Role register</h2>
+        <select id="roles-cluster">${state.clusters.map(c => `<option value="${esc(c.id)}" ${c.id === cluster.id ? "selected" : ""}>${esc(c.name)} (${(c.roles || []).length})</option>`).join("")}</select>
+        <span class="sig-meta">${(() => { const cov = roleCoverage(cluster); return cov.anchors ? `anchor seats filled: ${cov.exists}/${cov.anchors} (${cov.pct}%)` : "no anchor roles scored yet"; })()}</span>
+        <button class="mini-btn" id="role-add">＋ Add role</button>
+        <button class="mini-btn" id="role-import">Import roles CSV</button>
+      </div>
+      <div class="rt-wrap">
+        <table class="rt-table">
+          <thead>
+            <tr>
+              <th rowspan="2">Role (real job title)</th><th rowspan="2">Status</th>
+              <th colspan="${AXIS_A_WEIGHTS.length}" class="rt-group">Axis A · Criticality (1–5)</th><th rowspan="2">Index</th>
+              <th colspan="${TKI_FACTORS.length}" class="rt-group">Axis B · Tacit-knowledge (1–5)</th><th rowspan="2">TKI</th>
+              <th rowspan="2">Route</th><th rowspan="2"></th>
+            </tr>
+            <tr>
+              ${AXIS_A_WEIGHTS.map(w => `<th class="rt-sub" title="${esc(w.label)}">${esc(w.label.split(" ")[0])}<br><span>${Math.round(w.wt * 100)}%</span></th>`).join("")}
+              ${TKI_FACTORS.map(f => `<th class="rt-sub" title="${esc(f.label)}">${esc(f.label.split(" ")[0].replace("/", ""))}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>${roleRows || `<tr><td colspan="16" style="text-align:center;color:var(--muted)">No roles scored for this cluster yet. Add the anchor seats — the ones the capability genuinely depends on.</td></tr>`}</tbody>
+        </table>
+      </div>
+
+      <div class="xlens" style="margin-top:18px">
+        <h4 class="xlens-title">Key-person risk register <span class="sig-meta">— high tacit knowledge: plan overlap and shadowing, not a name on a chart</span></h4>
+        ${keyReg.length ? `<table class="delta-table"><thead><tr><th>Role</th><th>Cluster</th><th>TKI</th><th>Why internally irreplaceable</th><th>Routing</th></tr></thead><tbody>
+          ${keyReg.map(r => `<tr>
+            <td><strong>${esc(r.role.title)}</strong></td>
+            <td>${esc(r.cluster.name)}</td>
+            <td><span class="tki-pill">${fmt1(r.tki)}</span></td>
+            <td>${esc(r.role.note || "—")}</td>
+            <td><span class="route-pill rt-${r.route}">${r.meta.label}</span></td>
+          </tr>`).join("")}
+        </tbody></table>` : '<div class="alert-empty">No high-tacit roles scored yet — these are the quiet experts a scarcity-only view misses.</div>'}
+      </div>
+    </section>`;
+}
+
+function bindRolesEvents() {
+  const sel = $("roles-cluster");
+  if (!sel) return;
+  sel.addEventListener("change", () => { rolesCluster = sel.value; renderView(); });
+  $("role-add").addEventListener("click", () => {
+    const cl = state.clusters.find(c => c.id === (rolesCluster || state.clusters[0].id));
+    cl.roles = cl.roles || [];
+    cl.roles.push({
+      id: "r_" + Date.now(), title: "New role", status: "absent",
+      axisA: { impact: 3, scarcity: 3, vacancy: 3, pivotal: 3, futurefit: 3 },
+      tki: { time: 3, codifiability: 3, concentration: 3, consequence: 3, relationship: 3 },
+      note: ""
+    });
+    renderAll();
+  });
+  $("role-import").addEventListener("click", () => $("file-roles").click());
+  document.querySelectorAll("[data-role]").forEach(el => el.addEventListener("change", () => {
+    const [field, roleId] = el.dataset.role.split("|");
+    const cl = state.clusters.find(c => (c.roles || []).some(r => r.id === roleId));
+    const role = cl && cl.roles.find(r => r.id === roleId);
+    if (!role) return;
+    if (field.indexOf(".") !== -1) {
+      const [axis, key] = field.split(".");
+      role[axis][key] = Math.max(1, Math.min(5, parseFloat(el.value) || 1));
+    } else if (field === "status") {
+      role.status = el.value;
+    } else {
+      role.title = el.value.trim() || role.title;
+    }
+    renderAll();
+  }));
+  document.querySelectorAll("[data-role-del]").forEach(b => b.addEventListener("click", () => {
+    const cl = state.clusters.find(c => (c.roles || []).some(r => r.id === b.dataset.roleDel));
+    cl.roles = cl.roles.filter(r => r.id !== b.dataset.roleDel);
+    renderAll();
+  }));
+  document.querySelectorAll("[data-role-open]").forEach(b => b.addEventListener("click", () => {
+    const [cid] = b.dataset.roleOpen.split("|");
+    rolesCluster = cid; renderView();
+    const t = document.querySelector(".rt-wrap");
+    if (t) t.scrollIntoView({ behavior: "smooth", block: "center" });
+  }));
+}
+
 /* ---------- View 5: Evidence (document ingestion, PRD F6) ---------- */
 let analyzeBusy = false;
 
@@ -456,13 +712,33 @@ function viewEvidence() {
         </div>
       </div>`;
     }).join("");
+    const roleCards = (a.roles || []).map((r, ri) => {
+      const cl = state.clusters.find(c => c.id === r.cluster_id);
+      if (!cl) return "";
+      const s = roleSummary(r);
+      return `<div class="finding-card role-card">
+        <div class="sig-head">
+          <span class="route-pill rt-${s.route}">${s.meta.label}</span>
+          <span class="finding-target">${esc(r.title)}</span>
+          <span class="rm-status ${s.status.cls}">${s.status.label}</span>
+          <span class="sig-meta">${esc(cl.name)} · criticality ${fmt1(s.idx)} · TKI ${fmt1(s.tki)}</span>
+        </div>
+        <p class="finding-quote">${esc(r.note || "—")}</p>
+        ${r.status_evidence ? `<p class="sig-meta">Basis: ${esc(r.status_evidence)}</p>` : ""}
+        <p class="sig-meta">Fix: ${esc(s.meta.fix)}</p>
+        <div class="sig-actions">
+          <button class="mini-btn" data-apply-role="${esc(a.id)}|${ri}" ${r.applied ? "disabled" : ""}>${r.applied ? "✓ Added to role register" : "＋ Add to role register"}</button>
+        </div>
+      </div>`;
+    }).join("");
     return `<section class="sig-briefing">
       <div class="sig-brief-head">
         <h2>Analysis — ${new Date(a.generated_at).toLocaleString()}</h2>
-        <span class="sig-meta">${a.findings.length} findings · from: ${esc((a.doc_labels || []).join(", "))} · model: ${esc(a.model)}</span>
+        <span class="sig-meta">${a.findings.length} findings${(a.roles || []).length ? ` · ${a.roles.length} roles` : ""} · from: ${esc((a.doc_labels || []).join(", "))} · model: ${esc(a.model)}</span>
         <button class="mini-btn danger" data-del-ana="${esc(a.id)}">Delete</button>
       </div>
       ${cards}
+      ${roleCards ? `<h3 class="ev-subhead">Roles found in these documents</h3>${roleCards}` : ""}
     </section>`;
   }).join("");
 
@@ -473,6 +749,10 @@ function viewEvidence() {
         <button class="mini-btn" id="ev-pick">Choose files</button>
         <button class="mini-btn" id="ev-paste">Paste text instead</button>
         <span class="sig-meta">Supported: .pdf .docx .pptx .xlsx .xls .txt .md .csv .json — all parsed locally in your browser · scanned PDFs &amp; images (.png .jpg) are read by Claude with your API key · anything else: Paste text</span>
+      </div>
+      <div class="tpl-row">
+        <span class="sig-kw-label">Not sure what to gather?</span>
+        ${Object.keys(TEMPLATES).map(k => `<button class="mini-btn" data-tpl="${k}" title="${esc(TEMPLATES[k].hint)}">↓ ${esc(TEMPLATES[k].label)}</button>`).join("")}
       </div>
       ${docRows ? `<div class="doc-list">${docRows}</div>` : ""}
       <div class="m-row" style="margin-top:2px">
@@ -488,6 +768,7 @@ function bindEvidenceEvents() {
   if (!pick) return;
   pick.addEventListener("click", () => $("file-evidence").click());
   $("ev-paste").addEventListener("click", openPasteModal);
+  document.querySelectorAll("[data-tpl]").forEach(b => b.addEventListener("click", () => downloadTemplate(b.dataset.tpl)));
   $("ev-analyze").addEventListener("click", runEvidenceAnalysis);
   const drop = $("ev-drop");
   drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
@@ -517,10 +798,32 @@ function bindEvidenceEvents() {
     const [cid, lk] = b.dataset.openCell.split("|");
     openDrawer(cid, lk);
   }));
+  document.querySelectorAll("[data-apply-role]").forEach(b => b.addEventListener("click", () => {
+    const [aid, ri] = b.dataset.applyRole.split("|");
+    applyExtractedRole(aid, parseInt(ri, 10));
+  }));
   document.querySelectorAll("[data-del-ana]").forEach(b => b.addEventListener("click", () => {
     state.analyses = state.analyses.filter(x => x.id !== b.dataset.delAna);
     renderAll();
   }));
+}
+
+function applyExtractedRole(analysisId, roleIndex) {
+  const analysis = (state.analyses || []).find(a => a.id === analysisId);
+  const r = analysis && (analysis.roles || [])[roleIndex];
+  const cluster = r && state.clusters.find(c => c.id === r.cluster_id);
+  if (!r || !cluster) return;
+  cluster.roles = cluster.roles || [];
+  cluster.roles.push({
+    id: "r_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+    title: r.title, status: r.status,
+    axisA: { ...r.axisA }, tki: { ...r.tki },
+    note: r.note || r.status_evidence || ""
+  });
+  r.applied = true;
+  state.changeLog.push({ at: nowIso(), cluster: cluster.name, lens: "Roles", from: 0, to: 0, rationale: "Role added from document evidence: " + r.title + " (" + r.status + ")", by: state.actor || "You" });
+  renderAll();
+  toast("Added “" + r.title + "” to the " + cluster.name + " role register.");
 }
 
 async function addEvidenceFiles(fileList) {
@@ -649,8 +952,148 @@ function bindViewEvents() {
   });
   const db = $("delta-base");
   if (db) db.addEventListener("change", renderView);
+  const bs = $("board-sort");
+  if (bs) bs.addEventListener("change", () => { state.boardSort = bs.value; renderAll(); });
   bindSignalEvents();
   bindEvidenceEvents();
+  bindValueChainEvents();
+  bindRolesEvents();
+}
+
+/* ---------- Upload templates (evidence the rubric actually needs) ---------- */
+const TEMPLATES = {
+  "role-inventory": {
+    file: "role-inventory-template.csv",
+    label: "Role inventory (job titles → two-axis scoring)",
+    hint: "The org-chart evidence: one row per anchor role. Import it straight back into the Roles view.",
+    body: [
+      "cluster_id,role_title,status,impact,scarcity,vacancy,pivotal,futurefit,tki_time,tki_codifiability,tki_concentration,tki_consequence,tki_relationship,note",
+      "# status = exists | thin | absent. All scores 1-5. Delete these comment rows before importing.",
+      "# cluster_id must match a cluster id in your diagnostic (see the Value Chain view's cluster dropdown).",
+      "commercial,Head of Pricing / Revenue Management,absent,5,5,4,5,4,3,2,3,4,2,Scarce technical keystone; pricing fragments without it",
+      "commercial,Bid & Solutions Architect,thin,4,5,3,4,4,4,3,3,3,3,Live bid economics",
+      "gateway,Load Control / Weight & Balance Officer,exists,2,3,5,4,1,5,4,4,5,3,Safety-critical judgement; years to master"
+    ].join("\n")
+  },
+  "value-chain": {
+    file: "value-chain-template.csv",
+    label: "Value chain / P&L levers (follow the money)",
+    hint: "Where the money is earned and spent, and which capability moves each lever.",
+    body: [
+      "lever_name,figure,share_pct,capability_that_moves_it,pillar_served,cluster_id",
+      "# share_pct = rough share of economic weight (0-100). They need not sum to 100.",
+      "Revenue quality,$6345M +9%,22,Pricing & revenue management; bid architecture; key accounts,Revenue > $8B,commercial",
+      "Staff-cost productivity,$3425M ~54% of revenue,30,AI workforce optimisation; rostering; job redesign,20%+ EBITDA,tdx"
+    ].join("\n")
+  },
+  "evidence-checklist": {
+    file: "evidence-checklist.md",
+    label: "Evidence checklist (what to gather before scoring)",
+    hint: "The document set that makes a diagnostic defensible, with the lens each one grounds.",
+    body: [
+      "# Evidence checklist — Capability Compass",
+      "",
+      "Gather these before scoring. Evidence before scores: a level assigned first and justified later is the endemic failure of self-assessed diagnostics.",
+      "",
+      "| # | Document | Grounds which lens | Why it matters | Have it? |",
+      "|---|---|---|---|---|",
+      "| 1 | Latest strategy deck / FY ambition | All | Defines what capability must deliver | ☐ |",
+      "| 2 | P&L summary or annual report | Value chain | Follow the money — which levers are material | ☐ |",
+      "| 3 | Job-title inventory / org chart (with headcount) | Structure, People | Anchor seats: present, thin, or absent | ☐ |",
+      "| 4 | Succession / talent review | People | Bench depth, successor readiness | ☐ |",
+      "| 5 | Engagement or pulse survey (with benchmark) | Culture | The only defensible culture evidence | ☐ |",
+      "| 6 | Programme / transformation status report | Process | Deployment vs adoption — the stall predictor | ☐ |",
+      "| 7 | Systems landscape or IT roadmap | Process | What is live vs in build | ☐ |",
+      "| 8 | Safety / quality / incident report | Culture, Process | Licence-to-operate signals | ☐ |",
+      "| 9 | Attrition and hiring-funnel data | People | Leading indicators for the People lens | ☐ |",
+      "| 10 | Board papers from the last 2 cycles | All | Decided vs proposed — authority of the evidence | ☐ |",
+      "",
+      "**As-of dates matter more than file dates.** A July deck showing Q1 numbers is Q1 evidence.",
+      "",
+      "**Two documents beat one.** The same metric at two dates is what justifies a trajectory call; a single reading only supports a level."
+    ].join("\n")
+  }
+};
+
+function downloadTemplate(key) {
+  const t = TEMPLATES[key];
+  if (!t) return;
+  const blob = new Blob([t.body], { type: t.file.endsWith(".md") ? "text/markdown" : "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = t.file;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast("Template downloaded: " + t.file);
+}
+
+/* Minimal RFC-4180-ish CSV parser (handles quoted fields and commas). */
+function parseCsv(text) {
+  const rows = [];
+  let row = [], field = "", inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; } else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === ",") { row.push(field); field = ""; }
+    else if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+    else if (c !== "\r") field += c;
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.length && !(r.length === 1 && !r[0].trim()));
+}
+
+function importRolesCsv(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const rows = parseCsv(String(reader.result)).filter(r => !String(r[0]).trim().startsWith("#"));
+      if (!rows.length) throw new Error("empty file");
+      const header = rows[0].map(h => h.trim().toLowerCase());
+      const col = n => header.indexOf(n);
+      const need = ["cluster_id", "role_title", "status"];
+      const missing = need.filter(n => col(n) === -1);
+      if (missing.length) throw new Error("missing column(s): " + missing.join(", "));
+      const num = (r, n, d) => {
+        const i = col(n);
+        const v = i === -1 ? NaN : parseFloat(r[i]);
+        return isNaN(v) ? d : Math.max(1, Math.min(5, v));
+      };
+      let added = 0, skipped = 0;
+      rows.slice(1).forEach(r => {
+        const cid = (r[col("cluster_id")] || "").trim();
+        const title = (r[col("role_title")] || "").trim();
+        const cl = state.clusters.find(c => c.id === cid);
+        if (!cl || !title) { skipped++; return; }
+        const status = (r[col("status")] || "exists").trim().toLowerCase();
+        cl.roles = cl.roles || [];
+        cl.roles.push({
+          id: "r_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+          title,
+          status: ROLE_STATUSES.indexOf(status) !== -1 ? status : "exists",
+          axisA: {
+            impact: num(r, "impact", 3), scarcity: num(r, "scarcity", 3), vacancy: num(r, "vacancy", 3),
+            pivotal: num(r, "pivotal", 3), futurefit: num(r, "futurefit", 3)
+          },
+          tki: {
+            time: num(r, "tki_time", 3), codifiability: num(r, "tki_codifiability", 3),
+            concentration: num(r, "tki_concentration", 3), consequence: num(r, "tki_consequence", 3),
+            relationship: num(r, "tki_relationship", 3)
+          },
+          note: col("note") !== -1 ? (r[col("note")] || "").trim() : ""
+        });
+        added++;
+      });
+      renderAll();
+      toast(`Imported ${added} role${added === 1 ? "" : "s"}` + (skipped ? ` · ${skipped} row(s) skipped (unknown cluster_id or blank title)` : ""));
+    } catch (e) {
+      toast("Roles import failed: " + e.message);
+    }
+  };
+  reader.readAsText(file);
 }
 
 /* ============================================================
@@ -1074,6 +1517,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("btn-import").addEventListener("click", () => $("file-import").click());
   $("file-import").addEventListener("change", e => { if (e.target.files[0]) importJson(e.target.files[0]); e.target.value = ""; });
   $("file-evidence").addEventListener("change", e => { addEvidenceFiles(e.target.files); e.target.value = ""; });
+  $("file-roles").addEventListener("change", e => { if (e.target.files[0]) importRolesCsv(e.target.files[0]); e.target.value = ""; });
   $("btn-report").addEventListener("click", () => window.print());
   $("btn-settings").addEventListener("click", openSettings);
   $("drawer-backdrop").addEventListener("click", closeDrawer);

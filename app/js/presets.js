@@ -254,6 +254,76 @@ const DEMO_STATE = {
   currentVersion: "v1.1 (working)"
 };
 
+/* ---- Demo roles (fictional) --------------------------------------
+   Shape follows the two-axis rubric: axisA drives the Criticality
+   Index, tki drives Tacit-Knowledge Intensity, and the pair routes the
+   role to Critical / Dual-critical / Specialist / Standard.          */
+function demoRole(id, title, status, a, t, note) {
+  return {
+    id: id, title: title, status: status,
+    axisA: { impact: a[0], scarcity: a[1], vacancy: a[2], pivotal: a[3], futurefit: a[4] },
+    tki: { time: t[0], codifiability: t[1], concentration: t[2], consequence: t[3], relationship: t[4] },
+    note: note || ""
+  };
+}
+
+const DEMO_ROLES = {
+  gateway: [
+    demoRole("r-gw1", "Regional VP Cargo", "exists", [5, 4, 4, 5, 4], [4, 3, 4, 4, 5], "Owns regional cargo P&L and trade-lane strategy."),
+    demoRole("r-gw2", "Cargo & Pharma Manager (cold-chain certified)", "exists", [4, 5, 5, 4, 4], [5, 4, 5, 5, 4], "Certification is a contract gatekeeper for the highest-margin lane."),
+    demoRole("r-gw3", "Load Control / Weight & Balance Officer", "exists", [2, 3, 5, 4, 1], [5, 4, 4, 5, 3], "Safety-critical loading judgement; years to master."),
+    demoRole("r-gw4", "Hub Duty Controller (disruption)", "thin", [3, 3, 4, 4, 2], [5, 5, 4, 4, 4], "Real-time judgement across the whole operation; pattern recognition built over years.")
+  ],
+  food: [
+    demoRole("r-fd1", "Executive Chef — Culinary Design", "exists", [3, 4, 3, 3, 3], [5, 5, 4, 3, 5], "Customer-specific palate calibration; brand-defining and hard to codify."),
+    demoRole("r-fd2", "Food Safety & Quality Lead", "exists", [3, 3, 5, 4, 2], [4, 3, 3, 5, 3], "Licence-to-operate role across all facilities.")
+  ],
+  tdx: [
+    demoRole("r-tx1", "Head, Analytics & AI", "thin", [5, 5, 4, 5, 5], [3, 2, 3, 3, 2], "Enabler of the workforce-optimisation programme — the largest in-year margin lever."),
+    demoRole("r-tx2", "Head, Data Engineering & Platform", "thin", [5, 5, 4, 5, 5], [3, 2, 3, 3, 2], "The data spine every commercial and ops decision rides on."),
+    demoRole("r-tx3", "Core-system super-user", "exists", [2, 2, 4, 3, 1], [4, 5, 5, 4, 3], "Undocumented workarounds live in a few heads; continuity risk."),
+    demoRole("r-tx4", "People Analytics & Workforce Planning Lead", "absent", [4, 4, 3, 4, 5], [3, 2, 3, 3, 2], "Engine for the staff-cost lever and peak-coverage productivity.")
+  ],
+  commercial: [
+    demoRole("r-cm1", "Head of Pricing / Revenue Management", "absent", [5, 5, 4, 5, 4], [3, 2, 3, 4, 2], "The scarce technical keystone; without it pricing fragments across sales, finance and ops."),
+    demoRole("r-cm2", "Global Head, Commercial Excellence", "absent", [5, 4, 4, 5, 4], [3, 3, 3, 3, 3], "No enterprise owner of win-rate, renewal and pricing discipline."),
+    demoRole("r-cm3", "Bid & Solutions Architect", "absent", [4, 5, 3, 4, 4], [4, 3, 3, 3, 3], "Live bid economics — hard-to-fake technical depth."),
+    demoRole("r-cm4", "VP Global Account Management", "exists", [4, 4, 4, 4, 4], [4, 3, 3, 3, 5], "Converts network breadth into wallet share; renewal cliffs are the real margin.")
+  ],
+  leadership: [
+    demoRole("r-ld1", "Regional Managing Director", "exists", [5, 4, 4, 5, 3], [4, 3, 3, 4, 5], "Owns regional P&L, service reliability and renewals."),
+    demoRole("r-ld2", "Station Head / General Manager", "exists", [3, 3, 4, 4, 2], [4, 4, 3, 4, 5], "Airport-authority and union relationships built over years."),
+    demoRole("r-ld3", "M&A / Integration Lead", "absent", [5, 4, 3, 4, 3], [3, 3, 4, 4, 3], "Value leaks fastest at integration; protects deal synergies.")
+  ],
+  enabling: [
+    demoRole("r-en1", "Organisation Design & Change Lead", "absent", [4, 3, 3, 4, 4], [3, 3, 3, 3, 4], "The adoption layer that makes major programmes land at the frontline."),
+    demoRole("r-en2", "Head of Talent Acquisition — specialist hiring", "thin", [3, 3, 3, 3, 3], [3, 2, 2, 3, 3], "Feeds every acquire-first gap on the register.")
+  ]
+};
+
+/* ---- Demo value chain (fictional) — follow the money -------------- */
+const DEMO_VALUE_CHAIN = {
+  currency: "$",
+  revenue: "6.35B",
+  as_of: "FY2026",
+  stages: [
+    { key: "demand", label: "Demand owner", note: "Airlines · Forwarders · E-commerce · Government" },
+    { key: "platform", label: "Platform", note: "Gateway + Food Solutions · 225+ stations · 27 countries" },
+    { key: "billing", label: "Billing unit", note: "Per tonne · per turn · per meal · per contract" },
+    { key: "cost", label: "Cost consumption", note: "People 54% · Assets · Materials · Capital" },
+    { key: "value", label: "Value created", note: "Operating profit → PATMI → ROE" }
+  ],
+  levers: [
+    { id: "lv1", name: "Revenue quality", figure: "$6,345M · +9%", share_pct: 22, capability: "Commercial operating model, pricing & revenue management, bid architecture, global key accounts", pillar: "Revenue > $8B by FY29", cluster_id: "commercial" },
+    { id: "lv2", name: "Staff-cost productivity", figure: "$3,425M · ~54% of revenue", share_pct: 30, capability: "AI workforce optimisation, predictive rostering, job redesign, workforce analytics", pillar: "20%+ EBITDA", cluster_id: "tdx" },
+    { id: "lv3", name: "Food input & materials", figure: "$574M", share_pct: 10, capability: "Culinary innovation, food technology, procurement, waste intelligence", pillar: "Regional food leader", cluster_id: "food" },
+    { id: "lv4", name: "Assets & capital", figure: "$603M · capex ~5%", share_pct: 14, capability: "Hub development & automation engineering, asset management, capital-allocation governance", pillar: "ROE 15%+", cluster_id: "gateway" },
+    { id: "lv5", name: "Synergy & integration", figure: "$696M subcontracting", share_pct: 12, capability: "M&A integration leadership, PMO & benefits realisation, shared-services automation", pillar: "One-company value capture", cluster_id: "leadership" },
+    { id: "lv6", name: "Licence to operate", figure: "Enterprise priority #1", share_pct: 7, capability: "Safety & HSSE leadership, security, quality and compliance", pillar: "Condition of award", cluster_id: "gateway" },
+    { id: "lv7", name: "People & enabling cost base", figure: "Corporate functions", share_pct: 5, capability: "People analytics, HRIS, procurement, shared services", pillar: "Enabling efficiency", cluster_id: "enabling" }
+  ]
+};
+
 /* A prior snapshot so momentum, trajectory, and delta views demo well. */
 const DEMO_PRIOR_LEVELS = {
   gateway: { Structure: 3, People: 3, Process: 3, Culture: 2 },
@@ -266,6 +336,8 @@ const DEMO_PRIOR_LEVELS = {
 
 function buildDemoState() {
   const s = JSON.parse(JSON.stringify(DEMO_STATE));
+  s.valueChain = JSON.parse(JSON.stringify(DEMO_VALUE_CHAIN));
+  s.clusters.forEach(cl => { cl.roles = JSON.parse(JSON.stringify(DEMO_ROLES[cl.id] || [])); });
   // Build the prior version snapshot (v1.0, one quarter earlier)
   const prior = JSON.parse(JSON.stringify(s.clusters));
   prior.forEach(cl => {

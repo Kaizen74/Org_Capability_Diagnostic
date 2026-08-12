@@ -20,6 +20,10 @@ var LEADING_SIGNALS = ["improving", "stable", "declining"];
 var DOC_KINDS = ["text", "pdf", "image", "unsupported"];
 var DOC_TYPES = ["strategy-deck", "survey-report", "board-paper", "workforce-file", "annual-report", "org-chart", "program-update", "other"];
 var EVIDENCE_CLASSES = ["leading", "lagging"];
+var ROLE_STATUSES = ["exists", "thin", "absent"];
+var ROLE_ROUTES = ["critical", "dual", "specialist", "standard"];
+var AXIS_A_KEYS = ["impact", "scarcity", "vacancy", "pivotal", "futurefit"];
+var TKI_KEYS = ["time", "codifiability", "concentration", "consequence", "relationship"];
 
 function _isStr(v) { return typeof v === "string"; }
 function _isArr(v) { return Array.isArray(v); }
@@ -61,11 +65,24 @@ function validateState(s) {
   (s.clusters || []).forEach(function (c, i) {
     if (!_isStr(c.id)) errs.push("clusters[" + i + "]: id required");
     if (!_isStr(c.name)) errs.push("clusters[" + i + "]: name required");
+    if (c.roles !== undefined) {
+      if (!_isArr(c.roles)) errs.push("clusters[" + i + "].roles must be an array");
+      else c.roles.forEach(function (r, ri) {
+        errs = errs.concat(validateRole(r, "clusters[" + i + "].roles[" + ri + "]"));
+      });
+    }
     if (!_isObj(c.cells)) { errs.push("clusters[" + i + "]: cells required"); return; }
     (s.lenses || []).forEach(function (l) {
       if (c.cells[l.key]) errs = errs.concat(validateCell(c.cells[l.key], "clusters[" + i + "].cells." + l.key));
     });
   });
+  if (s.valueChain !== undefined && s.valueChain !== null) {
+    errs = errs.concat(validateValueChain(s.valueChain));
+    (s.valueChain.levers || []).forEach(function (l, i) {
+      if (l.cluster_id && !(s.clusters || []).some(function (c) { return c.id === l.cluster_id; }))
+        errs.push("valueChain.levers[" + i + "]: cluster_id does not match any cluster");
+    });
+  }
   if (!_isArr(s.patterns)) errs.push("patterns must be an array");
   if (!_isArr(s.versions)) errs.push("versions must be an array");
   if (s.briefings !== undefined && !_isArr(s.briefings)) errs.push("briefings must be an array");
@@ -99,6 +116,48 @@ function validateBriefing(b) {
     if (SIGNAL_DIRECTIONS.indexOf(sig.direction) === -1) errs.push(w + ": direction must be one of " + SIGNAL_DIRECTIONS.join("/"));
     if (!_isArr(sig.affected_cluster_ids)) errs.push(w + ": affected_cluster_ids must be an array");
     if (sig.lens_key !== undefined && sig.lens_key !== null && !_isStr(sig.lens_key)) errs.push(w + ": lens_key must be a string when present");
+  });
+  return errs;
+}
+
+function _score1to5(v) { return typeof v === "number" && v >= 1 && v <= 5; }
+
+/* Validate one anchor role (two-axis rubric: criticality × tacit knowledge). */
+function validateRole(r, where) {
+  var errs = [];
+  if (!_isObj(r)) return [where + ": role is not an object"];
+  if (!_isStr(r.id)) errs.push(where + ": id required");
+  if (!_isStr(r.title) || !r.title.trim()) errs.push(where + ": title required");
+  if (ROLE_STATUSES.indexOf(r.status) === -1) errs.push(where + ": status must be one of " + ROLE_STATUSES.join("/"));
+  if (!_isObj(r.axisA)) errs.push(where + ": axisA required");
+  else AXIS_A_KEYS.forEach(function (k) {
+    if (!_score1to5(r.axisA[k])) errs.push(where + ".axisA." + k + " must be a number 1-5");
+  });
+  if (!_isObj(r.tki)) errs.push(where + ": tki required");
+  else TKI_KEYS.forEach(function (k) {
+    if (!_score1to5(r.tki[k])) errs.push(where + ".tki." + k + " must be a number 1-5");
+  });
+  return errs;
+}
+
+/* Validate the value-chain / follow-the-money layer. */
+function validateValueChain(vc) {
+  var errs = [];
+  if (!_isObj(vc)) return ["valueChain is not an object"];
+  if (!_isStr(vc.currency)) errs.push("valueChain.currency must be a string");
+  if (!_isArr(vc.stages)) errs.push("valueChain.stages must be an array");
+  (vc.stages || []).forEach(function (s, i) {
+    if (!_isStr(s.label)) errs.push("valueChain.stages[" + i + "].label must be a string");
+  });
+  if (!_isArr(vc.levers)) errs.push("valueChain.levers must be an array");
+  (vc.levers || []).forEach(function (l, i) {
+    var w = "valueChain.levers[" + i + "]";
+    if (!_isStr(l.id)) errs.push(w + ": id required");
+    if (!_isStr(l.name) || !l.name.trim()) errs.push(w + ": name required");
+    if (typeof l.share_pct !== "number" || l.share_pct < 0 || l.share_pct > 100)
+      errs.push(w + ": share_pct must be a number 0-100");
+    if (l.cluster_id !== null && l.cluster_id !== undefined && !_isStr(l.cluster_id))
+      errs.push(w + ": cluster_id must be null or a string");
   });
   return errs;
 }
@@ -138,6 +197,19 @@ function validateAnalysis(a) {
       errs.push(w + ": suggested_level must be null or 1-4");
     if (f.watch !== null && f.watch !== undefined && !_isStr(f.watch)) errs.push(w + ": watch must be null or a string");
   });
+  if (a.roles !== undefined) {
+    if (!_isArr(a.roles)) errs.push("roles must be an array");
+    else a.roles.forEach(function (r, i) {
+      var w = "roles[" + i + "]";
+      if (!_isStr(r.cluster_id)) errs.push(w + ": cluster_id required");
+      if (!_isStr(r.title) || !r.title.trim()) errs.push(w + ": title required");
+      if (ROLE_STATUSES.indexOf(r.status) === -1) errs.push(w + ": status must be one of " + ROLE_STATUSES.join("/"));
+      if (!_isObj(r.axisA)) errs.push(w + ": axisA required");
+      else AXIS_A_KEYS.forEach(function (k) { if (!_score1to5(r.axisA[k])) errs.push(w + ".axisA." + k + " must be 1-5"); });
+      if (!_isObj(r.tki)) errs.push(w + ": tki required");
+      else TKI_KEYS.forEach(function (k) { if (!_score1to5(r.tki[k])) errs.push(w + ".tki." + k + " must be 1-5"); });
+    });
+  }
   return errs;
 }
 
@@ -157,6 +229,12 @@ if (typeof module !== "undefined" && module.exports) {
     DOC_KINDS: DOC_KINDS,
     DOC_TYPES: DOC_TYPES,
     EVIDENCE_CLASSES: EVIDENCE_CLASSES,
+    ROLE_STATUSES: ROLE_STATUSES,
+    ROLE_ROUTES: ROLE_ROUTES,
+    AXIS_A_KEYS: AXIS_A_KEYS,
+    TKI_KEYS: TKI_KEYS,
+    validateRole: validateRole,
+    validateValueChain: validateValueChain,
     validateCell: validateCell,
     validateState: validateState,
     validateBriefing: validateBriefing,

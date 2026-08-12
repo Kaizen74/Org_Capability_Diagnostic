@@ -8,6 +8,8 @@ A **holistic and directionally predictive** capability diagnostic you run entire
 - **Priority Board** — the action read: cross-cluster hero patterns on top, clusters sorted weakest-first, the priority move for each always visible.
 - **Trajectory** — the predictive read: momentum per cell (from version history + leading indicators you maintain), early-warning alerts (*erosion risk*, *stalled weakness*, *breakout underway*), and a directional projection two review cycles ahead.
 - **Signals** — the external read (optional, uses your own Claude API key): scans the latest market research, competitor moves, and regulatory shifts for your industry, then lets you apply each signal to a cluster as a leading indicator — recalibrating the trajectory forecast against the outside world.
+- **Value Chain** — the economic precursor: follow the money from demand owner to profit, map each P&L lever to the capability that moves it, and the Priority Board switches from "weakest first" to **money at risk first**.
+- **Roles** — the accountability read: every anchor role scored on two independent axes — *Criticality* (hard to hire → succession bench) and *Tacit-Knowledge Intensity* (hard to rebuild internally → knowledge capture) — routing each into Critical / Dual-critical / Specialist / Standard, with two separate registers so knowledge-drain risk never hides inside a succession list.
 - **Evidence** — the grounding read: upload your own documents (strategy decks, engagement surveys, annual reports, workforce files, org charts) and Claude runs an evidence-extraction protocol against your clusters and lenses — verbatim figures, leading vs lagging classification, conservative level suggestions, and falsifiable watch signals — each finding one click away from landing in the right cell.
 - **Delta** — the recalibration read: exactly what changed since any saved baseline, declines first, with the logged rationale for every move.
 
@@ -75,13 +77,34 @@ Then open **http://localhost:8080** in your browser. (Any static file server wor
 
 **Key safety:** your API key lives only in this browser, in storage separate from the diagnostic data, so it can never appear in an Export file, a report, or a backup. It is sent only to Anthropic's API, directly from your machine. Remove it anytime with **Settings → Remove key**.
 
+### Establishing economic context first (Value Chain)
+
+Score capabilities *after* you know where the money is. In the **Value Chain** tab, fill the five-stage flow (demand owner → platform → billing unit → cost consumption → value created), then list the handful of P&L levers that genuinely move the business. For each: a rough weight, the capability that moves it, and the cluster that owns it.
+
+The Priority Board then ranks by **value exposure** (economic weight × capability gap) instead of weakness alone — so a Level 2 carrying 30% of your cost base outranks a Level 2 carrying 2%. Any lever with no cluster attached is flagged: that money has no capability owner.
+
+![Value Chain](docs/screenshots/value-chain.png)
+
+### Scoring the roles behind each capability (Roles)
+
+A capability nobody is accountable for is not a Level 3. In the **Roles** tab, score each anchor role on two independent axes and the app routes it automatically:
+
+- **Criticality** — strategic impact (30%), market scarcity (25%), vacancy risk (20%), value-chain pivotalness (15%), future-fit (10%). High score = *hard to hire* → the fix is a **succession bench**.
+- **Tacit-Knowledge Intensity** — time-to-competence, codifiability, bus-factor, consequence of inexperience, relationship capital. High score = *hard to rebuild internally even if you can hire* → the fix is **knowledge capture, overlap and apprenticeship**.
+
+That produces four routes — **Critical**, **Dual-critical**, **Specialist/key-person**, **Standard** — and two separate registers. The separation matters: a load-control officer or a long-tenured system super-user scores modestly on leverage but is internally irreplaceable, and a scarcity-only view files them under "standard" until the day they resign.
+
+Record each role's status as *exists · thin bench · absent* using your real job titles. Absent anchor seats surface automatically as structural findings on the board and in the trajectory patterns. Bulk-load them with the **Import roles CSV** button (template in the Evidence tab), or let Claude extract them from your org chart.
+
+![Roles](docs/screenshots/roles.png)
+
 ### Grounding the diagnostic in your own documents (Evidence)
 
 1. Open the **Evidence** tab and drop in your files — strategy decks, engagement survey results, annual reports, workforce files, org charts and job-title lists.
    - **.pdf, .docx (Word), .pptx (PowerPoint), .xlsx/.xls (Excel), .txt, .md, .csv, .json** all parse **locally in your browser** — offline, free, nothing leaves your machine. (The app ships with three bundled open-source parsers: pdf.js, SheetJS, and JSZip — still zero-install for you.) PowerPoint extraction includes speaker notes; Excel comes in as per-sheet tables.
    - **Scanned/image-only PDFs and images (.png/.jpg)** — org charts, photographed documents — are read natively by Claude using your API key.
    - Anything else (legacy .doc/.ppt, intranet pages, emails): use **Paste text instead**.
-2. Give each document a **source label** (it propagates to every citation) and a **type** (strategy deck, engagement survey, board paper, workforce file, org chart…).
+2. Give each document a **source label** (it propagates to every citation) and a **type** (strategy deck, engagement survey, board paper, workforce file, org chart…). Not sure what to gather? Download the built-in **templates**: an *Evidence checklist* (the ten documents that make a diagnostic defensible, and the lens each one grounds), a *Role inventory* CSV, and a *Value chain* CSV.
 3. Click **Analyze & synthesize evidence**. Claude runs a strict extraction protocol — verbatim figures only, *stated ≠ demonstrated* (announcements count as trajectory evidence, never level evidence), between two levels suggest the lower — and returns findings mapped to specific **cluster × lens** cells, each classified **Leading** or **Lagging** with a rationale and a falsifiable watch signal.
 4. Click **Apply to cell** on any finding: it lands in the cell as an evidence citation, plus a leading indicator (if directional) and a watch signal — feeding the momentum model immediately. **Level suggestions are never auto-applied** — click *Open cell* to score it yourself, with the suggestion in view. You keep the pen.
 5. Privacy: text extracts live only in this browser; **PDF/image content is held in memory only** — it is never written to storage or exports, and after a restart the app honestly asks you to re-attach the file.
@@ -123,6 +146,13 @@ docs/
 ## 🧭 Design system & methodology
 
 4-level maturity scale (Absent → Early → Emerging → Established) on a colorblind-safe single-hue navy ramp — never traffic-light red/green. Every rating is quadruple-encoded (fill + segment bar + text label + amber action flag). Weakest-first sorting biases the eye toward what needs attention. Every rating cites evidence or is flagged. Every change is logged. See `docs/` for the full standard.
+
+## 🗂️ Project files (for whoever maintains this next)
+
+- **`GUIDE.md`** — plain-language user guide: what each view is for and the recommended order for a first real diagnostic.
+- **`PROJECT_STATE.md`** — what is built, what is tested, what to do next. The source of truth for resuming work.
+- **`DECISIONS.md`** — why the app is built the way it is, one line per decision.
+- **`./run_checks.sh`** — runs every automated check in one command and says plainly whether it's safe to commit.
 
 ## 🧪 Testing (for the curious)
 

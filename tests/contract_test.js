@@ -270,5 +270,128 @@ demoForApply.documents = [textDoc];
 demoForApply.analyses = [normAna];
 check("state with documents + analyses + applied finding stays contract-valid", schema.validateState(demoForApply));
 
+// ---- 17. Two-axis role rubric: index, TKI, routing thresholds ----
+const demoRoles = vm.runInContext("buildDemoState()", sandbox);
+vm.runInContext("globalThis.__dr = " + JSON.stringify(demoRoles), sandbox);
+const idxOf = (cid, title) => vm.runInContext(
+  `criticalityIndex(__dr.clusters.find(c=>c.id==="${cid}").roles.find(r=>r.title.indexOf(${JSON.stringify(title)})===0))`, sandbox);
+const tkiOf = (cid, title) => vm.runInContext(
+  `tkiScore(__dr.clusters.find(c=>c.id==="${cid}").roles.find(r=>r.title.indexOf(${JSON.stringify(title)})===0))`, sandbox);
+const routeOf = (cid, title) => vm.runInContext(
+  `routeRole(__dr.clusters.find(c=>c.id==="${cid}").roles.find(r=>r.title.indexOf(${JSON.stringify(title)})===0))`, sandbox);
+
+// Weighted index: 30/25/20/15/10 on 1-5 inputs must stay inside 1-5.
+const allIdx = vm.runInContext("__dr.clusters.flatMap(c=>(c.roles||[]).map(r=>criticalityIndex(r)))", sandbox);
+const allTki = vm.runInContext("__dr.clusters.flatMap(c=>(c.roles||[]).map(r=>tkiScore(r)))", sandbox);
+checkOk("criticality index stays within [1,5]", allIdx.every(v => v >= 1 && v <= 5));
+checkOk("tacit-knowledge score stays within [1,5]", allTki.every(v => v >= 1 && v <= 5));
+checkOk("Axis A weights sum to 1.0", Math.abs(vm.runInContext("AXIS_A_WEIGHTS.reduce((a,w)=>a+w.wt,0)", sandbox) - 1) < 1e-9);
+
+// High leverage + low tacit → Critical (succession bench fix)
+checkOk("high-leverage, low-tacit role routes to Critical",
+  routeOf("commercial", "Head of Pricing") === "critical" && idxOf("commercial", "Head of Pricing") >= 4.5);
+// High leverage + high tacit → Dual-critical (both fixes)
+checkOk("high-leverage, high-tacit role routes to Dual-critical",
+  routeOf("gateway", "Cargo & Pharma") === "dual" && tkiOf("gateway", "Cargo & Pharma") >= 4);
+// Low leverage + high tacit → Specialist (knowledge transfer, NOT succession list)
+checkOk("low-leverage, high-tacit role routes to Specialist / key-person",
+  routeOf("gateway", "Load Control") === "specialist" && idxOf("gateway", "Load Control") < 3.5 && tkiOf("gateway", "Load Control") >= 4);
+checkOk("core-system super-user is a Specialist, not Standard — the quiet-expert case a scarcity-only view misses",
+  routeOf("tdx", "Core-system super-user") === "specialist");
+checkOk("routing thresholds are explicit and equal on both axes",
+  vm.runInContext("HIGH_LEVERAGE === 3.5 && HIGH_TACIT === 3.5", sandbox));
+
+// ---- 18. Registers separate the two risks ----
+const critReg = vm.runInContext("criticalRoleRegister(__dr).map(r=>r.role.title)", sandbox);
+const keyReg = vm.runInContext("keyPersonRegister(__dr).map(r=>r.role.title)", sandbox);
+checkOk("critical-role register leads with absent anchor seats",
+  vm.runInContext("criticalRoleRegister(__dr)[0].role.status", sandbox) === "absent");
+checkOk("key-person register holds the high-tacit roles", keyReg.some(t => t.indexOf("Load Control") === 0));
+checkOk("the two registers are genuinely different lists (different risks, different fixes)",
+  keyReg.some(t => critReg.indexOf(t) === -1) && critReg.some(t => keyReg.indexOf(t) === -1));
+checkOk("key-person register is ordered by tacit intensity",
+  (() => { const t = vm.runInContext("keyPersonRegister(__dr).map(r=>r.tki)", sandbox); return t.every((v, i) => i === 0 || t[i - 1] >= v); })());
+
+// ---- 19. Anchor-seat coverage feeds structural findings ----
+const cov = vm.runInContext('roleCoverage(__dr.clusters.find(c=>c.id==="commercial"))', sandbox);
+checkOk("anchor-seat coverage counts only critical/dual roles", cov.anchors > 0 && cov.anchors <= cov.total);
+checkOk("commercial cluster reports absent anchor seats", cov.gaps.length >= 2 && cov.pct < 50);
+const rolePatterns = vm.runInContext("detectCrossLensPatterns(__dr).filter(p=>p.key==='anchor-seat-gap')", sandbox);
+checkOk("absent anchor seat surfaces as a structural pattern", rolePatterns.some(p => p.clusterId === "commercial"));
+checkOk("anchor-seat pattern names the missing role and its consequence",
+  rolePatterns.some(p => p.body.indexOf("Head of Pricing") !== -1 && p.body.indexOf("Structure cannot score above L2") !== -1));
+
+// ---- 20. Value chain: follow the money ----
+check("demo state with value chain + roles conforms to contract", schema.validateState(
+  Object.assign({}, demoRoles, { briefings: [], signal_keywords: [], documents: [], analyses: [] })));
+checkOk("cluster economic weight sums its mapped levers",
+  vm.runInContext('clusterEconomicWeight(__dr, "gateway")', sandbox) === 21); // lv4 14 + lv6 7
+checkOk("value chain is detected as configured", vm.runInContext("hasValueChain(__dr)", sandbox) === true);
+const exposure = vm.runInContext('clusterValueExposure(__dr, __dr.clusters.find(c=>c.id==="commercial"), __dr.lenses)', sandbox);
+checkOk("value exposure = economic weight × capability gap", Math.abs(exposure.exposure - exposure.weight * exposure.gap) < 1e-9);
+checkOk("a strong cluster carries less exposure than an equally-weighted weak one",
+  vm.runInContext('clusterValueExposure(__dr, __dr.clusters.find(c=>c.id==="food"), __dr.lenses).gap < clusterValueExposure(__dr, __dr.clusters.find(c=>c.id==="commercial"), __dr.lenses).gap', sandbox));
+const boardValue = vm.runInContext('orderClustersForBoard(__dr, "auto")', sandbox);
+checkOk("board auto-ranks by value exposure once levers are mapped", boardValue.basis === "value");
+checkOk("value ordering leads with the highest money-at-risk cluster",
+  boardValue.clusters[0].id === vm.runInContext(
+    '__dr.clusters.map(c=>({id:c.id,e:clusterValueExposure(__dr,c,__dr.lenses).exposure})).sort((a,b)=>b.e-a.e)[0].id', sandbox));
+const noVc = JSON.parse(JSON.stringify(demoRoles)); noVc.valueChain = { currency: "$", stages: [], levers: [] };
+vm.runInContext("globalThis.__novc = " + JSON.stringify(noVc), sandbox);
+checkOk("board falls back to weakest-first when no value chain is mapped",
+  vm.runInContext('orderClustersForBoard(__novc, "auto").basis', sandbox) === "weakest");
+checkOk("contract rejects a lever pointing at a non-existent cluster",
+  schema.validateState(Object.assign({}, noVc, {
+    briefings: [], signal_keywords: [], documents: [], analyses: [],
+    valueChain: { currency: "$", stages: [], levers: [{ id: "x", name: "n", share_pct: 5, cluster_id: "not-a-cluster" }] }
+  })).length > 0);
+checkOk("contract rejects an out-of-range share_pct",
+  schema.validateValueChain({ currency: "$", stages: [], levers: [{ id: "x", name: "n", share_pct: 140 }] }).length > 0);
+checkOk("contract rejects an out-of-range role score",
+  schema.validateRole({ id: "r", title: "T", status: "exists",
+    axisA: { impact: 9, scarcity: 3, vacancy: 3, pivotal: 3, futurefit: 3 },
+    tki: { time: 3, codifiability: 3, concentration: 3, consequence: 3, relationship: 3 } }, "r").length > 0);
+checkOk("contract rejects an unknown role status",
+  schema.validateRole({ id: "r", title: "T", status: "maybe",
+    axisA: { impact: 3, scarcity: 3, vacancy: 3, pivotal: 3, futurefit: 3 },
+    tki: { time: 3, codifiability: 3, concentration: 3, consequence: 3, relationship: 3 } }, "r").length > 0);
+
+// ---- 21. Harvest discipline in the external-signal prompt ----
+const scanPrompt = vm.runInContext("buildScanPrompt(buildDemoState(), ['cargo tonnage'])", sandbox);
+checkOk("scan prompt requires query triangulation with stop conditions",
+  scanPrompt.includes("triangulation") && scanPrompt.includes("practitioner's words") && scanPrompt.includes("six queries have run"));
+checkOk("scan prompt requires 1-5 source-quality scoring", scanPrompt.includes("Source quality") && scanPrompt.includes("SEO-farm"));
+checkOk("scan prompt forbids averaging conflicting figures", scanPrompt.includes("Never average figures"));
+checkOk("scan prompt carries the anti-fabrication rule", scanPrompt.includes("Anti-fabrication") && scanPrompt.includes("traceable"));
+checkOk("mock briefing carries a source-quality score per signal",
+  vm.runInContext("mockBriefing(buildDemoState(), []).signals.every(s => s.source_quality >= 1 && s.source_quality <= 5)", sandbox));
+
+// ---- 22. Evidence analysis extracts roles, not just cell findings ----
+const anaPrompt2 = vm.runInContext("buildAnalysisPrompt(buildDemoState())", sandbox);
+checkOk("analysis prompt asks for anchor-role presence/absence", anaPrompt2.includes("ANCHOR ROLES") && anaPrompt2.includes("absent"));
+checkOk("analysis prompt separates market scarcity from tacit-knowledge intensity",
+  anaPrompt2.includes("market scarcity") && anaPrompt2.includes("tacit-knowledge intensity") && anaPrompt2.includes("Score them independently"));
+const mockAna2 = vm.runInContext("mockAnalysis(buildDemoState(), [])", sandbox);
+checkOk("mock analysis returns role findings", Array.isArray(mockAna2.roles) && mockAna2.roles.length >= 2);
+const normRoles = {
+  id: "ana_r", generated_at: new Date().toISOString(), model: "mock", doc_ids: [], doc_labels: [],
+  findings: mockAna2.findings.map(f => ({ ...f, applied: false })),
+  roles: mockAna2.roles.map(r => ({
+    cluster_id: r.cluster_id, title: r.title, status: r.status,
+    axisA: r.criticality, tki: r.tacit, note: r.note, applied: false
+  }))
+};
+check("analysis with roles conforms to the analysis contract", schema.validateAnalysis(normRoles));
+checkOk("contract rejects a role finding with an out-of-range score",
+  schema.validateAnalysis({ ...normRoles, roles: [{ ...normRoles.roles[0], axisA: { ...normRoles.roles[0].axisA, impact: 11 } }] }).length > 0);
+
+// ---- 23. Upload templates are real, parseable artefacts ----
+const appSrc = fs.readFileSync(path.join(__dirname, "..", "app", "js", "app.js"), "utf8");
+["role-inventory-template.csv", "value-chain-template.csv", "evidence-checklist.md"].forEach(f => {
+  checkOk(`template '${f}' is defined in the app`, appSrc.indexOf(f) !== -1);
+});
+checkOk("role-inventory template header matches the CSV importer's required columns",
+  ["cluster_id", "role_title", "status", "impact", "tki_time"].every(c => appSrc.indexOf(c) !== -1));
+
 console.log(failures ? `\n${failures} CONTRACT FAILURE(S)` : "\nAll contract checks passed.");
 process.exit(failures ? 1 : 0);

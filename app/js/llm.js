@@ -111,15 +111,23 @@ function buildScanPrompt(state, keywords) {
     clusterLines,
     "Assessment lenses: " + lensKeys,
     "",
-    "Use web search to find the LATEST relevant market research, industry trends, competitor moves, and regulatory shifts (prioritise the last 6 months). Then produce 3 to 5 signals that should recalibrate this diagnostic.",
+    "HARVEST DISCIPLINE (follow literally — this is what separates a defensible briefing from a plausible one):",
+    "1. Query triangulation — run at least three vocabularies before concluding: the user's words (the keywords above), the practitioner's words (how an expert in this industry would name it), and the document's words (terms that would appear IN the target page). Stop when the last query returns no new credible sources, or the top three sources agree, or six queries have run.",
+    "2. Source quality — rate every source before trusting it: 5 primary (the organisation's own site, regulator, filings, peer-reviewed), 4 reputable secondary (established news, named industry analysts), 3 useful aggregate (trade press, detailed comparisons), 2 SEO-farm signals (listicles, no named author, identical phrasing across sites), 1 content mill. Prefer 4-5. Two low-quality sources agreeing does NOT outrank one primary source.",
+    "3. Conflicts — when sources disagree, prefer the more primary, then the more recent. Never average figures from different sources; record the conflict in the summary instead.",
+    "4. Anti-fabrication — every figure must be traceable to a specific fetched page. If you cannot point to the source line, leave it out. Never fill a number from memory or pattern-completion. Transcribe figures exactly; no unit or currency conversion.",
+    "5. Recency — prioritise the last 6 months; state the as-of date of any figure you cite.",
+    "",
+    "Then produce 3 to 5 signals that should recalibrate this diagnostic.",
     "",
     "Respond with ONLY a JSON object, no prose before or after, matching exactly:",
     "{",
     '  "signals": [',
     "    {",
     '      "headline": "short signal headline (max 12 words)",',
-    '      "summary": "2-3 sentences: what the signal is and why it matters to this organisation, with concrete facts or numbers",',
-    '      "source": "publication or organisation the signal comes from, with year",',
+    '      "summary": "2-3 sentences: what the signal is and why it matters to this organisation, with concrete figures transcribed exactly and their as-of date",',
+    '      "source": "publication or organisation, with year, and the URL if you have it",',
+    '      "source_quality": 1 | 2 | 3 | 4 | 5,',
     '      "direction": "tailwind" | "headwind" | "neutral",',
     '      "affected_cluster_ids": ["one or more cluster ids from the list above"],',
     '      "lens_key": "the single most affected lens: one of ' + lensKeys + '",',
@@ -148,7 +156,7 @@ function mockBriefing(state, keywords) {
       {
         headline: "AI-driven productivity race accelerating in " + state.industry_name.toLowerCase(),
         summary: "Recent industry research reports peers deploying applied AI into core workflows at scale, with early adopters claiming 10-15% productivity gains. Watch keyword coverage: " + kw.slice(0, 3).join(", ") + ". Organisations without a scaled AI programme risk a widening cost gap within two planning cycles.",
-        source: "Industry analyst briefing, 2026 (simulated)",
+        source: "Industry analyst briefing, 2026 (simulated)", source_quality: 4,
         direction: "headwind",
         affected_cluster_ids: ids.slice(2, 3).length ? ids.slice(2, 3) : [ids[0]],
         lens_key: lens.indexOf("Process") !== -1 ? "Process" : lens[0],
@@ -157,7 +165,7 @@ function mockBriefing(state, keywords) {
       {
         headline: "Talent market loosening for specialist commercial roles",
         summary: "Labour-market data shows rising availability of pricing and revenue-operations specialists as sector consolidation releases talent. Hiring windows like this historically last 2-3 quarters.",
-        source: "Talent market monitor, 2026 (simulated)",
+        source: "Talent market monitor, 2026 (simulated)", source_quality: 3,
         direction: "tailwind",
         affected_cluster_ids: [ids[Math.min(3, ids.length - 1)]],
         lens_key: lens.indexOf("People") !== -1 ? "People" : lens[0],
@@ -166,7 +174,7 @@ function mockBriefing(state, keywords) {
       {
         headline: "Regulators signal tighter workforce-safety reporting",
         summary: "Draft regulatory guidance proposes mandatory disclosure of safety-culture metrics alongside incident counts. Final rules expected within 12 months; peers are already piloting expanded reporting.",
-        source: "Regulatory tracker, 2026 (simulated)",
+        source: "Regulatory tracker, 2026 (simulated)", source_quality: 5,
         direction: "neutral",
         affected_cluster_ids: [ids[0]],
         lens_key: lens.indexOf("Culture") !== -1 ? "Culture" : lens[0],
@@ -215,6 +223,7 @@ async function scanExternalSignals(state, keywords) {
         headline: String(s.headline || "").trim(),
         summary: String(s.summary || "").trim(),
         source: String(s.source || "").trim(),
+        source_quality: (s.source_quality >= 1 && s.source_quality <= 5) ? Math.round(s.source_quality) : null,
         direction: SIGNAL_DIRECTIONS.indexOf(s.direction) !== -1 ? s.direction : "neutral",
         affected_cluster_ids: (Array.isArray(s.affected_cluster_ids) ? s.affected_cluster_ids : [])
           .filter(function (id) { return state.clusters.some(function (c) { return c.id === id; }); }),
@@ -370,6 +379,11 @@ function buildAnalysisPrompt(state) {
     "- Every finding maps to exactly one cluster id and one lens key from the lists above.",
     "- Watch signals must be falsifiable: a threshold plus what crossing it should trigger.",
     "",
+    "ROLE EVIDENCE (when the documents contain job titles, an org chart, or a workforce file):",
+    "- Also report which ANCHOR ROLES for each cluster are present, thin, or absent. A capability with no named owner cannot be scored as established, however good the narrative.",
+    "- Quote the real job title as it appears in the document. If a capability's anchor role is nowhere in the document, report it as absent with status_evidence explaining what you searched for.",
+    "- Separate two different risks: market scarcity (hard to hire — fixed by a succession bench) and tacit-knowledge intensity (hard to rebuild internally even if you can hire — fixed by knowledge capture, overlap and apprenticeship). Score them independently, 1-5 each.",
+    "",
     "Extract the 4 to 10 most decision-relevant findings. Respond with ONLY a JSON object, no prose:",
     "{",
     '  "findings": [',
@@ -386,8 +400,20 @@ function buildAnalysisPrompt(state) {
     '      "rationale": "one sentence with the real numbers",',
     '      "watch": "falsifiable watch signal with threshold, or null"',
     "    }",
+    "  ],",
+    '  "roles": [',
+    "    {",
+    '      "cluster_id": "one of the ids above",',
+    '      "title": "the real job title as written in the document",',
+    '      "status": "exists" | "thin" | "absent",',
+    '      "status_evidence": "where you found it, or what you searched for and did not find",',
+    '      "criticality": { "impact": 1-5, "scarcity": 1-5, "vacancy": 1-5, "pivotal": 1-5, "futurefit": 1-5 },',
+    '      "tacit": { "time": 1-5, "codifiability": 1-5, "concentration": 1-5, "consequence": 1-5, "relationship": 1-5 },',
+    '      "note": "one sentence on why this role is critical or internally irreplaceable"',
+    "    }",
     "  ]",
-    "}"
+    "}",
+    'If the documents contain no role or org-chart information at all, return "roles": [].'
   ].join("\n");
 }
 
@@ -445,6 +471,22 @@ function mockAnalysis(state, docs) {
         rationale: "Deployment at 67% with adoption at 55% — a 12-point gap, inside the 30-point stall threshold but worth watching (simulated extraction).",
         watch: "Deployment-minus-adoption gap exceeds 30 points → flip Process trajectory down"
       }
+    ],
+    roles: [
+      {
+        cluster_id: pick(3), title: "Head of Pricing / Revenue Management", status: "absent",
+        status_evidence: "Searched the uploaded titles for pricing, revenue management and deal desk — no enterprise owner found (simulated extraction).",
+        criticality: { impact: 5, scarcity: 5, vacancy: 4, pivotal: 5, futurefit: 4 },
+        tacit: { time: 3, codifiability: 2, concentration: 3, consequence: 4, relationship: 2 },
+        note: "Scarce technical keystone; without it pricing fragments across sales, finance and ops."
+      },
+      {
+        cluster_id: pick(0), title: "Load Control / Weight & Balance Officer", status: "exists",
+        status_evidence: "Appears repeatedly across stations in the uploaded workforce data (simulated extraction).",
+        criticality: { impact: 2, scarcity: 3, vacancy: 5, pivotal: 4, futurefit: 1 },
+        tacit: { time: 5, codifiability: 4, concentration: 4, consequence: 5, relationship: 3 },
+        note: "Safety-critical loading judgement; years to master and error carries a safety consequence."
+      }
     ]
   };
 }
@@ -500,6 +542,28 @@ async function analyzeEvidence(state, docs, blobStore) {
       };
     }).filter(function (f) {
       return f.quote && state.clusters.some(function (c) { return c.id === f.cluster_id; });
+    }),
+    roles: (raw.roles || []).map(function (r) {
+      var c15 = function (v, d) { var n = parseFloat(v); return (n >= 1 && n <= 5) ? n : d; };
+      var a = r.criticality || {}, t = r.tacit || {};
+      return {
+        cluster_id: String(r.cluster_id || ""),
+        title: String(r.title || "").trim(),
+        status: ROLE_STATUSES.indexOf(r.status) !== -1 ? r.status : "exists",
+        status_evidence: String(r.status_evidence || "").trim(),
+        axisA: {
+          impact: c15(a.impact, 3), scarcity: c15(a.scarcity, 3), vacancy: c15(a.vacancy, 3),
+          pivotal: c15(a.pivotal, 3), futurefit: c15(a.futurefit, 3)
+        },
+        tki: {
+          time: c15(t.time, 3), codifiability: c15(t.codifiability, 3), concentration: c15(t.concentration, 3),
+          consequence: c15(t.consequence, 3), relationship: c15(t.relationship, 3)
+        },
+        note: String(r.note || "").trim(),
+        applied: false
+      };
+    }).filter(function (r) {
+      return r.title && state.clusters.some(function (c) { return c.id === r.cluster_id; });
     })
   };
   var errs = validateAnalysis(analysis);

@@ -78,12 +78,18 @@ function check(name, cond) {
   await page.waitForTimeout(300);
   check("priority board: 3 hero patterns + 6 cards",
     await page.locator(".hero").count() === 3 && await page.locator(".bcard").count() === 6);
+  check("board defaults to money-at-risk order (biggest P&L lever leads)",
+    (await page.locator(".bcard h3").first().textContent()) === "Technology, Data & AI");
+  await page.selectOption("#board-sort", "weakest");
+  await page.waitForTimeout(400);
   check("weakest-first sort puts Commercial Leadership on top",
     (await page.locator(".bcard h3").first().textContent()) === "Commercial Leadership");
   check("every cluster card names its binding constraint",
     await page.locator(".b-binding").count() === 6);
   check("commercial binding constraint targets People",
     (await page.locator(".bcard").first().locator(".b-bind-link").textContent()).includes("People"));
+  await page.selectOption("#board-sort", "auto");
+  await page.waitForTimeout(300);
 
   await page.click('.tab[data-view="trajectory"]');
   await page.waitForTimeout(300);
@@ -97,6 +103,89 @@ function check(name, cond) {
   await page.click('.tab[data-view="delta"]');
   await page.waitForTimeout(300);
   check("delta renders rows against demo baseline", await page.locator(".delta-table tbody tr").count() > 0);
+
+  // ---------- Value Chain: follow the money ----------
+  await page.click('.tab[data-view="valuechain"]');
+  await page.waitForTimeout(400);
+  check("value chain renders the 5-stage money flow", await page.locator(".vc-stage").count() === 5);
+  check("value chain lists P&L levers with exposure", await page.locator(".vc-table tbody tr").count() === 7);
+  check("levers show a computed exposure score", await page.locator(".exposure-pill").count() >= 5);
+  const weightBefore = await page.evaluate(() => clusterEconomicWeight(state, "commercial"));
+  await page.locator('[data-lv^="share_pct|0"]').fill("40");
+  await page.locator('[data-lv^="share_pct|0"]').dispatchEvent("change");
+  await page.waitForTimeout(400);
+  const weightAfter = await page.evaluate(() => clusterEconomicWeight(state, "commercial"));
+  check("editing a lever's weight updates the cluster's economic weight", weightBefore === 22 && weightAfter === 40);
+
+  // Board must re-rank on money at risk
+  await page.click('.tab[data-view="board"]');
+  await page.waitForTimeout(400);
+  check("board offers an ordering control", await page.locator("#board-sort").count() === 1);
+  check("board auto-ranks by value exposure when levers are mapped",
+    (await page.locator(".view-note").textContent()).includes("value exposure"));
+  const topValue = await page.locator(".bcard h3").first().textContent();
+  const expectedTop = await page.evaluate(() =>
+    state.clusters.map(c => ({ n: c.name, e: clusterValueExposure(state, c, state.lenses).exposure }))
+      .sort((a, b) => b.e - a.e)[0].n);
+  check("highest money-at-risk cluster leads the board", topValue === expectedTop);
+  check("cards show economic exposure", await page.locator(".b-exposure").count() >= 5);
+  check("cards flag clusters whose anchor seats are missing", await page.locator(".b-stats .b-flagpill").count() >= 1);
+  await page.selectOption("#board-sort", "weakest");
+  await page.waitForTimeout(400);
+  check("switching to weakest-first changes the stated basis",
+    (await page.locator(".view-note").textContent()).includes("weakest-first"));
+  await page.selectOption("#board-sort", "auto");
+  await page.waitForTimeout(300);
+
+  // ---------- Roles: two-axis critical-role rubric ----------
+  await page.click('.tab[data-view="roles"]');
+  await page.waitForTimeout(400);
+  check("roles view renders the four-route matrix", await page.locator(".rm-quadrant").count() === 4);
+  const quadTexts = await page.locator(".rm-quadrant").allTextContents();
+  check("Critical quadrant holds the scarce-but-codifiable seats",
+    quadTexts.some(t => t.includes("Critical role") && t.includes("Head of Pricing")));
+  check("Dual-critical quadrant holds high-leverage + high-tacit seats",
+    quadTexts.some(t => t.includes("Dual-critical") && t.includes("Cargo & Pharma")));
+  check("Specialist quadrant surfaces the quiet experts (load control, super-user)",
+    quadTexts.some(t => t.includes("Specialist") && t.includes("Load Control")));
+  check("highest-succession-risk card names an absent anchor seat",
+    (await page.locator(".pattern-card").allTextContents()).some(t => t.includes("Head of Pricing")));
+  check("key-person register is rendered separately from the critical-role list",
+    (await page.locator(".xlens-title").allTextContents()).some(t => t.includes("Key-person risk register")));
+
+  // Scoring a role live must re-route it
+  await page.selectOption("#roles-cluster", "commercial");
+  await page.waitForTimeout(400);
+  check("role register table renders scored rows", await page.locator(".rt-table tbody tr").count() === 4);
+  const firstRoute = await page.locator(".rt-table tbody tr").first().locator(".route-pill").textContent();
+  await page.locator('.rt-table tbody tr').first().locator('[data-role^="tki.time"]').fill("5");
+  await page.locator('.rt-table tbody tr').first().locator('[data-role^="tki.time"]').dispatchEvent("change");
+  await page.waitForTimeout(400);
+  await page.locator('.rt-table tbody tr').first().locator('[data-role^="tki.codifiability"]').fill("5");
+  await page.locator('.rt-table tbody tr').first().locator('[data-role^="tki.codifiability"]').dispatchEvent("change");
+  await page.waitForTimeout(400);
+  const newRoute = await page.locator(".rt-table tbody tr").first().locator(".route-pill").textContent();
+  check("raising tacit-knowledge scores re-routes Critical → Dual-critical",
+    firstRoute.includes("Critical role") && newRoute.includes("Dual-critical"));
+
+  // Roles CSV import
+  const rolesCsv = [
+    "cluster_id,role_title,status,impact,scarcity,vacancy,pivotal,futurefit,tki_time,tki_codifiability,tki_concentration,tki_consequence,tki_relationship,note",
+    "# comment row should be ignored",
+    'food,"Head of Food Safety, Group",thin,4,4,5,4,3,4,3,3,5,3,Licence to operate',
+    "not-a-cluster,Ghost Role,exists,3,3,3,3,3,3,3,3,3,3,should be skipped"
+  ].join("\n");
+  await page.setInputFiles("#file-roles", { name: "roles.csv", mimeType: "text/csv", buffer: Buffer.from(rolesCsv) });
+  await page.waitForTimeout(600);
+  const imported = await page.evaluate(() => {
+    const food = state.clusters.find(c => c.id === "food");
+    return {
+      hasRole: food.roles.some(r => r.title === "Head of Food Safety, Group"),
+      ghost: state.clusters.some(c => (c.roles || []).some(r => r.title === "Ghost Role"))
+    };
+  });
+  check("roles CSV import handles quoted commas and skips comment rows", imported.hasRole);
+  check("roles CSV import rejects rows with an unknown cluster_id", imported.ghost === false);
 
   // ---------- v4 rubric: drawer confidence, evidence mix, watch signals ----------
   await page.click('.tab[data-view="matrix"]');
@@ -266,12 +355,33 @@ function check(name, cond) {
 
   await page.click("#ev-analyze");
   await page.waitForTimeout(1200);
-  check("analysis produces findings mapped to cluster × lens", await page.locator(".finding-card").count() === 3);
+  check("analysis produces findings mapped to cluster × lens", await page.locator(".finding-card:not(.role-card)").count() === 3);
   check("findings quote the uploaded document's own content (proof of ingestion)",
     (await page.locator(".finding-quote").allTextContents()).some(t => t.includes("Engagement Survey 2026") || t.includes("Safety engagement")));
   check("findings carry leading/lagging classification badges",
     (await page.locator(".finding-card .sig-dir").allTextContents()).some(t => t.includes("Leading")) &&
     (await page.locator(".finding-card .sig-dir").allTextContents()).some(t => t.includes("Lagging")));
+
+  // Role extraction from the same documents
+  check("analysis also extracts roles from the documents", await page.locator("[data-apply-role]").count() === 2);
+  check("extracted roles carry a route and status",
+    (await page.locator(".finding-card .route-pill").allTextContents()).length >= 2 &&
+    (await page.locator(".finding-card .rm-status").allTextContents()).some(t => t.includes("Absent")));
+  const rolesBefore = await page.evaluate(() => state.clusters.reduce((a, c) => a + (c.roles || []).length, 0));
+  await page.locator("[data-apply-role]").first().click();
+  await page.waitForTimeout(400);
+  const rolesAfter = await page.evaluate(() => state.clusters.reduce((a, c) => a + (c.roles || []).length, 0));
+  check("applying an extracted role adds it to the cluster's role register", rolesAfter === rolesBefore + 1);
+  check("applied role button marks as added",
+    (await page.locator("[data-apply-role]").first().textContent()).includes("Added"));
+
+  // Templates
+  check("evidence view offers download templates", await page.locator("[data-tpl]").count() === 3);
+  const dlPromise = page.waitForEvent("download", { timeout: 5000 });
+  await page.locator('[data-tpl="role-inventory"]').click();
+  const download = await dlPromise.catch(() => null);
+  check("role-inventory template downloads with the right filename",
+    !!download && download.suggestedFilename() === "role-inventory-template.csv");
 
   // Apply the leading finding (index 1: commercial × People, improving)
   await page.locator("[data-apply-find]").nth(1).click();
@@ -310,7 +420,7 @@ function check(name, cond) {
   await page.waitForTimeout(300);
   check("document list persists after reload", await page.locator(".doc-row").count() === 8);
   check("analysis + applied flag persist after reload",
-    await page.locator(".finding-card").count() === 3 &&
+    await page.locator(".finding-card:not(.role-card)").count() === 3 &&
     (await page.locator("[data-apply-find]").nth(1).textContent()).includes("Applied"));
   const statusesAfter = await page.locator(".doc-status").allTextContents();
   check("all locally-parsed docs stay ready; scanned PDF honestly asks for re-attach (binary never persisted)",

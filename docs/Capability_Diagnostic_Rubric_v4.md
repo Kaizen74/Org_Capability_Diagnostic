@@ -77,6 +77,45 @@ Each cell carries 0–3 **leading indicators**: named, forward-looking signals t
 - **Cross-lens interdependency patterns** (computed automatically): *bench-starves-rollout* (People ≤ L2 with Process ≥ L3), *structure-without-people* (Structure L4 with People ≤ L2), and the *adoption red flag* (Process improving while Culture declines in the same cluster — declining during change is an adoption problem, not normal lag).
 - **Scoring discipline surfaced at the point of scoring:** between two levels, take the lower; announcements and approvals justify trajectory, never a higher level — levels score what is operating today.
 
+## 4b. Value chain — the precursor layer (v4.2)
+
+**Scoring capabilities before understanding the economics produces a well-formed answer to the wrong question.** Before any cell is scored, map the business model:
+
+1. **Follow the money** across five stages: demand owner → platform → billing unit → cost consumption → value created. This states plainly who pays, what is invoiced, where revenue is consumed, and what lands as profit.
+2. **Translate each P&L lever into the capability that moves it**, the ambition it serves, and the cluster that owns it. A lever with no capability owner is an accountability gap, and the diagnostic should say so.
+3. **Give each lever a rough economic weight** (share of economic significance, 0–100). Precision is not the point; materiality is.
+
+This yields **value exposure = economic weight × capability gap**, which replaces naive weakest-first prioritisation. A capability at L2 carrying 30% of the cost base outranks one at L2 carrying 2%. Where no value chain is mapped, the diagnostic falls back to weakest-first and says which basis it used.
+
+## 4c. The role layer — two axes, four routes (v4.2)
+
+A maturity level with no accountable owner is an opinion. Roles are the checkable half of the rubric, and **presence or absence of the anchor seat is direct evidence** for the Structure and People lenses: a capability nobody holds cannot score as established.
+
+But role presence alone is insufficient. Two different risks hide behind "critical role", and they have different fixes:
+
+**Axis A — Criticality Index** (weighted, each criterion 1–5):
+
+| Criterion | Weight |
+|---|---|
+| Strategic impact (P&L / stated ambition) | 30% |
+| Market scarcity / replaceability | 25% |
+| Vacancy risk (safety, licence, contract) | 20% |
+| Value-chain pivotalness (choke point) | 15% |
+| Future-fit (accelerating trend) | 10% |
+
+**Axis B — Tacit-Knowledge Intensity** (mean of five factors, each 1–5): time-to-competence · codifiability · concentration / bus-factor · consequence of inexperience · relationship and context capital.
+
+**Routing** (threshold 3.5 on both axes, stated explicitly so it can be challenged):
+
+| | Low tacit | High tacit |
+|---|---|---|
+| **High leverage** | **Critical role** — succession bench; acquire or build ahead of need | **Dual-critical** — succession bench AND knowledge capture; a successor name alone is insufficient |
+| **Low leverage** | **Standard population** — productivity, automation, standard resourcing | **Specialist / key-person** — knowledge transfer, apprenticeship, retention; belongs on a knowledge-transfer register, not the leadership succession list |
+
+**Two registers, not one.** The critical-role register (led by absent and thin anchor seats) and the key-person risk register (led by tacit intensity) are maintained separately. One combined list hides the knowledge-drain exposure — which is precisely the failure this axis exists to prevent. For high-tacit roles, plan for years of overlap and shadowing; a name on a chart is not a mitigation.
+
+**Role status** is recorded as *exists · thin bench · absent*, grounded in the organisation's actual job titles rather than an idealised org chart.
+
 ## 5. Attention flag rule
 
 An **amber attention flag** (`#E0912B` on `#FBF3E7`) is automatically applied to any cell rated Level 1 or 2, rendered as an "Action" pill. This is a separate categorical channel from the sequential ramp, so weak (light) cells never recede visually. It appears in every view.

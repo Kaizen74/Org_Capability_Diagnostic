@@ -193,6 +193,138 @@ function bindingConstraint(state, cluster, lenses) {
   return best;
 }
 
+/* ============================================================
+   Role rubric — two axes, four routes
+   Axis A "Criticality Index": weighted strategic leverage + market
+   scarcity. Axis B "Tacit-Knowledge Intensity": how hard the role is
+   to REBUILD internally, regardless of hiring. They are different
+   risks with different fixes — succession bench vs knowledge capture —
+   which is exactly what a seniority-only or scarcity-only view misses.
+   ============================================================ */
+
+const AXIS_A_WEIGHTS = [
+  { key: "impact", label: "Strategic impact (P&L / ambition)", wt: 0.30 },
+  { key: "scarcity", label: "Market scarcity / replaceability", wt: 0.25 },
+  { key: "vacancy", label: "Vacancy risk (safety, licence, contract)", wt: 0.20 },
+  { key: "pivotal", label: "Value-chain pivotalness (choke point)", wt: 0.15 },
+  { key: "futurefit", label: "Future-fit (accelerating trend)", wt: 0.10 }
+];
+
+const TKI_FACTORS = [
+  { key: "time", label: "Time-to-competence (years vs weeks)" },
+  { key: "codifiability", label: "Codifiability (in-person vs SOP)" },
+  { key: "concentration", label: "Concentration / bus-factor" },
+  { key: "consequence", label: "Consequence of inexperience" },
+  { key: "relationship", label: "Relationship / context capital" }
+];
+
+/* Both thresholds are explicit and shown in the UI so the routing is
+   auditable rather than a black box. */
+const HIGH_LEVERAGE = 3.5;
+const HIGH_TACIT = 3.5;
+
+function criticalityIndex(role) {
+  if (!role || !role.axisA) return 0;
+  return AXIS_A_WEIGHTS.reduce((a, w) => a + (role.axisA[w.key] || 0) * w.wt, 0);
+}
+
+function tkiScore(role) {
+  if (!role || !role.tki) return 0;
+  const vals = TKI_FACTORS.map(f => role.tki[f.key] || 0);
+  return vals.reduce((a, b) => a + b, 0) / vals.length;
+}
+
+function routeRole(role) {
+  const idx = criticalityIndex(role), tki = tkiScore(role);
+  const hiL = idx >= HIGH_LEVERAGE, hiT = tki >= HIGH_TACIT;
+  if (hiL && hiT) return "dual";
+  if (hiL) return "critical";
+  if (hiT) return "specialist";
+  return "standard";
+}
+
+const ROUTE_META = {
+  critical:   { label: "Critical role", fix: "Succession bench — acquire or build ahead of need.", order: 1 },
+  dual:       { label: "Dual-critical", fix: "Succession bench AND knowledge capture — a successor name alone is insufficient.", order: 0 },
+  specialist: { label: "Specialist / key-person", fix: "Knowledge transfer, apprenticeship, retention — not the leadership succession list.", order: 2 },
+  standard:   { label: "Standard population", fix: "Productivity, automation, standard resourcing.", order: 3 }
+};
+
+const STATUS_META = {
+  exists: { label: "Exists", cls: "good" },
+  thin:   { label: "Thin bench", cls: "warn" },
+  absent: { label: "Absent", cls: "warn" }
+};
+
+function roleSummary(role) {
+  const idx = criticalityIndex(role), tki = tkiScore(role), route = routeRole(role);
+  return { idx, tki, route, meta: ROUTE_META[route], status: STATUS_META[role.status] || STATUS_META.exists };
+}
+
+/* Anchor-seat coverage for a cluster: of the roles that route to
+   critical/dual, how many actually exist today? Absent anchor seats are
+   structural findings, not opinions. */
+function roleCoverage(cluster) {
+  const roles = cluster.roles || [];
+  const anchors = roles.filter(r => ["critical", "dual"].indexOf(routeRole(r)) !== -1);
+  const exists = anchors.filter(r => r.status === "exists").length;
+  const gaps = anchors.filter(r => r.status !== "exists");
+  return {
+    total: roles.length, anchors: anchors.length, exists, gaps,
+    pct: anchors.length ? Math.round((exists / anchors.length) * 100) : null
+  };
+}
+
+/* Enterprise key-person register: high-tacit roles across all clusters,
+   ranked by how irreplaceable they are internally. */
+function keyPersonRegister(state) {
+  const rows = [];
+  state.clusters.forEach(cl => {
+    (cl.roles || []).forEach(r => {
+      const s = roleSummary(r);
+      if (s.route === "specialist" || s.route === "dual") rows.push({ cluster: cl, role: r, ...s });
+    });
+  });
+  return rows.sort((a, b) => b.tki - a.tki || b.idx - a.idx);
+}
+
+function criticalRoleRegister(state) {
+  const rows = [];
+  state.clusters.forEach(cl => {
+    (cl.roles || []).forEach(r => {
+      const s = roleSummary(r);
+      if (s.route === "critical" || s.route === "dual") rows.push({ cluster: cl, role: r, ...s });
+    });
+  });
+  const statusRank = { absent: 0, thin: 1, exists: 2 };
+  return rows.sort((a, b) => statusRank[a.role.status] - statusRank[b.role.status] || b.idx - a.idx);
+}
+
+/* ============================================================
+   Value chain — follow the money
+   Economic weight per cluster comes from the P&L levers mapped to it.
+   Value exposure = how much of the money rides on a capability that
+   is not yet strong. This is what turns "weakest first" into
+   "weakest where it costs most first".
+   ============================================================ */
+
+function clusterEconomicWeight(state, clusterId) {
+  const levers = ((state.valueChain || {}).levers) || [];
+  return levers.filter(l => l.cluster_id === clusterId)
+    .reduce((a, l) => a + (l.share_pct || 0), 0);
+}
+
+function hasValueChain(state) {
+  return (((state.valueChain || {}).levers) || []).some(l => l.cluster_id && l.share_pct > 0);
+}
+
+/* Exposure index 0-100: economic weight × capability gap fraction. */
+function clusterValueExposure(state, cluster, lenses) {
+  const weight = clusterEconomicWeight(state, cluster.id);
+  const gap = Math.max(0, (4 - clusterAvg(cluster, lenses)) / 3);
+  return { weight, gap, exposure: weight * gap };
+}
+
 /* Weakest-first sort for the Priority Board:
    avg level ascending, tie-break by count of L<=2 descending. */
 function sortWeakestFirst(clusters, lenses) {
@@ -203,11 +335,45 @@ function sortWeakestFirst(clusters, lenses) {
   });
 }
 
+/* Value-weighted order: highest exposure first (money at risk), falling
+   back to weakest-first when no value chain has been mapped. */
+function sortByExposure(state, clusters, lenses) {
+  return [...clusters].sort((a, b) => {
+    const ea = clusterValueExposure(state, a, lenses).exposure;
+    const eb = clusterValueExposure(state, b, lenses).exposure;
+    if (Math.abs(ea - eb) > 1e-9) return eb - ea;
+    return clusterAvg(a, lenses) - clusterAvg(b, lenses);
+  });
+}
+
+function orderClustersForBoard(state, mode) {
+  const useValue = mode === "value" || (mode === "auto" && hasValueChain(state));
+  return {
+    clusters: useValue ? sortByExposure(state, state.clusters, state.lenses)
+      : sortWeakestFirst(state.clusters, state.lenses),
+    basis: useValue ? "value" : "weakest"
+  };
+}
+
 /* Cross-lens interdependency patterns (rubric indicator library).
    Deterministic, evidence-based risk flags across lenses in one cluster. */
 function detectCrossLensPatterns(state) {
   const out = [];
   state.clusters.forEach(cl => {
+    /* Role-grounded structural finding: an anchor seat that does not
+       exist is checkable evidence, not an opinion about the org. */
+    const cov = roleCoverage(cl);
+    if (cov.anchors && cov.gaps.length) {
+      const absent = cov.gaps.filter(r => r.status === "absent");
+      out.push({
+        clusterId: cl.id, cluster: cl.name, key: "anchor-seat-gap",
+        title: absent.length ? "Anchor seat absent" : "Anchor bench thin",
+        body: cov.gaps.map(r => r.title).join("; ") + " — " +
+          (absent.length
+            ? "no enterprise owner for this capability, so it defaults to whoever has capacity. Structure cannot score above L2 on the strength of a role nobody holds."
+            : "the seat exists but the bench behind it does not; single points of failure carry the capability.")
+      });
+    }
     const cells = cl.cells;
     const people = cells.People, process = cells.Process, structure = cells.Structure, culture = cells.Culture;
     if (people && process && people.level <= 2 && process.level >= 3) {
