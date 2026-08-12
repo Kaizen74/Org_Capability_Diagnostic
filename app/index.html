@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Capability Compass — Organizational Capability Diagnostic</title>
+  <meta name="description" content="A holistic, directionally predictive organizational capability diagnostic. Runs entirely in your browser — no install, no server, no data leaves your machine.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-row">
+      <div class="brand">
+        <span class="brand-title">Capability <span class="compass-accent">Compass</span></span>
+        <span class="brand-sub" id="org-name">—</span>
+      </div>
+      <div class="top-actions">
+        <button class="btn primary" id="btn-save-version" title="Snapshot the current state for delta and momentum analysis">Save version</button>
+        <button class="btn" id="btn-export" title="Download a JSON backup of everything">Export</button>
+        <button class="btn" id="btn-import" title="Restore from a JSON backup">Import</button>
+        <button class="btn" id="btn-report" title="Print or save the current view as a PDF briefing">Report / PDF</button>
+        <button class="btn" id="btn-settings">Settings</button>
+      </div>
+    </div>
+    <nav class="tabs" aria-label="Dashboard views">
+      <span class="tab-group-label">Diagnose</span>
+      <button class="tab active" data-view="matrix">Signal Matrix</button>
+      <button class="tab" data-view="board">Priority Board</button>
+      <button class="tab" data-view="trajectory">Trajectory</button>
+      <button class="tab" data-view="delta">Delta</button>
+      <span class="tab-divider" aria-hidden="true"></span>
+      <span class="tab-group-label">Ground it</span>
+      <button class="tab" data-view="valuechain">Value Chain</button>
+      <button class="tab" data-view="roles">Roles</button>
+      <button class="tab" data-view="evidence">Evidence</button>
+      <button class="tab" data-view="signals">Signals</button>
+    </nav>
+  </header>
+
+  <div class="print-header">
+    <h1 id="print-org">—</h1>
+    <p id="print-meta">Capability Compass briefing</p>
+  </div>
+
+  <section class="kpis" id="kpis" aria-label="Enterprise indicators"></section>
+
+  <main id="view"></main>
+
+  <footer>
+    <span class="no-print"><strong id="footer-version"></strong>Methodology: 4-level maturity scale (Absent → Early → Emerging → Established) on a colorblind-safe navy ramp; amber flags mark Level 1–2 cells. Trajectory = version-over-version movement blended 50/50 with user-maintained leading indicators; projections span two review cycles and are directional, not deterministic. Every rating should cite evidence — uncited ratings are flagged “Unsupported”. All data is stored only in this browser (localStorage); use Export for backups.</span>
+  </footer>
+
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+  <aside class="drawer" id="drawer" aria-label="Cell detail"></aside>
+
+  <div class="modal-backdrop" id="modal-backdrop">
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <input type="file" id="file-import" accept="application/json,.json" hidden>
+  <input type="file" id="file-evidence" accept=".txt,.md,.markdown,.csv,.tsv,.json,.log,.pdf,.png,.jpg,.jpeg,.webp,.gif,.docx,.pptx,.xlsx" multiple hidden>
+  <input type="file" id="file-roles" accept=".csv,.tsv,text/csv" hidden>
+
+  <script src="js/vendor/jszip.min.js"></script>
+  <script src="js/vendor/xlsx.full.min.js"></script>
+  <script src="js/vendor/pdf.min.js"></script>
+  <script src="js/schema.js"></script>
+  <script src="js/parsers.js"></script>
+  <script src="js/presets.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/llm.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
