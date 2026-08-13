@@ -10,8 +10,8 @@
 
 | Check | Command | Current |
 |---|---|---|
-| Data contract (backend ↔ frontend) | `node tests/contract_test.js` | ✅ 142 checks passing |
-| End-to-end browser (mock mode) | `node tests/e2e_mock_test.js` | ✅ 128 checks passing |
+| Data contract (backend ↔ frontend) | `node tests/contract_test.js` | ✅ 164 checks passing |
+| End-to-end browser (mock mode) | `node tests/e2e_mock_test.js` | ✅ 142 checks passing |
 | Both at once | `./run_checks.sh` | ✅ green |
 
 ## What the app does today
@@ -27,17 +27,17 @@
 | Evidence — document upload (PDF/Word/PowerPoint/Excel/text parsed locally), Claude synthesis, role extraction, templates | Done |
 | Signals — external market scan with harvest discipline | Done |
 | Claude API settings (key isolated from exported data), mock mode | Done |
+| Blueprint — workflow diagram + shipped self-assessment (9 strengths / 9 watch-outs, each with a mitigation) | Done |
+| "How to fill this in" guidance on Value Chain and Roles | Done |
 
 ## Done in the last session
 
-1. **Closed the biggest coherence gap: the value chain now calibrates the Signal Matrix, not just the ranking.** Four automatic tests run whenever a lever or weight changes — ownership (money with no cluster), materiality (cluster with no money), separability (one cluster hiding two disciplines), diagnosability (a lever with no named capability) — plus overall map coverage.
-2. Added a **Cluster calibration** panel to the Value Chain view: a plain-English verdict on whether the cluster set fits the economics, the findings, and one-click structural fixes (add a cluster for an orphan lever, split an overloaded one, merge or remove a weightless one).
-3. Added an optional **"Tune clusters with Claude"** pass with full harvest discipline, returning add / merge / rename / split / **keep** proposals with rationale, source and confidence. Proposals only — every structural change needs a click.
-4. **Industry presets now ship starter P&L levers** for all seven industries, each pointed at the cluster that should own it, all at **0% weight** — the structure of the money map without inventing a single economic figure.
-5. **Materiality now travels with the ratings**: every Signal Matrix row shows its share of the P&L, the Matrix / Board / Trajectory views share one ordering basis, trajectory alerts lead with the biggest money at risk, and the cluster editor states the cluster's economic weight before you merge or remove it.
-6. The **money map is now fed into the research and extraction prompts** — external scans and document analysis weight findings by which lever they touch (and it is omitted entirely when no weights exist).
-7. Roles view grounds the *value-chain pivotalness* criterion in the cluster's actual economic weight.
-8. Rubric extended with §4d; 77 new automated checks (contract 98 → 142, e2e 93 → 128).
+1. **Value chain now calibrates the cluster set** (previous session's core work): four automatic tests — ownership, materiality, separability, diagnosability — plus map coverage, a calibration panel with one-click structural fixes, an optional Claude tuning pass (proposals only), industry starter levers at 0% weight, and materiality propagated across all three reads.
+2. **New Blueprint view** (`app/js/blueprint.js`): a five-band SVG of the whole workflow — Inputs → Ground it → Score → Engine → Reads — with both feedback loops drawn (calibration re-shapes the rows; a saved version becomes the momentum baseline). Counters read the live state, so every claim is checkable against the user's own diagnostic.
+3. **The self-assessment ships inside the product**: 9 strengths and 9 watch-outs, each badged onto the exact stage it applies to. Every watch-out carries a concrete mitigation. The verdict states plainly that this is structured expert judgement, not a measurement instrument — and names single-rater scoring and the single-snapshot baseline as the first things a challenger will find.
+4. **"How to fill this in" panels** on Value Chain and Roles — ordered steps, one worked line, scale anchors so two raters would agree, and the mistake that actually happens (false precision in weights; scoring seniority instead of the two axes). Collapsed by default.
+5. Contract tests now enforce **both directions** between the diagram and the assessment: no badge without an explanation, no explanation without a badge — so the picture and the prose cannot drift apart.
+6. Coverage: contract 142 → 164, e2e 128 → 142.
 
 ## Suggested next session
 
@@ -45,6 +45,8 @@
 - **Half-yearly recalibration reminder**: prompt to re-score when a snapshot is older than 6 months
 - **Second worked example**: a services-industry demo alongside the aviation one
 - **Calibration history**: keep more than the latest Claude calibration and show what was applied vs dismissed over time
+- **Close watch-out D**: score last cycle's directional calls against what happened (the rubric's forecast-honesty ritual) in the Delta view
+- **Close watch-out A**: an optional second-rater column on the highest-weight cells, with disagreement surfaced rather than averaged
 
 ## How to resume
 

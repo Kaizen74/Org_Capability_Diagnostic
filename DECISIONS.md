@@ -28,3 +28,8 @@ Why the app is built the way it is. One line of reasoning each, newest last.
 | 22 | Industry presets ship starter levers at **0% weight** | The preset knows the *shape* of a money map in that industry; only the owner knows the numbers. Seeding a plausible weight would be a fabricated economic figure, which the rest of the app is built to refuse. |
 | 23 | Matrix, Board and Trajectory share one ordering basis | Three views ranking the same clusters three ways is three priority stories. One control, one basis, stated in each view. |
 | 24 | Every Signal Matrix row carries its share of the P&L | A maturity score with no materiality beside it invites the board to fix the cheapest gap first. |
+| 25 | The methodology's weaknesses ship **inside the app**, not in a doc | A board will find single-rater scoring and the one-snapshot baseline anyway. Naming them first is what makes the strengths credible; a methodology page that only advertises is marketing. |
+| 26 | Every watch-out must carry a mitigation | A caveat with no action is an excuse. The test suite fails the build if any limitation lacks one. |
+| 27 | Blueprint counters read live state | A static picture ages into a lie. Binding the diagram to the real diagnostic means any claim can be checked against the reader's own data. |
+| 28 | Badge/explanation parity enforced both ways in tests | The diagram and the assessment are two representations of one thing; without a test they drift apart on the first edit. |
+| 29 | Population guidance lives in the view, collapsed — not in the README | People fill in the Value Chain while looking at the Value Chain. Guidance one tab away is guidance not read; guidance always open is clutter. |

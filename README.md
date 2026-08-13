@@ -9,6 +9,7 @@ A **holistic and directionally predictive** capability diagnostic you run entire
 - **Trajectory** — the predictive read: momentum per cell (from version history + leading indicators you maintain), early-warning alerts (*erosion risk*, *stalled weakness*, *breakout underway*), and a directional projection two review cycles ahead.
 - **Signals** — the external read (optional, uses your own Claude API key): scans the latest market research, competitor moves, and regulatory shifts for your industry, then lets you apply each signal to a cluster as a leading indicator — recalibrating the trajectory forecast against the outside world.
 - **Value Chain** — the economic precursor: follow the money from demand owner to profit, map each P&L lever to the capability that moves it, and the Priority Board switches from "weakest first" to **money at risk first**.
+- **Blueprint** — one page showing how data becomes a decision here, with the method's strengths *and* its limits stated in the product, each with a mitigation.
 - **Cluster calibration** — the money map doesn't just rank the clusters, it checks whether they are the *right* clusters for your business: money with no owner, clusters with no money, one cluster hiding two capabilities. One-click fixes, plus an optional Claude pass that researches how your industry organises the same work. Nothing structural changes without your approval.
 - **Roles** — the accountability read: every anchor role scored on two independent axes — *Criticality* (hard to hire → succession bench) and *Tacit-Knowledge Intensity* (hard to rebuild internally → knowledge capture) — routing each into Critical / Dual-critical / Specialist / Standard, with two separate registers so knowledge-drain risk never hides inside a succession list.
 - **Evidence** — the grounding read: upload your own documents (strategy decks, engagement surveys, annual reports, workforce files, org charts) and Claude runs an evidence-extraction protocol against your clusters and lenses — verbatim figures, leading vs lagging classification, conservative level suggestions, and falsifiable watch signals — each finding one click away from landing in the right cell.
@@ -175,6 +176,19 @@ docs/
 - **`PROJECT_STATE.md`** — what is built, what is tested, what to do next. The source of truth for resuming work.
 - **`DECISIONS.md`** — why the app is built the way it is, one line per decision.
 - **`./run_checks.sh`** — runs every automated check in one command and says plainly whether it's safe to commit.
+
+### Understanding — and defending — the method (Blueprint)
+
+The **Blueprint** tab draws the whole workflow on one page: what you put in, how the Value Chain and Roles layers set the frame, what a cell actually holds, what the engine computes, and which reads come out — including the two feedback loops (calibration re-shapes the cluster rows; a saved version becomes the momentum baseline). The counters read your live diagnostic, so you can check any claim against your own data.
+
+Underneath it, the app states its **own strengths and its own limits** — nine of each, every limit with a mitigation, each badged onto the exact stage it applies to. The two worth knowing before this reaches a board:
+
+- **Single-rater scoring.** Every level is one person's judgement. Have a second assessor independently score the five or six cells carrying the most economic weight, and treat a two-level disagreement as an evidence gap rather than averaging it.
+- **Momentum rests on one prior snapshot.** Save a version at every recalibration, and treat the first two cycles' direction as indicative only.
+
+This is deliberate. The method is rigorous where rigour is cheap — provenance, falsifiability, transparent arithmetic, economics before categories — and honest that it is structured expert judgement, not a measurement instrument. Naming that first is what makes the rest credible.
+
+![Blueprint](docs/screenshots/blueprint.png)
 
 ## 🧪 Testing (for the curious)
 

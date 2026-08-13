@@ -1,16 +1,16 @@
-# Graph Report - Org_Capability_Diagnostic  (2026-08-12)
+# Graph Report - Org_Capability_Diagnostic  (2026-08-13)
 
 ## Corpus Check
-- 29 files · ~58,992 words
+- 30 files · ~64,249 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 402 nodes · 634 edges · 28 communities (20 shown, 8 thin omitted)
-- Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 37 edges (avg confidence: 0.5)
+- 431 nodes · 678 edges · 29 communities (21 shown, 8 thin omitted)
+- Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 37 edges (avg confidence: 0.5)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `e8766690`
+- Built from commit: `73c6992e`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -43,6 +43,7 @@
 - .claude/CLAUDE.md
 - extraction-spec.md
 - DECISIONS.md
+- blueprint.js
 
 ## God Nodes (most connected - your core abstractions)
 1. `renderAll()` - 27 edges
@@ -62,11 +63,11 @@
 ## Import Cycles
 - None detected.
 
-## Communities (28 total, 8 thin omitted)
+## Communities (29 total, 8 thin omitted)
 
 ### Community 0 - "contract_test.js"
 Cohesion: 0.03
-Nodes (61): allIdx, allTki, anaPrompt, anaPrompt2, appSrc, bind, blankKpis, blankNoEvidence (+53 more)
+Nodes (73): allIdx, allTki, anaPrompt, anaPrompt2, appSrc, bind, blankKpis, blankNoEvidence (+65 more)
 
 ### Community 1 - "engine.js"
 Cohesion: 0.08
@@ -93,8 +94,8 @@ Cohesion: 0.08
 Nodes (24): For /graphify add and --watch, For /graphify query, For the commit hook and native CLAUDE.md integration, For --update and --cluster-only, /graphify, Honesty Rules, Interpreter guard for subcommands, Part A - Structural extraction for code files (+16 more)
 
 ### Community 7 - "Capability Compass — Organizational Capability Diagnostic"
-Cohesion: 0.11
-Nodes (18): Calibrating against external market research (Signals), Capability Compass — Organizational Capability Diagnostic, Checking you have the *right* clusters (Cluster calibration), 🧭 Design system & methodology, Establishing economic context first (Value Chain), Grounding the diagnostic in your own documents (Evidence), How the prediction works (in one paragraph), 🚀 How to deploy locally (step by step, non-technical) (+10 more)
+Cohesion: 0.10
+Nodes (19): Calibrating against external market research (Signals), Capability Compass — Organizational Capability Diagnostic, Checking you have the *right* clusters (Cluster calibration), 🧭 Design system & methodology, Establishing economic context first (Value Chain), Grounding the diagnostic in your own documents (Evidence), How the prediction works (in one paragraph), 🚀 How to deploy locally (step by step, non-technical) (+11 more)
 
 ### Community 8 - "Capability Compass — Product Requirements Document v3.0"
 Cohesion: 0.12
@@ -121,8 +122,8 @@ Cohesion: 0.22
 Nodes (8): Capability Dashboard Data-Viz Skill — v2, Chart-type selection, Interaction patterns, Layout, Palette, The quadruple encoding rule (unchanged, non-negotiable), Trajectory grammar (new), What changed from v1
 
 ### Community 16 - "Capability Compass — Plain-Language Guide"
-Cohesion: 0.25
-Nodes (7): Capability Compass — Plain-Language Guide, If something goes wrong, Opening it, The eight views, and when to use each, The recommended order for a first real diagnostic, Two ideas worth understanding, Using the AI features
+Cohesion: 0.22
+Nodes (8): Before you present it, Capability Compass — Plain-Language Guide, If something goes wrong, Opening it, The eight views, and when to use each, The recommended order for a first real diagnostic, Two ideas worth understanding, Using the AI features
 
 ### Community 17 - "Project State — Capability Compass"
 Cohesion: 0.29
@@ -144,8 +145,12 @@ Nodes (3): For git commit hook, For native CLAUDE.md integration, graphify refer
 Cohesion: 0.50
 Nodes (3): For --cluster-only, For --update (incremental re-extraction), graphify reference: incremental update and cluster-only
 
+### Community 28 - "blueprint.js"
+Cohesion: 0.29
+Nodes (14): BP_STAGES, BP_STRENGTHS, BP_WATCHOUTS, bpArrowDown(), bpBadge(), bpBandLabel(), bpBox(), bpBoxes() (+6 more)
+
 ## Knowledge Gaps
-- **195 isolated node(s):** `DEFAULT_VC_STAGES`, `docBlobs`, `CALIB_SEV`, `DOC_TYPE_LABELS`, `TEMPLATES` (+190 more)
+- **211 isolated node(s):** `DEFAULT_VC_STAGES`, `docBlobs`, `CALIB_SEV`, `DOC_TYPE_LABELS`, `TEMPLATES` (+206 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **8 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -153,9 +158,9 @@ Nodes (3): For --cluster-only, For --update (incremental re-extraction), graphif
 _Questions this graph is uniquely positioned to answer:_
 
 - **What connects `DEFAULT_VC_STAGES`, `docBlobs`, `CALIB_SEV` to the rest of the system?**
-  _195 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _211 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `contract_test.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.029850746268656716 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.02531645569620253 - nodes in this community are weakly interconnected._
 - **Should `engine.js` be split into smaller, more focused modules?**
   _Cohesion score 0.0841813135985199 - nodes in this community are weakly interconnected._
 - **Should `app.js` be split into smaller, more focused modules?**
@@ -165,4 +170,4 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `What You Must Do When Invoked` be split into smaller, more focused modules?**
   _Cohesion score 0.08 - nodes in this community are weakly interconnected._
 - **Should `Capability Compass — Organizational Capability Diagnostic` be split into smaller, more focused modules?**
-  _Cohesion score 0.10526315789473684 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.1 - nodes in this community are weakly interconnected._
