@@ -23,14 +23,14 @@ Your work saves automatically in that browser. Use **Export** in the top bar for
 
 | View | The question it answers |
 |---|---|
-| **Value Chain** | Where does our money actually come from and go to? |
+| **Value Chain** | Where does our money actually come from and go to — and are these the right clusters for it? |
 | **Roles** | Who is accountable, and which knowledge walks out the door? |
 | **Evidence** | What do our own documents say? |
 | **Signals** | What is happening outside that should change our view? |
 
 ## The recommended order for a first real diagnostic
 
-1. **Value Chain** — list the handful of P&L levers that genuinely move your business, give each a rough weight, and map it to the cluster that owns it. This makes the Priority Board rank by money at risk instead of weakness alone.
+1. **Value Chain** — your industry preset already lists the levers that usually matter, each pointed at a cluster. Correct the list for your business, give each lever a rough weight, and check the **Cluster calibration** panel underneath: it tells you in one line whether these are the right clusters for where your money actually is, and offers a one-click fix for each mismatch. Do this before scoring anything.
 2. **Evidence** — download the *Evidence checklist* template, gather those documents, and upload them. Click **Analyze & synthesize evidence**.
 3. **Roles** — download the *Role inventory* template, fill in your real job titles, and import it. Or let the evidence analysis extract roles from your org chart and add them with one click.
 4. **Signal Matrix** — now score the cells. Every rating should cite evidence; uncited ones are flagged.
@@ -39,7 +39,9 @@ Your work saves automatically in that browser. Use **Export** in the top bar for
 
 ## Two ideas worth understanding
 
-**Value exposure.** A weak capability that carries 30% of your cost base is more urgent than an equally weak one carrying 2%. The board ranks on economic weight × capability gap and always tells you which basis it used.
+**Value exposure.** A weak capability that carries 30% of your cost base is more urgent than an equally weak one carrying 2%. The board ranks on economic weight × capability gap and always tells you which basis it used. The Signal Matrix and Trajectory views follow the same order, so all three tell one story.
+
+**Calibration before scoring.** The money map's first job is not ranking — it is checking that the *rows themselves* are right. A lever with no cluster is money nobody owns; a cluster with no lever is usually a preset default that doesn't fit you; one cluster carrying two big levers is usually two capabilities sharing a score. The app checks all three automatically and never changes your cluster set without a click.
 
 **The two role axes.** *Criticality* is how hard a role is to hire — the fix is a succession bench. *Tacit-knowledge intensity* is how hard it is to rebuild internally even if you can hire — the fix is knowledge capture, overlap and apprenticeship. Scoring both separately is what surfaces the quiet expert whose departure degrades safety or continuity before anyone notices. Roles route into four boxes: Critical, Dual-critical, Specialist/key-person, Standard.
 

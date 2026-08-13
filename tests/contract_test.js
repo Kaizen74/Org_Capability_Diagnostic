@@ -393,5 +393,135 @@ const appSrc = fs.readFileSync(path.join(__dirname, "..", "app", "js", "app.js")
 checkOk("role-inventory template header matches the CSV importer's required columns",
   ["cluster_id", "role_title", "status", "impact", "tki_time"].every(c => appSrc.indexOf(c) !== -1));
 
+// ---- 24. Value chain CALIBRATES the cluster set (not just context) ----
+checkOk("value-chain coverage reports mapped vs unmapped economic weight",
+  (() => { const c = vm.runInContext("valueChainCoverage(__dr)", sandbox); return c.total === 100 && c.mapped === 100 && c.pct === 100 && c.weighted === 7; })());
+const matTdx = vm.runInContext('clusterMateriality(__dr, __dr.clusters.find(c=>c.id==="tdx"))', sandbox);
+checkOk("cluster materiality gives weight, share of mapped money, and rank",
+  matTdx.weight === 30 && matTdx.share === 30 && matTdx.rank === 1 && matTdx.of === 6);
+checkOk("a fully-mapped, fully-weighted value chain reports the cluster set as aligned",
+  vm.runInContext("calibrationSummary(__dr).fit", sandbox) === "aligned");
+
+// Orphan a lever: 30% of the P&L now has no capability owner.
+const orphaned = JSON.parse(JSON.stringify(demoRoles));
+orphaned.valueChain.levers.find(l => l.id === "lv2").cluster_id = "";
+vm.runInContext("globalThis.__orph = " + JSON.stringify(orphaned), sandbox);
+const orphFinds = vm.runInContext("calibrateClusters(__orph)", sandbox);
+checkOk("money with no cluster is flagged as a material accountability gap",
+  orphFinds.some(f => f.key === "orphan-lever" && f.severity === "high" && f.leverId === "lv2" && f.body.includes("30%")));
+checkOk("the orphan finding names the capability the missing cluster would own",
+  orphFinds.some(f => f.key === "orphan-lever" && f.body.includes("AI workforce optimisation")));
+checkOk("a cluster left carrying no money is flagged for merge/remove",
+  orphFinds.some(f => f.key === "unweighted-cluster" && f.clusterId === "tdx"));
+checkOk("partial coverage of the money map is stated before the ranking is trusted",
+  orphFinds.some(f => f.key === "coverage-gap" && f.title.includes("70%")));
+checkOk("an unowned material lever makes the cluster set 'misaligned'",
+  vm.runInContext("calibrationSummary(__orph).fit", sandbox) === "misaligned");
+checkOk("calibration findings are ordered most-material first",
+  orphFinds[0].severity === "high");
+
+// Overload a cluster: one row now answers for two big, distinct levers.
+const overloaded = JSON.parse(JSON.stringify(demoRoles));
+overloaded.valueChain.levers.find(l => l.id === "lv1").cluster_id = "tdx"; // 22 + 30 = 52%
+vm.runInContext("globalThis.__over = " + JSON.stringify(overloaded), sandbox);
+checkOk("one cluster carrying two big distinct levers is flagged as a split candidate",
+  vm.runInContext("calibrateClusters(__over)", sandbox)
+    .some(f => f.key === "overloaded-cluster" && f.clusterId === "tdx" && f.title.includes("52%")));
+
+// Levers below the noise floor must not generate findings.
+const tiny = JSON.parse(JSON.stringify(demoRoles));
+tiny.valueChain.levers = [{ id: "lvx", name: "Rounding", share_pct: 2, capability: "", cluster_id: "" }];
+vm.runInContext("globalThis.__tiny = " + JSON.stringify(tiny), sandbox);
+checkOk("a lever below the materiality floor is not turned into a finding",
+  vm.runInContext("calibrateClusters(__tiny).filter(f=>f.key==='orphan-lever'||f.key==='lever-no-capability').length", sandbox) === 0);
+
+// ---- 25. Industry presets seed the money map's STRUCTURE, never its numbers ----
+for (const p of presets) {
+  const ids = p.clusters.map(c => c.id);
+  checkOk(`preset '${p.industry_id}' ships starter P&L levers pointing at real clusters`,
+    Array.isArray(p.value_levers) && p.value_levers.length >= 5 &&
+    p.value_levers.every(l => ids.indexOf(l.cluster_id) !== -1 && l.name && l.capability));
+}
+checkOk("PROVENANCE: no preset invents an economic weight — every starter lever is 0%",
+  presets.every(p => (p.value_levers || []).every(l => l.share_pct === 0 && l.seeded === true)));
+const seededState = {
+  schema: 1, orgName: "Seeded", actor: "You",
+  industry_id: presets[0].industry_id, industry_name: presets[0].display_name,
+  lenses: vm.runInContext("JSON.parse(JSON.stringify(DEFAULT_LENSES))", sandbox),
+  rubric: {}, patterns: [], versions: [], changeLog: [], briefings: [], signal_keywords: [],
+  documents: [], analyses: [], calibrations: [], currentVersion: "v0.1",
+  valueChain: { currency: "$", revenue: "", as_of: "", stages: [], levers: JSON.parse(JSON.stringify(presets[0].value_levers)) },
+  clusters: presets[0].clusters.map(c => ({
+    id: c.id, no: c.no, name: c.name, desc: c.desc, priority_move: c.priority_move, roles: [],
+    cells: Object.fromEntries(["Structure", "People", "Process", "Culture"].map(k => [k, {
+      level: 1, status: "Not yet assessed", rationale: "", intervention: "",
+      items: [], evidence: [], leading: [], watch: [], history: [],
+      last_updated: new Date().toISOString(), updated_by: "—"
+    }]))
+  }))
+};
+check("a preset-seeded state (starter levers, no weights) is contract-valid", schema.validateState(seededState));
+vm.runInContext("globalThis.__seed = " + JSON.stringify(seededState), sandbox);
+checkOk("HONESTY: seeded-but-unweighted levers do NOT switch the board to value ordering",
+  vm.runInContext('hasValueChain(__seed) === false && orderClustersForBoard(__seed, "auto").basis', sandbox) === "weakest");
+checkOk("the calibration verdict says weights are missing rather than claiming alignment",
+  vm.runInContext("calibrationSummary(__seed).fit", sandbox) === "unweighted");
+
+// ---- 26. Claude cluster-tuning contract (proposals only, never auto-applied) ----
+const calPrompt = vm.runInContext("buildCalibrationPrompt(__dr)", sandbox);
+checkOk("calibration prompt names every cluster id", demo.clusters.every(c => calPrompt.includes('cluster_id: "' + c.id + '"')));
+checkOk("calibration prompt names every lever id and its weight",
+  demoRoles.valueChain.levers.every(l => calPrompt.includes('lever_id: "' + l.id + '"')));
+checkOk("calibration prompt carries the harvest discipline (triangulation, source quality, anti-fabrication)",
+  calPrompt.includes("triangulation") && calPrompt.includes("Source quality") && calPrompt.includes("Anti-fabrication"));
+checkOk("calibration prompt states the tests a cluster set must pass",
+  calPrompt.includes("Every material P&L lever has exactly one cluster accountable"));
+checkOk("calibration prompt forbids change for its own sake",
+  calPrompt.includes("Do not propose change for its own sake") && calPrompt.includes('return action "keep"'));
+checkOk("calibration prompt demands JSON-only output", calPrompt.includes("ONLY a JSON object"));
+
+const rawCal = vm.runInContext("mockClusterCalibration(__orph)", sandbox);
+const normCal = {
+  id: "cal_test", generated_at: new Date().toISOString(), model: "mock",
+  proposals: rawCal.proposals.map(p => ({ ...p, applied: false, dismissed: false }))
+};
+check("mock cluster calibration conforms to the calibration contract", schema.validateCalibration(normCal));
+checkOk("calibration proposes a cluster for the unowned lever",
+  normCal.proposals.some(p => p.action === "add" && p.lever_ids.includes("lv2")));
+checkOk("calibration proposes merging the cluster left carrying no money",
+  normCal.proposals.some(p => p.action === "merge" && p.cluster_id === "tdx" && p.merge_into_id));
+checkOk("calibration also returns a 'keep' — a calibration that changes everything is a rewrite",
+  normCal.proposals.some(p => p.action === "keep"));
+checkOk("every proposal carries a rationale and a confidence level",
+  normCal.proposals.every(p => p.rationale && ["high", "medium", "low"].includes(p.confidence)));
+checkOk("no proposal arrives pre-applied — structural change always needs a click",
+  normCal.proposals.every(p => p.applied === false && p.dismissed === false));
+checkOk("contract rejects an unknown calibration action",
+  schema.validateCalibration({ ...normCal, proposals: [{ ...normCal.proposals[0], action: "obliterate" }] }).length > 0);
+checkOk("contract rejects a merge with no target cluster",
+  schema.validateCalibration({ ...normCal, proposals: [{ ...normCal.proposals[0], action: "merge", cluster_id: "tdx", merge_into_id: null }] }).length > 0);
+checkOk("contract rejects an add with no cluster name",
+  schema.validateCalibration({ ...normCal, proposals: [{ ...normCal.proposals[0], action: "add", name: "" }] }).length > 0);
+checkOk("contract rejects a proposal with no rationale",
+  schema.validateCalibration({ ...normCal, proposals: [{ ...normCal.proposals[0], rationale: "" }] }).length > 0);
+const withCal = Object.assign({}, demoRoles, {
+  briefings: [], signal_keywords: [], documents: [], analyses: [], calibrations: [normCal]
+});
+check("state carrying a calibration record stays contract-valid", schema.validateState(withCal));
+
+// ---- 27. The money map reaches the research and extraction prompts ----
+const scanWithMoney = vm.runInContext("buildScanPrompt(__dr, ['cargo tonnage'])", sandbox);
+checkOk("scan prompt tells the researcher where the money is",
+  scanWithMoney.includes("WHERE THE MONEY IS") && scanWithMoney.includes("Staff-cost productivity — 30%"));
+checkOk("scan prompt annotates each cluster with its economic weight",
+  scanWithMoney.includes('"tdx"') && scanWithMoney.includes("economic weight: 30%"));
+checkOk("scan prompt names an unowned lever as an accountability gap",
+  vm.runInContext("buildScanPrompt(__orph, [])", sandbox).includes("NO CLUSTER — accountability gap"));
+checkOk("analysis prompt weights extraction by the money map",
+  vm.runInContext("buildAnalysisPrompt(__dr)", sandbox).includes("WHERE THE MONEY IS"));
+checkOk("HONESTY: prompts omit the money map entirely when no weights exist",
+  !vm.runInContext("buildScanPrompt(__seed, [])", sandbox).includes("WHERE THE MONEY IS") &&
+  !vm.runInContext("buildAnalysisPrompt(__seed)", sandbox).includes("WHERE THE MONEY IS"));
+
 console.log(failures ? `\n${failures} CONTRACT FAILURE(S)` : "\nAll contract checks passed.");
 process.exit(failures ? 1 : 0);

@@ -24,6 +24,8 @@ var ROLE_STATUSES = ["exists", "thin", "absent"];
 var ROLE_ROUTES = ["critical", "dual", "specialist", "standard"];
 var AXIS_A_KEYS = ["impact", "scarcity", "vacancy", "pivotal", "futurefit"];
 var TKI_KEYS = ["time", "codifiability", "concentration", "consequence", "relationship"];
+var CALIBRATION_ACTIONS = ["add", "merge", "rename", "split", "keep"];
+var CONFIDENCE_LEVELS = ["high", "medium", "low"];
 
 function _isStr(v) { return typeof v === "string"; }
 function _isArr(v) { return Array.isArray(v); }
@@ -96,6 +98,10 @@ function validateState(s) {
   if (s.analyses !== undefined && !_isArr(s.analyses)) errs.push("analyses must be an array");
   (s.analyses || []).forEach(function (a, i) {
     errs = errs.concat(validateAnalysis(a).map(function (e) { return "analyses[" + i + "]: " + e; }));
+  });
+  if (s.calibrations !== undefined && !_isArr(s.calibrations)) errs.push("calibrations must be an array");
+  (s.calibrations || []).forEach(function (c, i) {
+    errs = errs.concat(validateCalibration(c).map(function (e) { return "calibrations[" + i + "]: " + e; }));
   });
   // The API key must NEVER live inside exported/persisted state.
   if (s.apiKey || s.api_key || (s.settings && s.settings.apiKey)) errs.push("state must not contain an API key");
@@ -213,6 +219,36 @@ function validateAnalysis(a) {
   return errs;
 }
 
+/* Validate a cluster-calibration proposal set (Claude response contract).
+   Structural changes to the cluster set are the most consequential thing
+   the model can suggest, so the contract is strict: every proposal must
+   name an action, a rationale, and — except for "add" — an existing
+   cluster it acts on. Nothing here is ever auto-applied. */
+function validateCalibration(c) {
+  var errs = [];
+  if (!_isObj(c)) return ["calibration is not an object"];
+  if (!_isStr(c.generated_at)) errs.push("generated_at must be a string");
+  if (!_isStr(c.model)) errs.push("model must be a string");
+  if (!_isArr(c.proposals) || !c.proposals.length) errs.push("proposals must be a non-empty array");
+  (c.proposals || []).forEach(function (p, i) {
+    var w = "proposals[" + i + "]";
+    if (CALIBRATION_ACTIONS.indexOf(p.action) === -1) errs.push(w + ": action must be one of " + CALIBRATION_ACTIONS.join("/"));
+    if (!_isStr(p.rationale) || !p.rationale.trim()) errs.push(w + ": rationale required");
+    if (p.action !== "add" && (!_isStr(p.cluster_id) || !p.cluster_id.trim()))
+      errs.push(w + ": cluster_id required for action '" + p.action + "'");
+    if (p.action === "add" && (!_isStr(p.name) || !p.name.trim()))
+      errs.push(w + ": name required when adding a cluster");
+    if (p.action === "merge" && (!_isStr(p.merge_into_id) || !p.merge_into_id.trim()))
+      errs.push(w + ": merge_into_id required when merging");
+    if (p.action === "split" && (!_isStr(p.name) || !p.name.trim()))
+      errs.push(w + ": name required for the cluster being split out");
+    if (!_isArr(p.lever_ids)) errs.push(w + ": lever_ids must be an array");
+    if (CONFIDENCE_LEVELS.indexOf(p.confidence) === -1)
+      errs.push(w + ": confidence must be one of " + CONFIDENCE_LEVELS.join("/"));
+  });
+  return errs;
+}
+
 /* Map a signal direction to a leading-indicator signal. */
 function directionToLeading(direction) {
   if (direction === "tailwind") return "improving";
@@ -233,6 +269,9 @@ if (typeof module !== "undefined" && module.exports) {
     ROLE_ROUTES: ROLE_ROUTES,
     AXIS_A_KEYS: AXIS_A_KEYS,
     TKI_KEYS: TKI_KEYS,
+    CALIBRATION_ACTIONS: CALIBRATION_ACTIONS,
+    CONFIDENCE_LEVELS: CONFIDENCE_LEVELS,
+    validateCalibration: validateCalibration,
     validateRole: validateRole,
     validateValueChain: validateValueChain,
     validateCell: validateCell,

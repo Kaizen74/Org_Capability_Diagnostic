@@ -1,0 +1,20 @@
+# graphify: keep the knowledge graph, skip the machine-local bits.
+# graph.json / manifest.json / .graphify_analysis.json are committed so
+# future sessions get the graph without re-extracting.
+graphify-out/cache/
+graphify-out/.graphify_root
+
+# Local tooling.
+# The app itself is deliberately zero-install — no npm manifest is committed,
+# so nobody opening this repo thinks they need to build something. Playwright
+# is a test-only dependency; `npm install playwright` creates these locally and
+# run_checks.sh skips the browser suite cleanly when it is absent.
+node_modules/
+package.json
+package-lock.json
+.DS_Store
+
+# graphify: generated viewer + label sidecar are rebuilt by `graphify update`.
+graphify-out/graph.html
+graphify-out/.graphify_labels.json
+graphify-out/.graphify_labels.json.sig

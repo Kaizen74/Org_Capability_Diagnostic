@@ -1,0 +1,147 @@
+{
+  "app/js/app.js": {
+    "mtime": 1786544343.8281775,
+    "ast_hash": "d199de0a097e183cd703d737ff726fd7",
+    "semantic_hash": ""
+  },
+  "app/js/engine.js": {
+    "mtime": 1786544330.1681767,
+    "ast_hash": "c1a194a8e86db097b7e6ef5453a332b8",
+    "semantic_hash": ""
+  },
+  "app/js/llm.js": {
+    "mtime": 1786543841.8121476,
+    "ast_hash": "29f068708a850f3eb99cd9b72662fc28",
+    "semantic_hash": ""
+  },
+  "app/js/parsers.js": {
+    "mtime": 1786518007.888903,
+    "ast_hash": "0d27d5000acf09f445c49d1c3af40165",
+    "semantic_hash": "0d27d5000acf09f445c49d1c3af40165"
+  },
+  "app/js/presets.js": {
+    "mtime": 1786543670.7041376,
+    "ast_hash": "d6c7a946fdb50ea27aa33563cc347e74",
+    "semantic_hash": ""
+  },
+  "app/js/schema.js": {
+    "mtime": 1786543756.3121426,
+    "ast_hash": "13c693ba040e0a16cbd60f8f4330e8ab",
+    "semantic_hash": ""
+  },
+  "run_checks.sh": {
+    "mtime": 1786521318.866709,
+    "ast_hash": "bd1e53be41f71afd352144d5014c7980",
+    "semantic_hash": "bd1e53be41f71afd352144d5014c7980"
+  },
+  "tests/contract_test.js": {
+    "mtime": 1786544115.6641638,
+    "ast_hash": "ac97114f82d0c2ba5d2efed4e1adbbec",
+    "semantic_hash": ""
+  },
+  "tests/e2e_mock_test.js": {
+    "mtime": 1786544367.896179,
+    "ast_hash": "c7de6d641ce3f52876455012d4c80bc4",
+    "semantic_hash": ""
+  },
+  ".claude/CLAUDE.md": {
+    "mtime": 1786532814.1006737,
+    "ast_hash": "9b31786b637be3c13978bec4c2330752",
+    "semantic_hash": ""
+  },
+  ".claude/skills/graphify/SKILL.md": {
+    "mtime": 1786532841.832703,
+    "ast_hash": "1656a8a8e4a05bbe69f32cd15de81e87",
+    "semantic_hash": ""
+  },
+  ".claude/skills/graphify/references/add-watch.md": {
+    "mtime": 1786532792.9415336,
+    "ast_hash": "d59d027fe449f06aa03905a01184e779",
+    "semantic_hash": ""
+  },
+  ".claude/skills/graphify/references/exports.md": {
+    "mtime": 1786532792.9415336,
+    "ast_hash": "9da2a2152e60a22f07f05fed5158f287",
+    "semantic_hash": ""
+  },
+  ".claude/skills/graphify/references/extraction-spec.md": {
+    "mtime": 1786532792.9415336,
+    "ast_hash": "42fef56a01698118f7fd722acdadea34",
+    "semantic_hash": ""
+  },
+  ".claude/skills/graphify/references/github-and-merge.md": {
+    "mtime": 1786532792.9455335,
+    "ast_hash": "cde13df085e4c492aeb7ba298a996d0d",
+    "semantic_hash": ""
+  },
+  ".claude/skills/graphify/references/hooks.md": {
+    "mtime": 1786532792.9455335,
+    "ast_hash": "3f545db6ce646650bb9de588f5512a27",
+    "semantic_hash": ""
+  },
+  ".claude/skills/graphify/references/query.md": {
+    "mtime": 1786532792.9455335,
+    "ast_hash": "3c46f8ad006874260614ed8657d02307",
+    "semantic_hash": ""
+  },
+  ".claude/skills/graphify/references/transcribe.md": {
+    "mtime": 1786532792.9455335,
+    "ast_hash": "67b6a5fa6c0974e18f60db9f8932fbd8",
+    "semantic_hash": ""
+  },
+  ".claude/skills/graphify/references/update.md": {
+    "mtime": 1786532792.9455335,
+    "ast_hash": "9378bd03d56baaf78bd738ab3848f142",
+    "semantic_hash": ""
+  },
+  "CLAUDE.md": {
+    "mtime": 1786532814.1008618,
+    "ast_hash": "82efb97a359f5c7290bf2513d14686be",
+    "semantic_hash": ""
+  },
+  "DECISIONS.md": {
+    "mtime": 1786544512.3881874,
+    "ast_hash": "e5e2b0afba4c31ef775ae7b819a367a5",
+    "semantic_hash": ""
+  },
+  "GUIDE.md": {
+    "mtime": 1786544583.7388773,
+    "ast_hash": "4ab366a5a3f3c0839586a95a7c93f0c0",
+    "semantic_hash": ""
+  },
+  "PROJECT_STATE.md": {
+    "mtime": 1786544533.5426342,
+    "ast_hash": "76ba55ee764b12acaff32951e731e6cf",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1786544570.260191,
+    "ast_hash": "416ad1fc4c0a714896cae1b031734375",
+    "semantic_hash": ""
+  },
+  "app/index.html": {
+    "mtime": 1786520722.1826737,
+    "ast_hash": "6be32bffc8066bb9665df0d07e974a3c",
+    "semantic_hash": ""
+  },
+  "docs/Capability_Compass_PRD_v3.md": {
+    "mtime": 1786544615.4779325,
+    "ast_hash": "ddde896ce65792fdbcf1c7f757ca946b",
+    "semantic_hash": ""
+  },
+  "docs/Capability_Diagnostic_Rubric_v4.md": {
+    "mtime": 1786544493.8481865,
+    "ast_hash": "ac389a04f364acfc1ad12cfc5a7fd51a",
+    "semantic_hash": ""
+  },
+  "docs/IMPROVEMENTS.md": {
+    "mtime": 1786544645.7521954,
+    "ast_hash": "ec50daed38fc10e925b2e5be04905b5c",
+    "semantic_hash": ""
+  },
+  "docs/capability_dashboard_skill_v2.md": {
+    "mtime": 1786518007.9290879,
+    "ast_hash": "e07e33d1a8bc9013154c813a6daa1a69",
+    "semantic_hash": ""
+  }
+}

@@ -1,0 +1,374 @@
+{
+  "communities": {
+    "0": [
+      "tests_contract_test",
+      "tests_contract_test_allidx",
+      "tests_contract_test_alltki",
+      "tests_contract_test_anaprompt",
+      "tests_contract_test_anaprompt2",
+      "tests_contract_test_appsrc",
+      "tests_contract_test_bind",
+      "tests_contract_test_blankkpis",
+      "tests_contract_test_blanknoevidence",
+      "tests_contract_test_blocks",
+      "tests_contract_test_boardvalue",
+      "tests_contract_test_check",
+      "tests_contract_test_checkok",
+      "tests_contract_test_clapply",
+      "tests_contract_test_cov",
+      "tests_contract_test_critreg",
+      "tests_contract_test_demo",
+      "tests_contract_test_demo2",
+      "tests_contract_test_demoforapply",
+      "tests_contract_test_demoroles",
+      "tests_contract_test_dockindfor",
+      "tests_contract_test_docxtext",
+      "tests_contract_test_exposure",
+      "tests_contract_test_extractjson",
+      "tests_contract_test_fs",
+      "tests_contract_test_idxof",
+      "tests_contract_test_keyreg",
+      "tests_contract_test_kpis",
+      "tests_contract_test_leaky",
+      "tests_contract_test_mockana2",
+      "tests_contract_test_momenta",
+      "tests_contract_test_normalised",
+      "tests_contract_test_normana",
+      "tests_contract_test_normroles",
+      "tests_contract_test_novc",
+      "tests_contract_test_parsers",
+      "tests_contract_test_path",
+      "tests_contract_test_patterns",
+      "tests_contract_test_pptxtext",
+      "tests_contract_test_presets",
+      "tests_contract_test_prompt",
+      "tests_contract_test_rawana",
+      "tests_contract_test_rawmock",
+      "tests_contract_test_rolepatterns",
+      "tests_contract_test_routeof",
+      "tests_contract_test_sandbox",
+      "tests_contract_test_scanprompt",
+      "tests_contract_test_schema",
+      "tests_contract_test_targetcluster",
+      "tests_contract_test_textdoc",
+      "tests_contract_test_thigh",
+      "tests_contract_test_tkiof",
+      "tests_contract_test_tmed",
+      "tests_contract_test_tunknown",
+      "tests_contract_test_vm",
+      "tests_contract_test_withwatch"
+    ],
+    "1": [
+      "app_js_engine",
+      "app_js_engine_axis_a_weights",
+      "app_js_engine_bindingconstraint",
+      "app_js_engine_cellconfidence",
+      "app_js_engine_cellmomentum",
+      "app_js_engine_celltrajectory",
+      "app_js_engine_clamp",
+      "app_js_engine_class_meta",
+      "app_js_engine_classifycell",
+      "app_js_engine_clusteravg",
+      "app_js_engine_clustereconomicweight",
+      "app_js_engine_clustermomentum",
+      "app_js_engine_clusterprojectedavg",
+      "app_js_engine_clustertrajectory",
+      "app_js_engine_clustervalueexposure",
+      "app_js_engine_clusterweakcount",
+      "app_js_engine_computedelta",
+      "app_js_engine_criticalityindex",
+      "app_js_engine_criticalroleregister",
+      "app_js_engine_detectcrosslenspatterns",
+      "app_js_engine_enterprisekpis",
+      "app_js_engine_evidencemix",
+      "app_js_engine_fmt1",
+      "app_js_engine_fmtsigned",
+      "app_js_engine_hasvaluechain",
+      "app_js_engine_keypersonregister",
+      "app_js_engine_latestversion",
+      "app_js_engine_momentumlabel",
+      "app_js_engine_orderclustersforboard",
+      "app_js_engine_priorlevel",
+      "app_js_engine_projectedlevel",
+      "app_js_engine_rolecoverage",
+      "app_js_engine_rolesummary",
+      "app_js_engine_route_meta",
+      "app_js_engine_routerole",
+      "app_js_engine_signal_value",
+      "app_js_engine_sortbyexposure",
+      "app_js_engine_sortweakestfirst",
+      "app_js_engine_status_meta",
+      "app_js_engine_tki_factors",
+      "app_js_engine_tkiscore",
+      "app_js_engine_trajectorylabel"
+    ],
+    "2": [
+      "app_js_app",
+      "app_js_app_cellhtml",
+      "app_js_app_default_vc_stages",
+      "app_js_app_doc_type_labels",
+      "app_js_app_docblobs",
+      "app_js_app_docstatus",
+      "app_js_app_esc",
+      "app_js_app_importrolescsv",
+      "app_js_app_parsecsv",
+      "app_js_app_renderview",
+      "app_js_app_rolematrixcell",
+      "app_js_app_templates",
+      "app_js_app_viewboard",
+      "app_js_app_viewdelta",
+      "app_js_app_viewevidence",
+      "app_js_app_viewmatrix",
+      "app_js_app_viewroles",
+      "app_js_app_viewsignals",
+      "app_js_app_viewtrajectory",
+      "app_js_app_viewvaluechain",
+      "docref_rfc_4180"
+    ],
+    "3": [
+      "app_js_llm",
+      "app_js_llm_analyzeevidence",
+      "app_js_llm_anthropicrequest",
+      "app_js_llm_buffertobase64",
+      "app_js_llm_buildanalysiscontent",
+      "app_js_llm_buildanalysisprompt",
+      "app_js_llm_buildscanprompt",
+      "app_js_llm_clearapiconfig",
+      "app_js_llm_dockindfor",
+      "app_js_llm_extractjson",
+      "app_js_llm_getapiconfig",
+      "app_js_llm_ingestfile",
+      "app_js_llm_ismockkey",
+      "app_js_llm_mockanalysis",
+      "app_js_llm_mockbriefing",
+      "app_js_llm_readas",
+      "app_js_llm_scanexternalsignals",
+      "app_js_llm_setapiconfig",
+      "app_js_llm_testconnection",
+      "app_js_llm_websearchtoolfor"
+    ],
+    "4": [
+      "app_js_presets",
+      "app_js_presets_builddemostate",
+      "app_js_presets_default_lenses",
+      "app_js_presets_default_patterns",
+      "app_js_presets_default_rubric",
+      "app_js_presets_demo_prior_levels",
+      "app_js_presets_demo_roles",
+      "app_js_presets_demo_state",
+      "app_js_presets_demo_value_chain",
+      "app_js_presets_democell",
+      "app_js_presets_demorole",
+      "app_js_presets_mkclusters",
+      "app_js_presets_presets"
+    ],
+    "5": [
+      "app_js_schema",
+      "app_js_schema_directiontoleading",
+      "app_js_schema_isarr",
+      "app_js_schema_isobj",
+      "app_js_schema_isstr",
+      "app_js_schema_score1to5",
+      "app_js_schema_validateanalysis",
+      "app_js_schema_validatebriefing",
+      "app_js_schema_validatecell",
+      "app_js_schema_validatedocument",
+      "app_js_schema_validaterole",
+      "app_js_schema_validatestate",
+      "app_js_schema_validatevaluechain"
+    ],
+    "6": [
+      "app_js_app_addevidencefiles",
+      "app_js_app_applyextractedrole",
+      "app_js_app_applyfinding",
+      "app_js_app_applysignal",
+      "app_js_app_bindevidenceevents",
+      "app_js_app_downloadtemplate",
+      "app_js_app_exportjson",
+      "app_js_app_nowiso",
+      "app_js_app_openpastemodal",
+      "app_js_app_runevidenceanalysis",
+      "app_js_app_statefrompreset",
+      "app_js_app_toast"
+    ],
+    "7": [
+      "app_js_app_bindrolesevents",
+      "app_js_app_bindsignalevents",
+      "app_js_app_bindvaluechainevents",
+      "app_js_app_bindviewevents",
+      "app_js_app_importjson",
+      "app_js_app_opendrawer",
+      "app_js_app_renderall",
+      "app_js_app_renderkpis",
+      "app_js_app_runsignalscan",
+      "app_js_app_savestate"
+    ],
+    "8": [
+      "app_js_app_closemodal",
+      "app_js_app_loadstate",
+      "app_js_app_migratestate",
+      "app_js_app_openclustermodal",
+      "app_js_app_openmodal",
+      "app_js_app_opensaveversion",
+      "app_js_app_opensettings",
+      "app_js_app_openwizard",
+      "app_js_app_wizardpreview"
+    ],
+    "9": [
+      "app_js_parsers",
+      "app_js_parsers_decodexmlentities",
+      "app_js_parsers_docxxmltotext",
+      "app_js_parsers_extractdocxtext",
+      "app_js_parsers_extractpdftext",
+      "app_js_parsers_extractpptxtext",
+      "app_js_parsers_extractxlsxtext",
+      "app_js_parsers_pptxxmltotext",
+      "app_js_parsers_slideorder"
+    ],
+    "10": [
+      "tests_e2e_mock_test",
+      "tests_e2e_mock_test_check",
+      "tests_e2e_mock_test_chromium",
+      "tests_e2e_mock_test_maketextpdf",
+      "tests_e2e_mock_test_path"
+    ],
+    "11": [
+      "app_js_app_closedrawer",
+      "app_js_app_persistdrawerfields",
+      "app_js_app_renderdrawer",
+      "app_js_app_savedrawer"
+    ],
+    "12": [
+      "run_checks",
+      "run_checks_sh__entry"
+    ]
+  },
+  "cohesion": {
+    "0": 0.03571428571428571,
+    "1": 0.08943089430894309,
+    "2": 0.2,
+    "3": 0.2,
+    "4": 0.15384615384615385,
+    "5": 0.5,
+    "6": 0.2878787878787879,
+    "7": 0.3333333333333333,
+    "8": 0.4166666666666667,
+    "9": 0.3611111111111111,
+    "10": 0.4,
+    "11": 0.8333333333333334,
+    "12": 1.0
+  },
+  "gods": [
+    {
+      "id": "app_js_app_renderall",
+      "label": "renderAll()",
+      "degree": 24
+    },
+    {
+      "id": "app_js_app_toast",
+      "label": "toast()",
+      "degree": 19
+    },
+    {
+      "id": "app_js_app_esc",
+      "label": "esc()",
+      "degree": 17
+    },
+    {
+      "id": "app_js_app_renderview",
+      "label": "renderView()",
+      "degree": 14
+    },
+    {
+      "id": "app_js_app_bindevidenceevents",
+      "label": "bindEvidenceEvents()",
+      "degree": 11
+    },
+    {
+      "id": "app_js_engine_celltrajectory",
+      "label": "cellTrajectory()",
+      "degree": 11
+    },
+    {
+      "id": "app_js_schema_validatestate",
+      "label": "validateState()",
+      "degree": 10
+    },
+    {
+      "id": "app_js_app_bindviewevents",
+      "label": "bindViewEvents()",
+      "degree": 9
+    },
+    {
+      "id": "app_js_app_openwizard",
+      "label": "openWizard()",
+      "degree": 9
+    },
+    {
+      "id": "app_js_app_wizardpreview",
+      "label": "wizardPreview()",
+      "degree": 9
+    }
+  ],
+  "surprises": [
+    {
+      "source": "bindSignalEvents()",
+      "target": "openSettings()",
+      "source_files": [
+        "app/js/app.js",
+        "app/js/app.js"
+      ],
+      "confidence": "INFERRED",
+      "relation": "indirect_call",
+      "note": "Bridges community 7 \u2192 community 8"
+    },
+    {
+      "source": "openPasteModal()",
+      "target": "closeModal()",
+      "source_files": [
+        "app/js/app.js",
+        "app/js/app.js"
+      ],
+      "confidence": "INFERRED",
+      "relation": "indirect_call",
+      "note": "Bridges community 6 \u2192 community 8"
+    },
+    {
+      "source": "openClusterModal()",
+      "target": "esc()",
+      "source_files": [
+        "app/js/app.js",
+        "app/js/app.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "note": "Bridges community 2 \u2192 community 8"
+    },
+    {
+      "source": "renderDrawer()",
+      "target": "esc()",
+      "source_files": [
+        "app/js/app.js",
+        "app/js/app.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "note": "Bridges community 2 \u2192 community 11"
+    },
+    {
+      "source": "saveDrawer()",
+      "target": "nowIso()",
+      "source_files": [
+        "app/js/app.js",
+        "app/js/app.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "note": "Bridges community 6 \u2192 community 11"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}

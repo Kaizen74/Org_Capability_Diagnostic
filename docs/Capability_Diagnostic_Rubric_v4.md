@@ -1,12 +1,12 @@
 ---
 name: capability-diagnostic-rubric
-version: v4.0
-date: 2026-07-02
+version: v4.3
+date: 2026-08-12
 supersedes: Capability_Diagnostic_Rubric_v3.md (organisation-specific edition)
 classification: Generic / shareable — contains no organisation-specific data
 ---
 
-# Capability Diagnostic Rubric — v4.0 (Industry-Agnostic, Predictive)
+# Capability Diagnostic Rubric — v4.3 (Industry-Agnostic, Predictive, Value-Calibrated)
 
 ## 1. Purpose and what changed from v3
 
@@ -115,6 +115,29 @@ But role presence alone is insufficient. Two different risks hide behind "critic
 **Two registers, not one.** The critical-role register (led by absent and thin anchor seats) and the key-person risk register (led by tacit intensity) are maintained separately. One combined list hides the knowledge-drain exposure — which is precisely the failure this axis exists to prevent. For high-tacit roles, plan for years of overlap and shadowing; a name on a chart is not a mitigation.
 
 **Role status** is recorded as *exists · thin bench · absent*, grounded in the organisation's actual job titles rather than an idealised org chart.
+
+## 4d. The value chain calibrates the cluster set itself (v4.3)
+
+Grounding context is the *smaller* half of what the money map is for. Its larger job is upstream: **deciding which clusters should exist at all.** An industry preset supplies a plausible cluster set; it cannot know where a particular organisation's money actually flows. Scoring a preset's rows carefully produces a rigorous answer about the wrong six things.
+
+So the cluster set is put through four tests, re-run automatically whenever a lever or a weight changes:
+
+| Test | Failure | What it means | Fix |
+|---|---|---|---|
+| **Ownership** | A lever ≥3% of economic weight has no cluster | Money with no capability owner — an accountability gap the diagnostic would otherwise hide | Add a cluster for it, or map it to the cluster that already carries it |
+| **Materiality** | A cluster carries 0% while others carry weight | A category, not a priority — usually a preset default that does not fit | Merge, remove, or map the missing lever |
+| **Separability** | One cluster carries ≥30% across ≥2 distinct levers | Two disciplines wearing one name, forced to share a single maturity score | Split, so each lever carries its own rating and its own owner |
+| **Diagnosability** | A weighted lever names no capability | The number cannot be moved by anything the diagnostic can score | Name the capability first |
+
+Overall map coverage is reported too: below **80% of economic weight mapped**, the value-exposure ranking is reading a partial map and says so rather than ranking confidently.
+
+**Two calibration passes, in order.** The four tests above are arithmetic on the organisation's own numbers — checkable, offline, and never wrong about itself. What arithmetic cannot know is how the *industry* organises the same capability: that peers treat revenue management as its own discipline, or that two levers piled into one cluster are recognised elsewhere as separate. That is the job of the external harvest , which returns **proposals** — add, merge, rename, split, or explicitly *keep* — each with a rationale tied to a named lever or a sourced industry practice, and each carrying a confidence level.
+
+**Nothing structural is ever applied automatically.** A proposal changes the cluster set only on a human click, and a merge or removal states plainly what it discards. A calibration that changes everything is a rewrite, not a calibration — the model is instructed to return `keep` where a cluster is right, and to lower its confidence where it cannot source a claim.
+
+**Materiality travels with the rating.** Once weights exist, every Signal Matrix row carries the share of the P&L riding on it, the matrix and Priority Board share one ordering so the analytical and action reads tell the same story, trajectory alerts lead with the biggest money at risk, and the role rubric's *value-chain pivotalness* criterion is scored against the cluster's actual economic weight rather than an impression of importance.
+
+**Structure without numbers is not a number.** Industry presets ship the *shape* of the money map — the levers that usually matter in that industry, each pointed at the cluster that should own it — with every weight at zero. The app never invents an economic figure. Until real weights are entered the diagnostic keeps ranking weakest-first and says which basis it used.
 
 ## 5. Attention flag rule
 

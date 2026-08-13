@@ -9,6 +9,7 @@ A **holistic and directionally predictive** capability diagnostic you run entire
 - **Trajectory** — the predictive read: momentum per cell (from version history + leading indicators you maintain), early-warning alerts (*erosion risk*, *stalled weakness*, *breakout underway*), and a directional projection two review cycles ahead.
 - **Signals** — the external read (optional, uses your own Claude API key): scans the latest market research, competitor moves, and regulatory shifts for your industry, then lets you apply each signal to a cluster as a leading indicator — recalibrating the trajectory forecast against the outside world.
 - **Value Chain** — the economic precursor: follow the money from demand owner to profit, map each P&L lever to the capability that moves it, and the Priority Board switches from "weakest first" to **money at risk first**.
+- **Cluster calibration** — the money map doesn't just rank the clusters, it checks whether they are the *right* clusters for your business: money with no owner, clusters with no money, one cluster hiding two capabilities. One-click fixes, plus an optional Claude pass that researches how your industry organises the same work. Nothing structural changes without your approval.
 - **Roles** — the accountability read: every anchor role scored on two independent axes — *Criticality* (hard to hire → succession bench) and *Tacit-Knowledge Intensity* (hard to rebuild internally → knowledge capture) — routing each into Critical / Dual-critical / Specialist / Standard, with two separate registers so knowledge-drain risk never hides inside a succession list.
 - **Evidence** — the grounding read: upload your own documents (strategy decks, engagement surveys, annual reports, workforce files, org charts) and Claude runs an evidence-extraction protocol against your clusters and lenses — verbatim figures, leading vs lagging classification, conservative level suggestions, and falsifiable watch signals — each finding one click away from landing in the right cell.
 - **Delta** — the recalibration read: exactly what changed since any saved baseline, declines first, with the logged rationale for every move.
@@ -83,7 +84,28 @@ Score capabilities *after* you know where the money is. In the **Value Chain** t
 
 The Priority Board then ranks by **value exposure** (economic weight × capability gap) instead of weakness alone — so a Level 2 carrying 30% of your cost base outranks a Level 2 carrying 2%. Any lever with no cluster attached is flagged: that money has no capability owner.
 
+To save you a blank page, picking an industry preset also lists **the P&L levers that usually matter in that industry**, each already pointed at the cluster that should own it. The weights are left at 0 on purpose — the app will never invent a number about your business. Until you enter real weights, the board keeps ranking weakest-first and says so.
+
 ![Value Chain](docs/screenshots/value-chain.png)
+
+### Checking you have the *right* clusters (Cluster calibration)
+
+This is the part most capability models skip. An industry preset gives you a plausible set of clusters — it cannot know where *your* money actually flows. Scoring the wrong six rows carefully still gives you a careful answer to the wrong question.
+
+So underneath the Value Chain table, the app continuously checks four things and tells you in plain English whether your cluster set fits your economics:
+
+| Test | What it catches |
+|---|---|
+| **Ownership** | A P&L lever worth 3% or more with no cluster accountable for it |
+| **Materiality** | A cluster carrying 0% of the money — often a preset default that doesn't fit your business |
+| **Separability** | One cluster carrying 30%+ across two different levers — usually two capabilities sharing one score |
+| **Diagnosability** | A weighted lever with no capability named, so nothing in the diagnostic can move it |
+
+Each finding comes with a one-click fix — *add a cluster for this lever*, *split into two clusters*, *edit or remove this cluster* — and the Signal Matrix shows a banner when the mismatch is material.
+
+With an API key you can also click **⟳ Tune clusters with Claude**, which researches how your industry actually organises the same capabilities and proposes changes: *add*, *merge*, *rename*, *split*, or explicitly *keep*, each with a rationale, a source where one exists, and a confidence level. **Nothing is ever applied automatically** — a merge or removal asks first and tells you exactly what it discards.
+
+Once weights exist, materiality follows you everywhere: each Signal Matrix row shows the share of the P&L riding on it, the Matrix, Board and Trajectory views all order the same way, and trajectory alerts lead with the biggest money at risk.
 
 ### Scoring the roles behind each capability (Roles)
 

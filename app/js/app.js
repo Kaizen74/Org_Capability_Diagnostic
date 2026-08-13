@@ -60,7 +60,21 @@ function migrateState(s) {
     s.valueChain.stages = DEFAULT_VC_STAGES.map(x => ({ ...x }));
   }
   if (!Array.isArray(s.valueChain.levers)) s.valueChain.levers = [];
+  /* Seed the industry's typical P&L levers once, for diagnostics created
+     before starter value chains existed. Weight 0 → nothing invented, and
+     the guard means levers the user deleted never come back. */
+  if (!s.vc_seeded) {
+    s.vc_seeded = true;
+    if (!s.valueChain.levers.length) {
+      const p = PRESETS.find(x => x.industry_id === s.industry_id);
+      if (p && p.value_levers) {
+        s.valueChain.levers = JSON.parse(JSON.stringify(p.value_levers))
+          .filter(l => (s.clusters || []).some(c => c.id === l.cluster_id));
+      }
+    }
+  }
   if (!s.boardSort) s.boardSort = "auto";
+  if (!Array.isArray(s.calibrations)) s.calibrations = [];
   return s;
 }
 
@@ -99,8 +113,18 @@ function stateFromPreset(preset, orgName) {
     rubric: JSON.parse(JSON.stringify(DEFAULT_RUBRIC)),
     patterns: JSON.parse(JSON.stringify(DEFAULT_PATTERNS)),
     clusters, versions: [], changeLog: [], briefings: [],
-    documents: [], analyses: [],
+    documents: [], analyses: [], calibrations: [],
     signal_keywords: [...(preset.signal_keywords || [])],
+    /* The industry preset seeds the STRUCTURE of the money map, never
+       the numbers. Weights start at 0 so nothing is fabricated — the
+       board keeps saying "weakest-first" until real weights arrive. */
+    valueChain: {
+      currency: "$", revenue: "", as_of: "",
+      stages: DEFAULT_VC_STAGES.map(x => ({ ...x })),
+      levers: JSON.parse(JSON.stringify(preset.value_levers || []))
+    },
+    vc_seeded: true,
+    boardSort: "auto",
     currentVersion: "v0.1 (working)"
   };
 }
@@ -185,24 +209,53 @@ function cellHtml(cluster, lens) {
   </button>`;
 }
 
-/* ---------- View 1: Signal Matrix ---------- */
+/* ---------- View 1: Signal Matrix ----------
+   The rows are ordered by the SAME basis as the Priority Board, so the
+   analytical read and the action read tell one story rather than two,
+   and each row carries its economic weight — a maturity score with no
+   materiality beside it invites the board to fix the cheapest gap. */
 function viewMatrix() {
+  const cal = calibrationSummary(state);
+  const ordered = orderClustersForBoard(state, state.boardSort || "auto");
   const head = `<div class="matrix-head">
-      <div class="mh corner">Capability cluster<span class="sub">Priority move always visible</span></div>
+      <div class="mh corner">Capability cluster<span class="sub">Weight · priority move always visible</span></div>
       ${state.lenses.map(l => `<div class="mh">${esc(l.name)}<span class="sub">${esc(l.sub)}</span></div>`).join("")}
     </div>`;
-  const rows = state.clusters.map(cl => `
+  const rows = ordered.clusters.map(cl => {
+    const mat = clusterMateriality(state, cl);
+    const matChip = mat.mapped
+      ? (mat.weight
+        ? `<span class="mat-chip" title="${esc(mat.levers.map(l => l.name).join('; '))}">◧ ${mat.weight}% of P&L weight · ${mat.share}% of the mapped money</span>`
+        : `<span class="mat-chip none" title="No P&L lever maps to this cluster">◧ no economic weight mapped</span>`)
+      : "";
+    return `
     <div class="matrix-row">
       <div class="cluster-head">
         <button class="c-edit" data-editcluster="${esc(cl.id)}" title="Edit cluster">Edit</button>
         <span class="c-no">CLUSTER ${cl.no}</span>
         <span class="c-name">${esc(cl.name)}</span>
         <span class="c-desc">${esc(cl.desc)}</span>
+        ${matChip}
         <span class="pm-chip"><span class="arrow">➜</span><span>${esc(cl.priority_move)}</span></span>
       </div>
       ${state.lenses.map(l => cellHtml(cl, l)).join("")}
-    </div>`).join("");
-  return `<div class="view-note">Analytical read — every rating is quadruple-encoded (fill + segment bar + label + amber flag) with a momentum arrow. Click any cell to drill down and edit.</div>
+    </div>`;
+  }).join("");
+
+  const banner = cal.fit === "aligned" || !cal.findings.length ? "" : `
+    <div class="calib-banner ${cal.fit === "misaligned" ? "hot" : ""}">
+      <div>
+        <strong>Cluster calibration: ${esc({ unmapped: "value chain not mapped", unweighted: "weights not set", misaligned: "misaligned with the money", tuning: "close, needs tuning" }[cal.fit] || cal.fit)}</strong>
+        <p>${esc(cal.verdict)}</p>
+      </div>
+      <button class="mini-btn" data-goto="valuechain">Calibrate clusters →</button>
+    </div>`;
+
+  const orderNote = ordered.basis === "value"
+    ? "ordered by <strong>value exposure</strong> (economic weight × capability gap), matching the Priority Board"
+    : "in cluster order — map P&amp;L weights in the Value Chain view to order by money at risk";
+  return `<div class="view-note">Analytical read — every rating is quadruple-encoded (fill + segment bar + label + amber flag) with a momentum arrow, and every row carries the share of the P&amp;L that rides on it. Rows are ${orderNote}. Click any cell to drill down and edit.</div>
+    ${banner}
     <section class="print-section"><div class="matrix">${head}${rows}</div></section>`;
 }
 
@@ -263,7 +316,10 @@ function viewBoard() {
 function viewTrajectory() {
   const k = enterpriseKpis(state);
   const alertList = (items, empty) => items.length
-    ? `<ul>${items.map(a => `<li><button data-cluster="${esc(a.cluster.id)}" data-lens="${esc(a.lens.key)}">${esc(a.cluster.name)} · ${esc(a.lens.name)}</button> — ${esc(a.cell.status)} (L${a.cell.level}${a.t.known ? ", " + fmtSigned(a.m) : ""})</li>`).join("")}</ul>`
+    ? `<ul>${items.map(a => {
+      const wt = clusterEconomicWeight(state, a.cluster.id);
+      return `<li><button data-cluster="${esc(a.cluster.id)}" data-lens="${esc(a.lens.key)}">${esc(a.cluster.name)} · ${esc(a.lens.name)}</button> — ${esc(a.cell.status)} (L${a.cell.level}${a.t.known ? ", " + fmtSigned(a.m) : ""})${wt ? ` <span class="alert-wt" title="Share of mapped economic weight riding on this cluster">◧ ${wt}%</span>` : ""}</li>`;
+    }).join("")}</ul>`
     : `<div class="alert-empty">${empty}</div>`;
   const unknownNote = k.unknownPct > 25
     ? `<p class="alert-empty" style="margin-top:6px"><strong>${k.unknownPct}% of cells have no assessable direction — that IS the finding: an evidence-infrastructure gap. Build leading indicators before trusting any forecast.</strong></p>` : "";
@@ -288,7 +344,7 @@ function viewTrajectory() {
     </div>` : "";
 
   const pos = v => (((v - 1) / 3) * 92 + 4) + "%";
-  const rows = state.clusters.map(cl => {
+  const rows = orderClustersForBoard(state, state.boardSort || "auto").clusters.map(cl => {
     const cur = clusterAvg(cl, state.lenses);
     const proj = clusterProjectedAvg(state, cl, state.lenses);
     const ct = clusterTrajectory(state, cl, state.lenses);
@@ -484,7 +540,215 @@ function viewValueChain() {
         </table>
         ${unmapped.length ? `<p class="sig-meta" style="margin-top:8px">⚑ ${unmapped.length} lever${unmapped.length > 1 ? "s" : ""} not yet mapped to a cluster — that money has no capability owner in this diagnostic.</p>` : ""}
       </div>
+
+      ${viewCalibration()}
     </section>`;
+}
+
+/* ---------- Cluster calibration (the value chain tunes the matrix) ----------
+   Deterministic findings first (checkable arithmetic on this
+   organisation's own numbers), then an optional Claude harvest for the
+   thing arithmetic cannot know: how this industry actually organises
+   the same capability. Every structural change needs a click. */
+const CALIB_SEV = {
+  high: { label: "Material", cls: "hot" },
+  medium: { label: "Review", cls: "" },
+  low: { label: "Tidy", cls: "muted" }
+};
+
+function calibProposalCard(cal, p, i) {
+  const cl = p.cluster_id ? state.clusters.find(c => c.id === p.cluster_id) : null;
+  const into = p.merge_into_id ? state.clusters.find(c => c.id === p.merge_into_id) : null;
+  const verb = {
+    add: "Add cluster “" + (p.name || "") + "”",
+    merge: "Merge “" + (cl ? cl.name : "?") + "” into “" + (into ? into.name : "?") + "”",
+    rename: "Rename “" + (cl ? cl.name : "?") + "”" + (p.name ? " → “" + p.name + "”" : ""),
+    split: "Split “" + (p.name || "") + "” out of “" + (cl ? cl.name : "?") + "”",
+    keep: "Keep “" + (cl ? cl.name : "?") + "” as it is"
+  }[p.action];
+  const done = p.applied || p.dismissed;
+  return `<div class="calib-card ${p.action === "keep" ? "keep" : ""}">
+    <div class="calib-card-head">
+      <span class="calib-action act-${esc(p.action)}">${esc(p.action)}</span>
+      <strong>${esc(verb)}</strong>
+      <span class="conf-pill conf-${esc(p.confidence)}">${esc(p.confidence)} confidence</span>
+    </div>
+    <p class="calib-why">${esc(p.rationale)}</p>
+    ${p.evidence ? `<p class="calib-src">Source: ${esc(p.evidence)}</p>`
+      : '<p class="calib-src">Rests on the money map only — no external source cited.</p>'}
+    ${p.lever_ids.length ? `<p class="calib-src">Levers: ${esc(p.lever_ids.map(id => {
+        const lv = state.valueChain.levers.find(l => l.id === id); return lv ? lv.name : id;
+      }).join(", "))}</p>` : ""}
+    <div class="calib-actions">
+      ${p.action === "keep" || done
+        ? `<span class="applied-note">${p.applied ? "✓ Applied" : p.dismissed ? "Dismissed" : "No action needed"}</span>`
+        : `<button class="mini-btn" data-cal-apply="${esc(cal.id)}|${i}">Apply this change</button>
+           <button class="mini-btn ghost" data-cal-skip="${esc(cal.id)}|${i}">Dismiss</button>`}
+    </div>
+  </div>`;
+}
+
+function viewCalibration() {
+  const cal = calibrationSummary(state);
+  const cfg = getApiConfig();
+  const latest = (state.calibrations || [])[state.calibrations.length - 1];
+
+  const findings = cal.findings.length
+    ? cal.findings.map(f => {
+      const sev = CALIB_SEV[f.severity];
+      const btn = f.action === "add-cluster"
+        ? `<button class="mini-btn" data-calib-add="${esc(f.leverId)}">＋ Add a cluster for this lever</button>`
+        : f.action === "review-cluster"
+          ? `<button class="mini-btn" data-calib-open="${esc(f.clusterId)}">Edit or remove this cluster</button>`
+          : f.action === "split-cluster"
+            ? `<button class="mini-btn" data-calib-split="${esc(f.clusterId)}">Split into two clusters</button>`
+            : "";
+      return `<div class="calib-find">
+        <div class="calib-card-head">
+          <span class="calib-sev ${sev.cls}">${sev.label}</span>
+          <strong>${esc(f.title)}</strong>
+        </div>
+        <p class="calib-why">${esc(f.body)}</p>
+        ${btn ? `<div class="calib-actions">${btn}</div>` : ""}
+      </div>`;
+    }).join("")
+    : `<div class="alert-empty">Nothing to calibrate — every material lever has an owner and every cluster carries weight.</div>`;
+
+  return `<div class="vc-tablewrap calib-wrap">
+    <div class="sig-brief-head">
+      <h2>Cluster calibration</h2>
+      <span class="sig-meta">does the cluster set fit where the money actually is?</span>
+      ${cfg.apiKey
+        ? `<button class="mini-btn" id="calib-scan">⟳ Tune clusters with Claude</button>`
+        : `<button class="mini-btn ghost" id="calib-settings">Add an API key to research industry norms</button>`}
+    </div>
+    <div class="calib-verdict fit-${esc(cal.fit)}">
+      <span class="calib-fit">${esc({ aligned: "Fits", tuning: "Nearly", misaligned: "Misaligned", unmapped: "Not mapped", unweighted: "No weights" }[cal.fit] || cal.fit)}</span>
+      <p>${esc(cal.verdict)}</p>
+    </div>
+    <p class="view-note inner">The value chain is not only context for the ratings — it is the test of whether these are the <em>right</em> clusters for this organisation. Findings below are arithmetic on your own numbers; the Claude pass adds how this industry organises the same capability. Nothing changes without your click.</p>
+    ${findings}
+    ${latest ? `<div class="calib-proposals">
+      <h4 class="xlens-title">Claude calibration <span class="sig-meta">— ${esc(latest.model)} · ${new Date(latest.generated_at).toLocaleString()} · proposals only</span></h4>
+      ${latest.proposals.map((p, i) => calibProposalCard(latest, p, i)).join("")}
+    </div>` : ""}
+  </div>`;
+}
+
+/* ---------- Structural changes (always user-approved) ---------- */
+function blankCells() {
+  const cells = {};
+  state.lenses.forEach(l => {
+    cells[l.key] = {
+      level: 1, status: "Not yet assessed", rationale: "", intervention: "",
+      items: [], evidence: [], leading: [], watch: [], history: [],
+      last_updated: nowIso(), updated_by: state.actor || "You"
+    };
+  });
+  return cells;
+}
+
+function renumberClusters() { state.clusters.forEach((c, i) => { c.no = i + 1; }); }
+
+function addCluster(name, desc, priorityMove, leverIds) {
+  const id = "cl_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  state.clusters.push({
+    id, no: state.clusters.length + 1,
+    name: (name || "New capability cluster").slice(0, 60),
+    desc: desc || "",
+    priority_move: priorityMove || "Score this cluster from evidence, then name the one move that matters.",
+    cells: blankCells(), roles: []
+  });
+  (leverIds || []).forEach(lid => {
+    const lv = state.valueChain.levers.find(l => l.id === lid);
+    if (lv) lv.cluster_id = id;
+  });
+  renumberClusters();
+  return id;
+}
+
+/* Merging is destructive to the source cluster's cells, so it asks first
+   and moves everything transferable (levers, roles) rather than dropping it. */
+function mergeCluster(fromId, intoId) {
+  const from = state.clusters.find(c => c.id === fromId);
+  const into = state.clusters.find(c => c.id === intoId);
+  if (!from || !into || from === into) return false;
+  if (!confirm(`Merge “${from.name}” into “${into.name}”?\n\nIts P&L levers and roles move across. Its ${state.lenses.length} maturity ratings and their evidence are discarded — saved version snapshots keep the history.`)) return false;
+  state.valueChain.levers.forEach(l => { if (l.cluster_id === fromId) l.cluster_id = intoId; });
+  into.roles = (into.roles || []).concat(from.roles || []);
+  state.clusters = state.clusters.filter(c => c.id !== fromId);
+  renumberClusters();
+  return true;
+}
+
+function removeCluster(id) {
+  const cl = state.clusters.find(c => c.id === id);
+  if (!cl) return false;
+  if (state.clusters.length <= 1) { toast("A diagnostic needs at least one cluster."); return false; }
+  if (!confirm(`Remove “${cl.name}” from the diagnostic?\n\nIts ratings, evidence and roles go with it. Any P&L lever mapped to it becomes unmapped, and saved version snapshots keep the history.`)) return false;
+  state.valueChain.levers.forEach(l => { if (l.cluster_id === id) l.cluster_id = ""; });
+  state.clusters = state.clusters.filter(c => c.id !== id);
+  renumberClusters();
+  return true;
+}
+
+function applyCalibrationProposal(calId, idx) {
+  const cal = (state.calibrations || []).find(c => c.id === calId);
+  if (!cal) return;
+  const p = cal.proposals[idx];
+  if (!p || p.applied || p.dismissed) return;
+  let msg = "";
+  if (p.action === "add" || p.action === "split") {
+    const newId = addCluster(p.name, p.desc, p.priority_move, p.lever_ids);
+    if (p.action === "split") {
+      // the split-out levers move from the parent to the new cluster
+      p.lever_ids.forEach(lid => {
+        const lv = state.valueChain.levers.find(l => l.id === lid);
+        if (lv) lv.cluster_id = newId;
+      });
+    }
+    msg = `Cluster “${p.name}” added — score it from evidence before it goes to a board.`;
+  } else if (p.action === "merge") {
+    if (!mergeCluster(p.cluster_id, p.merge_into_id)) return;
+    msg = "Clusters merged.";
+  } else if (p.action === "rename") {
+    const cl = state.clusters.find(c => c.id === p.cluster_id);
+    if (!cl) return;
+    if (p.name) cl.name = p.name;
+    if (p.desc) cl.desc = p.desc;
+    if (p.priority_move) cl.priority_move = p.priority_move;
+    p.lever_ids.forEach(lid => {
+      const lv = state.valueChain.levers.find(l => l.id === lid);
+      if (lv) lv.cluster_id = cl.id;
+    });
+    msg = `Cluster renamed to “${cl.name}”.`;
+  }
+  p.applied = true;
+  (state.changeLog = state.changeLog || []).push({
+    at: nowIso(), by: state.actor || "You",
+    what: "Cluster calibration applied: " + p.action + " — " + p.rationale
+  });
+  renderAll();
+  toast(msg || "Calibration applied.");
+}
+
+let calibBusy = false;
+async function runClusterCalibration() {
+  if (calibBusy) return;
+  calibBusy = true;
+  const btn = $("calib-scan");
+  if (btn) { btn.disabled = true; btn.textContent = "Researching industry practice…"; }
+  try {
+    const cal = await proposeClusterCalibration(state);
+    state.calibrations = (state.calibrations || []).concat([cal]);
+    renderAll();
+    toast(cal.proposals.length + " calibration proposal" + (cal.proposals.length > 1 ? "s" : "") + " — nothing applied until you approve it.");
+  } catch (e) {
+    toast("Calibration failed: " + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = "⟳ Tune clusters with Claude"; }
+  } finally {
+    calibBusy = false;
+  }
 }
 
 function bindValueChainEvents() {
@@ -509,6 +773,62 @@ function bindValueChainEvents() {
   }));
   document.querySelectorAll("[data-lv-del]").forEach(b => b.addEventListener("click", () => {
     state.valueChain.levers.splice(parseInt(b.dataset.lvDel, 10), 1);
+    renderAll();
+  }));
+  bindCalibrationEvents();
+}
+
+function bindCalibrationEvents() {
+  const scan = $("calib-scan");
+  if (scan) scan.addEventListener("click", runClusterCalibration);
+  const setBtn = $("calib-settings");
+  if (setBtn) setBtn.addEventListener("click", openSettings);
+
+  /* Deterministic finding → one-click structural fix. */
+  document.querySelectorAll("[data-calib-add]").forEach(b => b.addEventListener("click", () => {
+    const lv = state.valueChain.levers.find(l => l.id === b.dataset.calibAdd);
+    if (!lv) return;
+    const seed = (lv.capability || lv.name || "New capability cluster").split(",")[0].trim().slice(0, 60);
+    const name = prompt("Name the capability cluster that will own “" + lv.name + "”:", seed);
+    if (name === null || !name.trim()) return;
+    addCluster(name.trim(),
+      "Owns the capability behind “" + lv.name + "” (" + lv.share_pct + "% of economic weight).",
+      "Score this cluster from evidence, then name the one move that matters.", [lv.id]);
+    renderAll();
+    toast("Cluster added and mapped to “" + lv.name + "”. It starts unassessed — score it from evidence.");
+  }));
+
+  document.querySelectorAll("[data-calib-open]").forEach(b => b.addEventListener("click", () => {
+    openClusterModal(b.dataset.calibOpen);
+  }));
+
+  document.querySelectorAll("[data-calib-split]").forEach(b => b.addEventListener("click", () => {
+    const cl = state.clusters.find(c => c.id === b.dataset.calibSplit);
+    if (!cl) return;
+    const own = clusterLevers(state, cl.id).filter(l => (l.share_pct || 0) > 0);
+    if (own.length < 2) return;
+    const move = own[own.length - 1];
+    const name = prompt(
+      "Split “" + cl.name + "”.\n\nA new cluster will take over “" + move.name + "” (" + move.share_pct + "%).\nName the new cluster:",
+      (move.capability || move.name).split(",")[0].trim().slice(0, 60));
+    if (name === null || !name.trim()) return;
+    addCluster(name.trim(),
+      "Split out of “" + cl.name + "” to carry “" + move.name + "” on its own rating.",
+      "Assign a distinct owner and re-score this cluster from evidence.", [move.id]);
+    renderAll();
+    toast("Split applied — “" + move.name + "” now has its own cluster and its own rating.");
+  }));
+
+  /* Claude proposals — apply or dismiss, never automatic. */
+  document.querySelectorAll("[data-cal-apply]").forEach(b => b.addEventListener("click", () => {
+    const [id, i] = b.dataset.calApply.split("|");
+    applyCalibrationProposal(id, parseInt(i, 10));
+  }));
+  document.querySelectorAll("[data-cal-skip]").forEach(b => b.addEventListener("click", () => {
+    const [id, i] = b.dataset.calSkip.split("|");
+    const cal = (state.calibrations || []).find(c => c.id === id);
+    if (!cal) return;
+    cal.proposals[parseInt(i, 10)].dismissed = true;
     renderAll();
   }));
 }
@@ -567,6 +887,12 @@ function viewRoles() {
             <h5>${esc(r.role.title)}</h5>
             <p>Absent today · criticality ${fmt1(r.idx)} / 5 · ${esc(r.meta.fix)}</p>
           </div>`).join("")}</div></div>` : ""}
+
+      ${(() => {
+        const mat = clusterMateriality(state, cluster);
+        if (!mat.mapped) return "";
+        return `<div class="role-money">Grounding for the <em>Value-chain pivotalness</em> score: <strong>${esc(cluster.name)}</strong> carries <strong>${mat.weight}%</strong> of mapped economic weight${mat.levers.length ? ` via ${esc(mat.levers.map(l => l.name).join(", "))}` : " — no lever maps to it, so a high pivotalness score here needs a stated non-financial reason"}.</div>`;
+      })()}
 
       <div class="sig-brief-head">
         <h2>Role register</h2>
@@ -954,6 +1280,9 @@ function bindViewEvents() {
   if (db) db.addEventListener("change", renderView);
   const bs = $("board-sort");
   if (bs) bs.addEventListener("change", () => { state.boardSort = bs.value; renderAll(); });
+  document.querySelectorAll("[data-goto]").forEach(el => el.addEventListener("click", () => {
+    activeView = el.dataset.goto; renderView();
+  }));
   bindSignalEvents();
   bindEvidenceEvents();
   bindValueChainEvents();
@@ -1362,6 +1691,8 @@ function wizardPreview(presetId) {
 
 function openClusterModal(clusterId) {
   const cl = state.clusters.find(c => c.id === clusterId);
+  const mat = clusterMateriality(state, cl);
+  const mergeTargets = state.clusters.filter(c => c.id !== cl.id);
   openModal(`
     <button class="m-close" id="m-close">✕</button>
     <h2>Edit cluster</h2><p class="m-sub">Changes apply immediately across all views.</p>
@@ -1369,13 +1700,34 @@ function openClusterModal(clusterId) {
     <div class="m-field"><label>One-line description</label><input type="text" id="cm-desc" value="${esc(cl.desc)}"></div>
     <div class="m-field"><label>Priority move — the one sentence of what must be done next</label>
       <textarea id="cm-pm">${esc(cl.priority_move)}</textarea></div>
-    <div class="m-row"><span class="grow"></span><button class="btn-navy" id="cm-save">Save cluster</button></div>`);
+    <div class="cm-materiality">
+      <strong>Economic weight: ${mat.weight}%${mat.mapped && mat.weight ? ` · ${mat.share}% of the mapped money · rank ${mat.rank} of ${mat.of}` : ""}</strong>
+      <p>${mat.levers.length
+        ? "Carries " + esc(mat.levers.map(l => l.name).join(", ")) + "."
+        : "No P&L lever maps to this cluster. Either a lever is missing from the Value Chain, or this is a preset default that does not fit — in which case merge or remove it rather than scoring cells nobody will act on."}</p>
+    </div>
+    <div class="m-row">
+      ${mergeTargets.length ? `<select id="cm-merge-into"><option value="">— merge into… —</option>
+        ${mergeTargets.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}</select>
+        <button class="btn-plain" id="cm-merge">Merge</button>` : ""}
+      <button class="btn-plain danger" id="cm-remove">Remove cluster</button>
+      <span class="grow"></span><button class="btn-navy" id="cm-save">Save cluster</button>
+    </div>`);
   $("m-close").addEventListener("click", closeModal);
   $("cm-save").addEventListener("click", () => {
     cl.name = $("cm-name").value.trim() || cl.name;
     cl.desc = $("cm-desc").value.trim();
     cl.priority_move = $("cm-pm").value.trim();
     closeModal(); renderAll(); toast("Cluster updated.");
+  });
+  const mergeBtn = $("cm-merge");
+  if (mergeBtn) mergeBtn.addEventListener("click", () => {
+    const into = $("cm-merge-into").value;
+    if (!into) { toast("Pick the cluster to merge into first."); return; }
+    if (mergeCluster(cl.id, into)) { closeModal(); renderAll(); toast("Clusters merged — levers and roles moved across."); }
+  });
+  $("cm-remove").addEventListener("click", () => {
+    if (removeCluster(cl.id)) { closeModal(); renderAll(); toast("Cluster removed. Any lever it owned is now unmapped."); }
   });
 }
 
