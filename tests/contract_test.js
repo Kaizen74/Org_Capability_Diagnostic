@@ -523,5 +523,86 @@ checkOk("HONESTY: prompts omit the money map entirely when no weights exist",
   !vm.runInContext("buildScanPrompt(__seed, [])", sandbox).includes("WHERE THE MONEY IS") &&
   !vm.runInContext("buildAnalysisPrompt(__seed)", sandbox).includes("WHERE THE MONEY IS"));
 
+// ---- 28. Method blueprint: descriptive of real code, honest about limits ----
+const bpSrc = fs.readFileSync(path.join(__dirname, "..", "app", "js", "blueprint.js"), "utf8");
+const bpSandbox = { module: undefined, console };
+vm.createContext(bpSandbox);
+for (const f of ["presets.js", "engine.js", "llm.js", "blueprint.js"]) {
+  vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "app", "js", f), "utf8"), bpSandbox, { filename: f });
+}
+Object.assign(bpSandbox, schema);
+vm.runInContext("globalThis.state = " + JSON.stringify(demoRoles), bpSandbox);
+
+const bpStats = vm.runInContext("bpStats(state)", bpSandbox);
+checkOk("blueprint counters read the live diagnostic, not hard-coded numbers",
+  bpStats.clusters === demoRoles.clusters.length &&
+  bpStats.cells === demoRoles.clusters.length * demoRoles.lenses.length &&
+  bpStats.levers === demoRoles.valueChain.levers.length &&
+  bpStats.roles === demoRoles.clusters.reduce((a, c) => a + (c.roles || []).length, 0));
+const bpHtml = vm.runInContext("viewBlueprint()", bpSandbox);
+checkOk("blueprint renders one SVG workflow diagram", (bpHtml.match(/<svg/g) || []).length === 1);
+checkOk("blueprint diagram carries an accessible description for screen readers",
+  bpHtml.includes('role="img"') && bpHtml.includes("aria-label=") && bpHtml.includes("momentum baseline"));
+checkOk("blueprint names all five workflow bands in order",
+  ["INPUTS", "GROUND IT", "SCORE", "ENGINE", "READS"].every(b => bpHtml.includes(b)) &&
+  bpHtml.indexOf("INPUTS") < bpHtml.indexOf("GROUND IT") &&
+  bpHtml.indexOf("GROUND IT") < bpHtml.indexOf("SCORE") &&
+  bpHtml.indexOf("SCORE") < bpHtml.indexOf("ENGINE") &&
+  bpHtml.indexOf("ENGINE") < bpHtml.indexOf("READS"));
+checkOk("blueprint draws both feedback loops (calibration + momentum baseline)",
+  bpHtml.includes("calibration re-shapes the cluster rows") &&
+  bpHtml.includes("saved version becomes the momentum baseline"));
+
+const strengths = vm.runInContext("BP_STRENGTHS", bpSandbox);
+const watchouts = vm.runInContext("BP_WATCHOUTS", bpSandbox);
+checkOk("assessment covers both sides substantively (≥8 strengths and ≥8 watch-outs)",
+  strengths.length >= 8 && watchouts.length >= 8);
+checkOk("HONESTY: every watch-out states a concrete mitigation, not just a caveat",
+  watchouts.every(w => /Mitigation:/.test(w.body)));
+const bpDiagramHtml = bpHtml.slice(0, bpHtml.indexOf("bp-assess"));
+const bpStages = vm.runInContext("BP_STAGES", bpSandbox);
+checkOk("every assessment point is anchored to a declared workflow stage",
+  [...strengths, ...watchouts].every(i => bpStages.indexOf(i.at) !== -1));
+// Both directions: every badge in the assessment appears on the diagram, and
+// every badge on the diagram is explained in the assessment. This is what stops
+// the picture and the prose drifting apart as either one is edited.
+const drawnBadges = (bpDiagramHtml.match(/class="bp-badge bp-badge-\w+">\s*<circle[^>]*><\/circle>\s*<text[^>]*>([^<]+)<\/text>/g) || [])
+  .map(m => m.replace(/[\s\S]*<text[^>]*>([^<]+)<\/text>/, "$1"));
+const claimed = [...strengths, ...watchouts].map(i => String(i.n));
+checkOk("every assessment badge is drawn on the diagram",
+  claimed.every(n => drawnBadges.indexOf(n) !== -1));
+checkOk("every badge drawn on the diagram is explained in the assessment",
+  drawnBadges.length > 0 && drawnBadges.every(n => claimed.indexOf(n) !== -1));
+checkOk("the single-rater limit is named as the largest methodological weakness",
+  watchouts[0].n === "A" && /single-rater|Single-rater/i.test(watchouts[0].title));
+checkOk("the verdict states what the method is and is not (judgement, not measurement)",
+  bpHtml.includes("single expert's structured judgement") && bpHtml.includes("not a measurement instrument"));
+checkOk("blueprint claims match the engine's actual constants (no drift in the description)",
+  bpSrc.includes("50% Δlevel") && bpSrc.includes("±0.25") &&
+  vm.runInContext("HIGH_LEVERAGE", bpSandbox) === 3.5 &&
+  bpSrc.includes("3.5 threshold"));
+
+// ---- 29. Population guidance for the two judgement-heavy sections ----
+["HOWTO_VALUE_CHAIN", "HOWTO_ROLES"].forEach(k => {
+  checkOk(`${k} guidance is defined in the app`, appSrc.indexOf("const " + k) !== -1);
+});
+const howVc = appSrc.slice(appSrc.indexOf("const HOWTO_VALUE_CHAIN"), appSrc.indexOf("const HOWTO_ROLES"));
+const howRl = appSrc.slice(appSrc.indexOf("const HOWTO_ROLES"), appSrc.indexOf("/* ---------- View: Value Chain"));
+checkOk("value-chain guidance gives ordered steps, a worked line, and the mistake to avoid",
+  (howVc.match(/<li>/g) || []).length >= 5 && howVc.includes("howto-eg") && howVc.includes("mistake to avoid"));
+checkOk("value-chain guidance warns against false precision in the weights",
+  howVc.includes("false precision") && howVc.includes("30% from 5%"));
+checkOk("roles guidance gives ordered steps, scale anchors, and the mistake to avoid",
+  (howRl.match(/<li>/g) || []).length >= 5 && howRl.includes("howto-eg") && howRl.includes("mistake to avoid"));
+checkOk("roles guidance anchors the 1–5 scales so two raters would agree",
+  howRl.includes("Anchor your 1–5") && howRl.includes("replaceable within a month"));
+checkOk("roles guidance warns against collapsing the two axes into seniority",
+  howRl.includes("scoring seniority") && howRl.includes("knowledge-drain"));
+checkOk("guidance points users at the bulk-entry paths that already exist",
+  howRl.includes("Role inventory") && howRl.includes("CSV"));
+checkOk("guidance is rendered in both views, collapsed by default",
+  appSrc.includes("${HOWTO_VALUE_CHAIN}") && appSrc.includes("${HOWTO_ROLES}") &&
+  !howVc.includes("<details class=\"howto\" open") && !howRl.includes("<details class=\"howto\" open"));
+
 console.log(failures ? `\n${failures} CONTRACT FAILURE(S)` : "\nAll contract checks passed.");
 process.exit(failures ? 1 : 0);

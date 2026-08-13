@@ -701,3 +701,112 @@ footer { max-width: 1560px; margin: 0 auto; padding: 8px 22px 34px 22px; font-si
   color: var(--navy); background: #EEF2F9; border-radius: 999px;
   padding: 1px 7px; margin-left: 4px; white-space: nowrap;
 }
+
+/* ============================================================
+   Method Blueprint — workflow diagram + honest self-assessment
+   ============================================================ */
+.bp-wrap {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 10px 12px; margin: 0 22px 16px 22px; overflow-x: auto;
+}
+.bp-svg { display: block; width: 100%; min-width: 900px; height: auto; }
+
+/* Boxes: the same sequential navy ramp as the ratings, so a reader who
+   has learned the palette in the matrix reads depth here too. */
+.bp-box rect { stroke: var(--line); stroke-width: 1; }
+.bp-in    rect { fill: #FFFFFF; stroke: #D6DEEC; }
+.bp-ground rect { fill: var(--l1); stroke: #D6DEEC; }
+.bp-score  rect { fill: var(--l2); stroke: #AFC0DC; }
+.bp-engine rect { fill: var(--l3); stroke: #5A7BAE; }
+.bp-read   rect { fill: var(--l4); stroke: var(--l4); }
+
+.bp-t { font-family: var(--head); font-weight: 800; font-size: 13px; fill: var(--ink); }
+.bp-s { font-family: var(--body); font-size: 10.6px; fill: var(--muted); }
+.bp-engine .bp-t, .bp-engine .bp-s { fill: #FFFFFF; }
+.bp-engine .bp-s { fill: #E4EBF6; }
+.bp-read .bp-t, .bp-read .bp-s { fill: #FFFFFF; }
+.bp-read .bp-s { fill: #C6D2E6; }
+.bp-score .bp-t { fill: var(--l2-text); }
+.bp-score .bp-s { fill: #35455F; font-size: 11px; }
+
+.bp-band-n { font-family: var(--head); font-weight: 900; font-size: 17px; fill: #C4CCDA; }
+.bp-band-t { font-family: var(--head); font-weight: 800; font-size: 10px; fill: var(--muted); letter-spacing: .1em; }
+
+.bp-flow line { stroke: var(--navy); stroke-width: 1.6; }
+.bp-arrowhead { fill: var(--navy); }
+.bp-arrowhead-amber { fill: var(--amber-deep); }
+.bp-flow-lbl { font-family: var(--body); font-size: 10.5px; fill: var(--muted); }
+.bp-loop path { fill: none; stroke: var(--amber-deep); stroke-width: 1.4; stroke-dasharray: 5 4; }
+.bp-loop-lbl { font-family: var(--head); font-weight: 700; font-size: 9.5px; fill: var(--amber-deep); letter-spacing: .03em; }
+
+.bp-badge circle { stroke: #FFFFFF; stroke-width: 1.5; }
+.bp-badge text { font-family: var(--head); font-weight: 800; font-size: 10px; fill: #FFFFFF; }
+.bp-badge-good circle { fill: var(--navy); }
+.bp-badge-warn circle { fill: var(--amber-deep); }
+
+/* Assessment lists */
+.bp-assess { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 0 22px; }
+.bp-col-h {
+  font-size: 14px; margin: 0 0 10px 0; padding-bottom: 7px;
+  border-bottom: 2px solid var(--navy);
+}
+.bp-col-h.warn { border-bottom-color: var(--amber); }
+.bp-list { list-style: none; margin: 0; padding: 0; }
+.bp-item {
+  display: flex; gap: 10px; align-items: flex-start;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 10px 13px; margin-bottom: 8px;
+}
+.bp-item strong { font-family: var(--head); font-size: 13px; }
+.bp-item p { margin: 4px 0 0 0; font-size: 12.5px; color: var(--muted); }
+.bp-at {
+  font-family: var(--head); font-weight: 700; font-size: 9.5px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted); background: var(--l1);
+  border-radius: 999px; padding: 2px 7px; margin-left: 5px; white-space: nowrap;
+}
+.bp-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; border-radius: 999px; flex: none;
+  font-family: var(--head); font-weight: 800; font-size: 11px; color: #fff;
+  padding: 0 5px;
+}
+.bp-chip-good { background: var(--navy); }
+.bp-chip-warn { background: var(--amber-deep); }
+.bp-verdict {
+  margin: 16px 22px 0 22px; padding: 13px 16px;
+  background: var(--card); border: 1px solid var(--line);
+  border-left: 5px solid var(--navy); border-radius: var(--radius);
+  font-size: 13px; line-height: 1.55;
+}
+.bp-verdict strong { font-family: var(--head); }
+@media (max-width: 1100px) { .bp-assess { grid-template-columns: 1fr; } }
+
+/* ---------- "How to fill this in" guidance panels ---------- */
+.howto {
+  background: var(--card); border: 1px solid var(--line);
+  border-left: 5px solid var(--navy); border-radius: var(--radius);
+  margin: 0 0 14px 0; padding: 0;
+}
+.howto > summary {
+  font-family: var(--head); font-weight: 800; font-size: 13px;
+  padding: 11px 16px; cursor: pointer; list-style: none;
+  display: flex; align-items: center; gap: 8px;
+}
+.howto > summary::-webkit-details-marker { display: none; }
+.howto > summary::before { content: "▸"; color: var(--accent); font-size: 12px; }
+.howto[open] > summary::before { content: "▾"; }
+.howto > summary .howto-sub { font-weight: 400; color: var(--muted); font-family: var(--body); font-size: 12.5px; }
+.howto-body { padding: 0 16px 14px 16px; font-size: 13px; }
+.howto-body ol { margin: 0 0 10px 0; padding-left: 20px; }
+.howto-body li { margin-bottom: 7px; }
+.howto-body li strong { font-family: var(--head); }
+.howto-eg {
+  background: var(--l1); border-radius: var(--radius-sm); padding: 9px 13px;
+  font-size: 12.5px; margin: 8px 0;
+}
+.howto-eg code { font-family: var(--body); background: #fff; border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+.howto-warn {
+  background: var(--amber-bg); border: 1px solid #EBD9BE; color: var(--amber-deep);
+  border-radius: var(--radius-sm); padding: 9px 13px; font-size: 12.5px; margin-top: 8px;
+}
+.howto-warn strong { font-family: var(--head); }

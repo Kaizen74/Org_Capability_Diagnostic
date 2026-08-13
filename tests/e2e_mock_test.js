@@ -147,6 +147,72 @@ function check(name, cond) {
   await page.selectOption("#board-sort", "auto");
   await page.waitForTimeout(300);
 
+  // ---------- Method blueprint: the workflow picture + self-assessment ----------
+  await page.click('.tab[data-view="blueprint"]');
+  await page.waitForTimeout(500);
+  check("blueprint view renders the workflow diagram", await page.locator(".bp-svg").count() === 1);
+  check("diagram draws all five workflow bands", await page.locator(".bp-band").count() === 5);
+  check("diagram draws a box for every stage of the pipeline",
+    await page.locator(".bp-box").count() === 17);
+  check("diagram shows both feedback loops, not just the forward flow",
+    await page.locator(".bp-loop").count() === 2);
+  check("assessment lists both strengths and watch-outs",
+    await page.locator(".bp-list").nth(0).locator(".bp-item").count() >= 8 &&
+    await page.locator(".bp-list").nth(1).locator(".bp-item").count() >= 8);
+  check("every assessment badge on the diagram matches one in the lists",
+    await page.evaluate(() => {
+      const drawn = [...document.querySelectorAll(".bp-svg .bp-badge text")].map(t => t.textContent.trim());
+      const listed = [...document.querySelectorAll(".bp-assess .bp-chip")].map(t => t.textContent.trim());
+      return drawn.length > 0 && drawn.every(d => listed.includes(d)) && listed.every(l => drawn.includes(l));
+    }));
+  const bpText = await page.locator(".bp-assess").textContent();
+  check("HONESTY: the single-rater limit is stated in the product, not hidden in a doc",
+    bpText.includes("Single-rater scoring") && bpText.includes("largest methodological limit"));
+  check("every watch-out offers a concrete mitigation",
+    await page.evaluate(() => [...document.querySelectorAll(".bp-list")][1]
+      .querySelectorAll(".bp-item").length ===
+      [...document.querySelectorAll(".bp-list")][1]
+        .querySelectorAll(".bp-item p").length &&
+      [...[...document.querySelectorAll(".bp-list")][1].querySelectorAll(".bp-item p")]
+        .every(p => p.textContent.includes("Mitigation:"))));
+  check("the verdict distinguishes structured judgement from measurement",
+    (await page.locator(".bp-verdict").textContent()).includes("not a measurement instrument"));
+  const liveCounts = await page.evaluate(() => {
+    const svg = document.querySelector(".bp-svg").textContent;
+    return {
+      cellsShown: svg.includes(state.clusters.length + " × " + state.lenses.length),
+      rolesShown: svg.includes(state.clusters.reduce((a, c) => a + (c.roles || []).length, 0) + " roles scored"),
+      leversShown: svg.includes(state.valueChain.levers.length + " levers")
+    };
+  });
+  check("the diagram reports THIS diagnostic's live numbers, not a static picture",
+    liveCounts.cellsShown && liveCounts.rolesShown && liveCounts.leversShown);
+
+  // ---------- Population guidance on the two judgement-heavy sections ----------
+  await page.click('.tab[data-view="valuechain"]');
+  await page.waitForTimeout(400);
+  check("value chain offers 'How to fill this in', collapsed by default",
+    await page.locator("details.howto").count() === 1 &&
+    await page.locator("details.howto[open]").count() === 0);
+  await page.click("details.howto > summary");
+  await page.waitForTimeout(300);
+  const vcHow = await page.locator("details.howto").textContent();
+  check("value-chain guidance opens with ordered steps, a worked line and the trap",
+    await page.locator("details.howto[open]").count() === 1 &&
+    await page.locator("details.howto li").count() >= 5 &&
+    vcHow.includes("One good line") && vcHow.includes("false precision"));
+
+  await page.click('.tab[data-view="roles"]');
+  await page.waitForTimeout(400);
+  await page.click("details.howto > summary");
+  await page.waitForTimeout(300);
+  const rlHow = await page.locator("details.howto").textContent();
+  check("roles guidance anchors the 1–5 scales and warns against scoring seniority",
+    await page.locator("details.howto li").count() >= 5 &&
+    rlHow.includes("Anchor your 1–5") && rlHow.includes("scoring seniority"));
+  check("roles guidance points at the CSV and org-chart bulk paths",
+    rlHow.includes("Role inventory") && rlHow.includes("org chart"));
+
   // ---------- Calibration: the value chain tunes the cluster set ----------
   await page.click('.tab[data-view="matrix"]');
   await page.waitForTimeout(400);

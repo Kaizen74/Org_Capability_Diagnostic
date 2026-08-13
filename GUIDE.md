@@ -27,6 +27,7 @@ Your work saves automatically in that browser. Use **Export** in the top bar for
 | **Roles** | Who is accountable, and which knowledge walks out the door? |
 | **Evidence** | What do our own documents say? |
 | **Signals** | What is happening outside that should change our view? |
+| **Blueprint** | How does this all fit together — and where should I not over-claim? |
 
 ## The recommended order for a first real diagnostic
 
@@ -44,6 +45,12 @@ Your work saves automatically in that browser. Use **Export** in the top bar for
 **Calibration before scoring.** The money map's first job is not ranking — it is checking that the *rows themselves* are right. A lever with no cluster is money nobody owns; a cluster with no lever is usually a preset default that doesn't fit you; one cluster carrying two big levers is usually two capabilities sharing a score. The app checks all three automatically and never changes your cluster set without a click.
 
 **The two role axes.** *Criticality* is how hard a role is to hire — the fix is a succession bench. *Tacit-knowledge intensity* is how hard it is to rebuild internally even if you can hire — the fix is knowledge capture, overlap and apprenticeship. Scoring both separately is what surfaces the quiet expert whose departure degrades safety or continuity before anyone notices. Roles route into four boxes: Critical, Dual-critical, Specialist/key-person, Standard.
+
+## Before you present it
+
+Open **Blueprint** and read the right-hand column. It lists what this method does *not* do — single-rater scoring, one-snapshot momentum, estimated weights shown precisely — each with a one-line mitigation. Saying those out loud in the first two minutes of a board conversation is what stops someone else saying them in the last two.
+
+Each of the two judgement-heavy sections also carries a **“How to fill this in”** panel at the top — click it open the first time. Value Chain tells you how many levers is right and how rough the weights should be; Roles gives you 1–5 anchors so two people would score alike.
 
 ## Using the AI features
 

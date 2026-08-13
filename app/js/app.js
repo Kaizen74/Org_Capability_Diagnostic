@@ -178,6 +178,7 @@ function renderView() {
   else if (activeView === "evidence") el.innerHTML = viewEvidence();
   else if (activeView === "valuechain") el.innerHTML = viewValueChain();
   else if (activeView === "roles") el.innerHTML = viewRoles();
+  else if (activeView === "blueprint") el.innerHTML = viewBlueprint();
   else el.innerHTML = viewDelta();
   bindViewEvents();
 }
@@ -487,6 +488,45 @@ function applySignal(briefingId, sigIndex, clusterId) {
   toast("Signal applied — it now feeds the trajectory forecast for " + cluster.name + ".");
 }
 
+/* ============================================================
+   "How to fill this in" — the two sections that need judgement
+   rather than data entry. Kept collapsed so the working view stays
+   clean, and written for someone doing this for the first time:
+   what goes in each column, one worked line, and the mistake that
+   actually happens.
+   ============================================================ */
+const HOWTO_VALUE_CHAIN = `<details class="howto">
+  <summary>How to fill this in <span class="howto-sub">— 20 minutes, six lines, no spreadsheet required</span></summary>
+  <div class="howto-body">
+    <ol>
+      <li><strong>Write the money flow across the top five boxes.</strong> In plain words: who creates the demand, what you operate to serve it, what exactly appears on the invoice, where the revenue goes, and what lands as profit. If you cannot fill the <em>billing unit</em> box in four words, that is the first finding.</li>
+      <li><strong>Keep only the levers that genuinely move the P&amp;L.</strong> Your industry's typical levers are already listed — delete what does not apply, rename what you call something else, add what is missing. <strong>Five to eight lines is right.</strong> Twenty lines is a chart of accounts, not a diagnostic.</li>
+      <li><strong>Put a rough weight on each (0–100).</strong> This is share of <em>economic significance</em>, not a budget. They need not sum to 100. Ask: “if this went 10% the wrong way, how much would we feel it?”</li>
+      <li><strong>Name the capability that moves the number</strong> — a discipline, not a department. “Pricing &amp; revenue management” moves revenue quality; “Finance” does not.</li>
+      <li><strong>Pick the cluster that owns it.</strong> One owner per lever. If two clusters could own it, the accountability is genuinely unclear and that is worth knowing.</li>
+      <li><strong>Read the Cluster calibration panel below and act on it</strong> before you score a single cell. It tells you whether these are the right clusters for where your money actually is.</li>
+    </ol>
+    <div class="howto-eg"><strong>One good line:</strong> <code>Staff-cost productivity</code> · <code>$3,425M ≈ 54% of revenue</code> · weight <code>30</code> · <code>AI workforce optimisation, predictive rostering, job redesign</code> · owned by <code>Technology, Data &amp; AI</code></div>
+    <div class="howto-warn"><strong>The mistake to avoid:</strong> false precision. Weights are for separating 30% from 5%, never 12% from 14%. Get the order of magnitude right and move on — the exposure ranking only needs to know which levers are big.</div>
+  </div>
+</details>`;
+
+const HOWTO_ROLES = `<details class="howto">
+  <summary>How to fill this in <span class="howto-sub">— score the anchor seats only, and score anchors not feelings</span></summary>
+  <div class="howto-body">
+    <ol>
+      <li><strong>List only the anchor seats</strong> — the handful of real job titles this capability genuinely depends on, as they appear in your HR system. Three to six per cluster. This is not a headcount list; a cluster with twenty rows here has not been thought about.</li>
+      <li><strong>Set the status honestly:</strong> <em>exists</em> (filled and effective), <em>thin</em> (one person, interim, or a stretch), <em>absent</em> (nobody holds it). An absent anchor seat is direct evidence that the cluster's Structure and People lenses cannot score above L2.</li>
+      <li><strong>Score Axis A — Criticality (how hard to hire / how much rides on it).</strong> Strategic impact 30%, market scarcity 25%, vacancy risk 20%, value-chain pivotalness 15%, future-fit 10%. Pivotalness is not a feeling — the panel above this table tells you what share of the P&amp;L this cluster actually carries.</li>
+      <li><strong>Score Axis B — Tacit knowledge (how hard to rebuild internally, even if you can hire).</strong> Time to competence, how codifiable the work is, how concentrated it is in few heads, the consequence of inexperience, and relationship capital.</li>
+      <li><strong>Read the routing, not the decimals.</strong> Only which side of 3.5 a score lands on matters. Critical → succession bench. Dual-critical → bench <em>and</em> knowledge capture. Specialist → knowledge transfer and retention, not the succession list. Standard → productivity and automation.</li>
+      <li><strong>Bulk entry:</strong> download the <em>Role inventory</em> template in the Evidence view, fill it in a spreadsheet, and import the CSV — or upload your org chart and let the evidence analysis propose the roles for you to accept.</li>
+    </ol>
+    <div class="howto-eg"><strong>Anchor your 1–5 so two people would score alike.</strong> Scarcity 5 = “we have searched and failed, or lost a bid over it”; 3 = “findable in a quarter”; 1 = “replaceable within a month”. Tacit 5 = “years of shadowing, and it is in nobody's documentation”; 1 = “written down and trainable in weeks”.</div>
+    <div class="howto-warn"><strong>The mistake to avoid:</strong> scoring seniority. A station head can be low-criticality and very high-tacit; a scarce specialist can be high-criticality and easy to hand over. Keeping the two axes independent is the entire point — collapsing them back into “important people” hides the knowledge-drain risk this section exists to find.</div>
+  </div>
+</details>`;
+
 /* ---------- View: Value Chain (follow the money) ---------- */
 function viewValueChain() {
   const vc = state.valueChain;
@@ -518,6 +558,7 @@ function viewValueChain() {
   }).join("");
 
   return `<div class="view-note"><strong>Follow the money first.</strong> A capability is only critical if money, risk or the strategy actually rides on it. Map each P&L lever to the capability that moves it and the cluster that owns it — the Priority Board then ranks by <em>value exposure</em> (economic weight × capability gap), not by weakness alone. ${total ? "" : "Nothing mapped yet: the board falls back to weakest-first."}</div>
+    ${HOWTO_VALUE_CHAIN}
     <section class="print-section">
       <div class="vc-band">
         <div class="vc-head">
@@ -871,6 +912,7 @@ function viewRoles() {
   }).join("");
 
   return `<div class="view-note"><strong>Roles are the checkable half of the rubric.</strong> A capability nobody is accountable for is not a Level 3. Each role is scored on two independent axes — <em>Criticality</em> (strategic leverage &amp; market scarcity: hard to hire) and <em>Tacit-Knowledge Intensity</em> (hard to rebuild internally, regardless of hiring). They are different risks with different fixes, which is exactly what a seniority-only view misses. Thresholds are explicit: ≥ ${HIGH_LEVERAGE} is high on either axis.</div>
+    ${HOWTO_ROLES}
     <section class="print-section">
       <div class="rm-grid">
         ${roleMatrixCell(byRoute("critical"), "Critical role", "Succession bench — acquire or build ahead of need.")}
