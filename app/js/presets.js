@@ -326,49 +326,51 @@ const DEMO_STATE = {
 };
 
 /* ---- Demo roles (fictional) --------------------------------------
-   Shape follows the two-axis rubric: axisA drives the Criticality
-   Index, tki drives Tacit-Knowledge Intensity, and the pair routes the
-   role to Critical / Dual-critical / Specialist / Standard.          */
+   Shape follows the v4.4 two-axis rubric — three criteria each:
+   axisA = [consequence, scarcity, trend] drives the Criticality Index,
+   tki = [time, locked-in-heads, relationships] drives Tacit-Knowledge
+   Intensity, and the pair routes the role to
+   Critical / Dual-critical / Specialist / Standard.                   */
 function demoRole(id, title, status, a, t, note) {
   return {
     id: id, title: title, status: status,
-    axisA: { impact: a[0], scarcity: a[1], vacancy: a[2], pivotal: a[3], futurefit: a[4] },
-    tki: { time: t[0], codifiability: t[1], concentration: t[2], consequence: t[3], relationship: t[4] },
+    axisA: { consequence: a[0], scarcity: a[1], trend: a[2] },
+    tki: { time: t[0], locked: t[1], relationship: t[2] },
     note: note || ""
   };
 }
 
 const DEMO_ROLES = {
   gateway: [
-    demoRole("r-gw1", "Regional VP Cargo", "exists", [5, 4, 4, 5, 4], [4, 3, 4, 4, 5], "Owns regional cargo P&L and trade-lane strategy."),
-    demoRole("r-gw2", "Cargo & Pharma Manager (cold-chain certified)", "exists", [4, 5, 5, 4, 4], [5, 4, 5, 5, 4], "Certification is a contract gatekeeper for the highest-margin lane."),
-    demoRole("r-gw3", "Load Control / Weight & Balance Officer", "exists", [2, 3, 5, 4, 1], [5, 4, 4, 5, 3], "Safety-critical loading judgement; years to master."),
-    demoRole("r-gw4", "Hub Duty Controller (disruption)", "thin", [3, 3, 4, 4, 2], [5, 5, 4, 4, 4], "Real-time judgement across the whole operation; pattern recognition built over years.")
+    demoRole("r-gw1", "Regional VP Cargo", "exists", [4.5, 4, 4], [4, 3.5, 5], "Owns regional cargo P&L and trade-lane strategy."),
+    demoRole("r-gw2", "Cargo & Pharma Manager (cold-chain certified)", "exists", [4.5, 5, 4], [5, 4.5, 4], "Certification is a contract gatekeeper for the highest-margin lane."),
+    demoRole("r-gw3", "Load Control / Weight & Balance Officer", "exists", [3.5, 3, 1], [5, 4, 3], "Safety-critical loading judgement; years to master."),
+    demoRole("r-gw4", "Hub Duty Controller (disruption)", "thin", [3.5, 3, 2], [5, 4.5, 4], "Real-time judgement across the whole operation; pattern recognition built over years.")
   ],
   food: [
-    demoRole("r-fd1", "Executive Chef — Culinary Design", "exists", [3, 4, 3, 3, 3], [5, 5, 4, 3, 5], "Customer-specific palate calibration; brand-defining and hard to codify."),
-    demoRole("r-fd2", "Food Safety & Quality Lead", "exists", [3, 3, 5, 4, 2], [4, 3, 3, 5, 3], "Licence-to-operate role across all facilities.")
+    demoRole("r-fd1", "Executive Chef — Culinary Design", "exists", [3, 4, 3], [5, 4.5, 5], "Customer-specific palate calibration; brand-defining and hard to codify."),
+    demoRole("r-fd2", "Food Safety & Quality Lead", "exists", [4, 3, 2], [4, 3, 3], "Licence-to-operate role across all facilities.")
   ],
   tdx: [
-    demoRole("r-tx1", "Head, Analytics & AI", "thin", [5, 5, 4, 5, 5], [3, 2, 3, 3, 2], "Enabler of the workforce-optimisation programme — the largest in-year margin lever."),
-    demoRole("r-tx2", "Head, Data Engineering & Platform", "thin", [5, 5, 4, 5, 5], [3, 2, 3, 3, 2], "The data spine every commercial and ops decision rides on."),
-    demoRole("r-tx3", "Core-system super-user", "exists", [2, 2, 4, 3, 1], [4, 5, 5, 4, 3], "Undocumented workarounds live in a few heads; continuity risk."),
-    demoRole("r-tx4", "People Analytics & Workforce Planning Lead", "absent", [4, 4, 3, 4, 5], [3, 2, 3, 3, 2], "Engine for the staff-cost lever and peak-coverage productivity.")
+    demoRole("r-tx1", "Head, Analytics & AI", "thin", [4.5, 5, 5], [3, 2.5, 2], "Enabler of the workforce-optimisation programme — the largest in-year margin lever."),
+    demoRole("r-tx2", "Head, Data Engineering & Platform", "thin", [4.5, 5, 5], [3, 2.5, 2], "The data spine every commercial and ops decision rides on."),
+    demoRole("r-tx3", "Core-system super-user", "exists", [3, 2, 1], [4, 5, 3], "Undocumented workarounds live in a few heads; continuity risk."),
+    demoRole("r-tx4", "People Analytics & Workforce Planning Lead", "absent", [3.5, 4, 5], [3, 2.5, 2], "Engine for the staff-cost lever and peak-coverage productivity.")
   ],
   commercial: [
-    demoRole("r-cm1", "Head of Pricing / Revenue Management", "absent", [5, 5, 4, 5, 4], [3, 2, 3, 4, 2], "The scarce technical keystone; without it pricing fragments across sales, finance and ops."),
-    demoRole("r-cm2", "Global Head, Commercial Excellence", "absent", [5, 4, 4, 5, 4], [3, 3, 3, 3, 3], "No enterprise owner of win-rate, renewal and pricing discipline."),
-    demoRole("r-cm3", "Bid & Solutions Architect", "absent", [4, 5, 3, 4, 4], [4, 3, 3, 3, 3], "Live bid economics — hard-to-fake technical depth."),
-    demoRole("r-cm4", "VP Global Account Management", "exists", [4, 4, 4, 4, 4], [4, 3, 3, 3, 5], "Converts network breadth into wallet share; renewal cliffs are the real margin.")
+    demoRole("r-cm1", "Head of Pricing / Revenue Management", "absent", [4.5, 5, 4], [3, 2.5, 2], "The scarce technical keystone; without it pricing fragments across sales, finance and ops."),
+    demoRole("r-cm2", "Global Head, Commercial Excellence", "absent", [4.5, 4, 4], [3, 3, 3], "No enterprise owner of win-rate, renewal and pricing discipline."),
+    demoRole("r-cm3", "Bid & Solutions Architect", "absent", [3.5, 5, 4], [4, 3, 3], "Live bid economics — hard-to-fake technical depth."),
+    demoRole("r-cm4", "VP Global Account Management", "exists", [4, 4, 4], [4, 3, 5], "Converts network breadth into wallet share; renewal cliffs are the real margin.")
   ],
   leadership: [
-    demoRole("r-ld1", "Regional Managing Director", "exists", [5, 4, 4, 5, 3], [4, 3, 3, 4, 5], "Owns regional P&L, service reliability and renewals."),
-    demoRole("r-ld2", "Station Head / General Manager", "exists", [3, 3, 4, 4, 2], [4, 4, 3, 4, 5], "Airport-authority and union relationships built over years."),
-    demoRole("r-ld3", "M&A / Integration Lead", "absent", [5, 4, 3, 4, 3], [3, 3, 4, 4, 3], "Value leaks fastest at integration; protects deal synergies.")
+    demoRole("r-ld1", "Regional Managing Director", "exists", [4.5, 4, 3], [4, 3, 5], "Owns regional P&L, service reliability and renewals."),
+    demoRole("r-ld2", "Station Head / General Manager", "exists", [3.5, 3, 2], [4, 3.5, 5], "Airport-authority and union relationships built over years."),
+    demoRole("r-ld3", "M&A / Integration Lead", "absent", [4, 4, 3], [3, 3.5, 3], "Value leaks fastest at integration; protects deal synergies.")
   ],
   enabling: [
-    demoRole("r-en1", "Organisation Design & Change Lead", "absent", [4, 3, 3, 4, 4], [3, 3, 3, 3, 4], "The adoption layer that makes major programmes land at the frontline."),
-    demoRole("r-en2", "Head of Talent Acquisition — specialist hiring", "thin", [3, 3, 3, 3, 3], [3, 2, 2, 3, 3], "Feeds every acquire-first gap on the register.")
+    demoRole("r-en1", "Organisation Design & Change Lead", "absent", [3.5, 3, 4], [3, 3, 4], "The adoption layer that makes major programmes land at the frontline."),
+    demoRole("r-en2", "Head of Talent Acquisition — specialist hiring", "thin", [3, 3, 3], [3, 2, 3], "Feeds every acquire-first gap on the register.")
   ]
 };
 

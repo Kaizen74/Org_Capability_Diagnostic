@@ -1,16 +1,16 @@
 # Graph Report - Org_Capability_Diagnostic  (2026-08-13)
 
 ## Corpus Check
-- 30 files · ~64,249 words
+- 30 files · ~67,999 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 431 nodes · 678 edges · 29 communities (21 shown, 8 thin omitted)
-- Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 37 edges (avg confidence: 0.5)
+- 438 nodes · 692 edges · 29 communities (21 shown, 8 thin omitted)
+- Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 39 edges (avg confidence: 0.51)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `73c6992e`
+- Built from commit: `0497ae66`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -26,7 +26,7 @@
 - Capability Compass — Product Requirements Document v3.0
 - parsers.js
 - e2e_mock_test.js
-- Capability Diagnostic Rubric — v4.3 (Industry-Agnostic, Predictive, Value-Calibrated)
+- Capability Diagnostic Rubric — v4.4 (Industry-Agnostic, Predictive, Value-Calibrated)
 - run_checks.sh
 - Improvements Log — Research Basis for the v3/v4/v2 Revisions
 - graphify reference: extra exports and benchmark
@@ -48,17 +48,18 @@
 ## God Nodes (most connected - your core abstractions)
 1. `renderAll()` - 27 edges
 2. `toast()` - 23 edges
-3. `esc()` - 19 edges
+3. `esc()` - 21 edges
 4. `renderView()` - 14 edges
 5. `Capability Compass — Product Requirements Document v3.0` - 14 edges
 6. `What You Must Do When Invoked` - 12 edges
-7. `Capability Diagnostic Rubric — v4.3 (Industry-Agnostic, Predictive, Value-Calibrated)` - 12 edges
+7. `Capability Diagnostic Rubric — v4.4 (Industry-Agnostic, Predictive, Value-Calibrated)` - 12 edges
 8. `bindEvidenceEvents()` - 11 edges
 9. `cellTrajectory()` - 11 edges
 10. `validateState()` - 11 edges
 
 ## Surprising Connections (you probably didn't know these)
-- None detected - all connections are within the same source files.
+- `migrateState()` --indirect_call--> `migrateRoleScores()`  [INFERRED]
+  app/js/app.js → app/js/engine.js
 
 ## Import Cycles
 - None detected.
@@ -66,16 +67,16 @@
 ## Communities (29 total, 8 thin omitted)
 
 ### Community 0 - "contract_test.js"
-Cohesion: 0.03
-Nodes (73): allIdx, allTki, anaPrompt, anaPrompt2, appSrc, bind, blankKpis, blankNoEvidence (+65 more)
+Cohesion: 0.02
+Nodes (77): allIdx, allTki, anaPrompt, anaPrompt2, appSrc, axA, axB, bind (+69 more)
 
 ### Community 1 - "engine.js"
 Cohesion: 0.08
 Nodes (43): AXIS_A_WEIGHTS, bindingConstraint(), calibrateClusters(), calibrationSummary(), cellConfidence(), cellMomentum(), cellTrajectory(), clamp() (+35 more)
 
 ### Community 2 - "app.js"
-Cohesion: 0.10
-Nodes (66): addCluster(), addEvidenceFiles(), applyCalibrationProposal(), applyExtractedRole(), applyFinding(), applySignal(), bindCalibrationEvents(), bindEvidenceEvents() (+58 more)
+Cohesion: 0.09
+Nodes (69): addCluster(), addEvidenceFiles(), applyCalibrationProposal(), applyExtractedRole(), applyFinding(), applySignal(), bindCalibrationEvents(), bindEvidenceEvents() (+61 more)
 
 ### Community 3 - "llm.js"
 Cohesion: 0.18
@@ -105,7 +106,7 @@ Nodes (16): 0. What changed from v2 and why (revision log), 10. Success metrics,
 Cohesion: 0.36
 Nodes (6): decodeXmlEntities(), docxXmlToText(), extractDocxText(), extractPptxText(), pptxXmlToText(), slideOrder()
 
-### Community 11 - "Capability Diagnostic Rubric — v4.3 (Industry-Agnostic, Predictive, Value-Calibrated)"
+### Community 11 - "Capability Diagnostic Rubric — v4.4 (Industry-Agnostic, Predictive, Value-Calibrated)"
 Cohesion: 0.12
 Nodes (15): 1. Purpose and what changed from v3, 2. Core model, 3. The 4-step maturity scale (position — lagging), 4. The momentum scale (direction — leading) *(new in v4)*, 4b. Value chain — the precursor layer (v4.2), 4c. The role layer — two axes, four routes (v4.2), 4d. The value chain calibrates the cluster set itself (v4.3), 5. Attention flag rule (+7 more)
 
@@ -150,24 +151,24 @@ Cohesion: 0.29
 Nodes (14): BP_STAGES, BP_STRENGTHS, BP_WATCHOUTS, bpArrowDown(), bpBadge(), bpBandLabel(), bpBox(), bpBoxes() (+6 more)
 
 ## Knowledge Gaps
-- **211 isolated node(s):** `DEFAULT_VC_STAGES`, `docBlobs`, `CALIB_SEV`, `DOC_TYPE_LABELS`, `TEMPLATES` (+206 more)
+- **215 isolated node(s):** `DEFAULT_VC_STAGES`, `docBlobs`, `CALIB_SEV`, `DOC_TYPE_LABELS`, `TEMPLATES` (+210 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **8 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
+- **Why does `migrateRoleScores()` connect `app.js` to `engine.js`?**
+  _High betweenness centrality (0.034) - this node is a cross-community bridge._
 - **What connects `DEFAULT_VC_STAGES`, `docBlobs`, `CALIB_SEV` to the rest of the system?**
-  _211 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _215 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `contract_test.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.02531645569620253 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.024096385542168676 - nodes in this community are weakly interconnected._
 - **Should `engine.js` be split into smaller, more focused modules?**
   _Cohesion score 0.0841813135985199 - nodes in this community are weakly interconnected._
 - **Should `app.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.09814563545906829 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09358178053830228 - nodes in this community are weakly interconnected._
 - **Should `presets.js` be split into smaller, more focused modules?**
   _Cohesion score 0.14285714285714285 - nodes in this community are weakly interconnected._
 - **Should `What You Must Do When Invoked` be split into smaller, more focused modules?**
   _Cohesion score 0.08 - nodes in this community are weakly interconnected._
-- **Should `Capability Compass — Organizational Capability Diagnostic` be split into smaller, more focused modules?**
-  _Cohesion score 0.1 - nodes in this community are weakly interconnected._

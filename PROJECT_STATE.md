@@ -10,8 +10,8 @@
 
 | Check | Command | Current |
 |---|---|---|
-| Data contract (backend ↔ frontend) | `node tests/contract_test.js` | ✅ 164 checks passing |
-| End-to-end browser (mock mode) | `node tests/e2e_mock_test.js` | ✅ 142 checks passing |
+| Data contract (backend ↔ frontend) | `node tests/contract_test.js` | ✅ 185 checks passing |
+| End-to-end browser (mock mode) | `node tests/e2e_mock_test.js` | ✅ 152 checks passing |
 | Both at once | `./run_checks.sh` | ✅ green |
 
 ## What the app does today
@@ -29,15 +29,15 @@
 | Claude API settings (key isolated from exported data), mock mode | Done |
 | Blueprint — workflow diagram + shipped self-assessment (9 strengths / 9 watch-outs, each with a mitigation) | Done |
 | "How to fill this in" guidance on Value Chain and Roles | Done |
+| Role rubric v4.4 — six criteria, embedded scoring guide with 1/3/5 anchors, legacy migration | Done |
 
 ## Done in the last session
 
-1. **Value chain now calibrates the cluster set** (previous session's core work): four automatic tests — ownership, materiality, separability, diagnosability — plus map coverage, a calibration panel with one-click structural fixes, an optional Claude tuning pass (proposals only), industry starter levers at 0% weight, and materiality propagated across all three reads.
-2. **New Blueprint view** (`app/js/blueprint.js`): a five-band SVG of the whole workflow — Inputs → Ground it → Score → Engine → Reads — with both feedback loops drawn (calibration re-shapes the rows; a saved version becomes the momentum baseline). Counters read the live state, so every claim is checkable against the user's own diagnostic.
-3. **The self-assessment ships inside the product**: 9 strengths and 9 watch-outs, each badged onto the exact stage it applies to. Every watch-out carries a concrete mitigation. The verdict states plainly that this is structured expert judgement, not a measurement instrument — and names single-rater scoring and the single-snapshot baseline as the first things a challenger will find.
-4. **"How to fill this in" panels** on Value Chain and Roles — ordered steps, one worked line, scale anchors so two raters would agree, and the mistake that actually happens (false precision in weights; scoring seniority instead of the two axes). Collapsed by default.
-5. Contract tests now enforce **both directions** between the diagram and the assessment: no badge without an explanation, no explanation without a badge — so the picture and the prose cannot drift apart.
-6. Coverage: contract 142 → 164, e2e 128 → 142.
+1. **Role rubric simplified: ten criteria to six.** Axis A is now Consequence 45% / Scarcity 35% / Trend 20%; Axis B is Time to competence / Locked in heads / Relationship capital. Removed: the three-way consequence double count on Axis A, the cross-axis consequence duplicate on Axis B, and a 10% weight that could never cross the 3.5 routing threshold. Fixed: "codifiability" was scored backwards from its own label.
+2. **Embedded scoring guide.** Every column heading opens its criterion's card — the question, what it covers, what it explicitly does *not* cover, written 1/3/5 anchors, and the remedy a high score points at. A Scoring guide button opens all six. Definitions now appear where the scoring happens.
+3. **Deterministic legacy migration** in saved state, JSON import, the roles CSV (v4.2 headers still accepted) and LLM replies — routing preserved, idempotent, asserted by tests.
+4. The register now fits a laptop without horizontal scrolling (12 columns, not 16).
+5. Rubric §4c rewritten; PRD gains F19. Coverage: contract 164 → 185, e2e 142 → 152.
 
 ## Suggested next session
 

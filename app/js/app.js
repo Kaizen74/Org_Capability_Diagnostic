@@ -52,7 +52,13 @@ function migrateState(s) {
   });
   if (!Array.isArray(s.documents)) s.documents = [];
   if (!Array.isArray(s.analyses)) s.analyses = [];
-  (s.clusters || []).forEach(cl => { if (!Array.isArray(cl.roles)) cl.roles = []; });
+  /* v4.4: ten role criteria became six. Convert before validation so an
+     older export still imports cleanly rather than failing the contract. */
+  (s.clusters || []).forEach(cl => {
+    if (!Array.isArray(cl.roles)) cl.roles = [];
+    else cl.roles.forEach(migrateRoleScores);
+  });
+  (s.analyses || []).forEach(a => (a.roles || []).forEach(migrateRoleScores));
   if (!s.valueChain || typeof s.valueChain !== "object") {
     s.valueChain = { currency: "$", revenue: "", as_of: "", stages: DEFAULT_VC_STAGES.map(x => ({ ...x })), levers: [] };
   }
@@ -512,17 +518,17 @@ const HOWTO_VALUE_CHAIN = `<details class="howto">
 </details>`;
 
 const HOWTO_ROLES = `<details class="howto">
-  <summary>How to fill this in <span class="howto-sub">— score the anchor seats only, and score anchors not feelings</span></summary>
+  <summary>How to fill this in <span class="howto-sub">— six criteria, six remedies; score the anchor seats only</span></summary>
   <div class="howto-body">
     <ol>
       <li><strong>List only the anchor seats</strong> — the handful of real job titles this capability genuinely depends on, as they appear in your HR system. Three to six per cluster. This is not a headcount list; a cluster with twenty rows here has not been thought about.</li>
       <li><strong>Set the status honestly:</strong> <em>exists</em> (filled and effective), <em>thin</em> (one person, interim, or a stretch), <em>absent</em> (nobody holds it). An absent anchor seat is direct evidence that the cluster's Structure and People lenses cannot score above L2.</li>
-      <li><strong>Score Axis A — Criticality (how hard to hire / how much rides on it).</strong> Strategic impact 30%, market scarcity 25%, vacancy risk 20%, value-chain pivotalness 15%, future-fit 10%. Pivotalness is not a feeling — the panel above this table tells you what share of the P&amp;L this cluster actually carries.</li>
-      <li><strong>Score Axis B — Tacit knowledge (how hard to rebuild internally, even if you can hire).</strong> Time to competence, how codifiable the work is, how concentrated it is in few heads, the consequence of inexperience, and relationship capital.</li>
+      <li><strong>Score Axis A — how much rides on the seat, and how hard it is to fill.</strong> Three criteria: <em>Consequence</em> (45%) — what actually breaks if it is empty for three months; <em>Scarcity</em> (35%) — how hard to put a capable person in it; <em>Trend</em> (20%) — is the need growing or fading. The panel above the table states what share of the P&amp;L this cluster carries, so consequence is grounded rather than guessed.</li>
+      <li><strong>Score Axis B — how hard it is to rebuild internally,</strong> even when you can hire. Three factors: <em>Time to competence</em>, <em>Locked in heads</em> (undocumented and held by few), and <em>Relationship capital</em>. Click any column heading for the definition and its 1/3/5 anchors.</li>
       <li><strong>Read the routing, not the decimals.</strong> Only which side of 3.5 a score lands on matters. Critical → succession bench. Dual-critical → bench <em>and</em> knowledge capture. Specialist → knowledge transfer and retention, not the succession list. Standard → productivity and automation.</li>
       <li><strong>Bulk entry:</strong> download the <em>Role inventory</em> template in the Evidence view, fill it in a spreadsheet, and import the CSV — or upload your org chart and let the evidence analysis propose the roles for you to accept.</li>
     </ol>
-    <div class="howto-eg"><strong>Anchor your 1–5 so two people would score alike.</strong> Scarcity 5 = “we have searched and failed, or lost a bid over it”; 3 = “findable in a quarter”; 1 = “replaceable within a month”. Tacit 5 = “years of shadowing, and it is in nobody's documentation”; 1 = “written down and trainable in weeks”.</div>
+    <div class="howto-eg"><strong>Score against anchors, not feelings.</strong> Every criterion carries a written 1 / 3 / 5 anchor — click a column heading, or the <em>Scoring guide</em> button, to see them. Scarcity 5 = “we have searched and failed, or lost a bid over it”; 3 = “findable within a quarter”; 1 = “replaceable within a month”. Locked in heads 5 = “it lives in one or two heads”; 1 = “documented, and several people do it”.</div>
     <div class="howto-warn"><strong>The mistake to avoid:</strong> scoring seniority. A station head can be low-criticality and very high-tacit; a scarce specialist can be high-criticality and easy to hand over. Keeping the two axes independent is the entire point — collapsing them back into “important people” hides the knowledge-drain risk this section exists to find.</div>
   </div>
 </details>`;
@@ -874,6 +880,56 @@ function bindCalibrationEvents() {
   }));
 }
 
+/* ============================================================
+   Scoring guide — the definition of every criterion, one click from
+   the cell you are scoring.
+
+   Anchored scales are the single largest lever on rater agreement, so
+   the anchors are not buried in a manual: every column header opens
+   its own card with the question, what it covers, what it explicitly
+   does NOT cover (the overlap that used to cause double counting),
+   the 1/3/5 anchors, and the remedy the score points at.
+   ============================================================ */
+function criterionCard(c, axis) {
+  return `<div class="crit-card">
+    <div class="crit-head">
+      <span class="crit-axis ${axis === "A" ? "a" : "b"}">Axis ${axis}</span>
+      <strong>${esc(c.label)}</strong>
+      ${c.wt ? `<span class="crit-wt">${Math.round(c.wt * 100)}% of the index</span>` : `<span class="crit-wt">equal weight</span>`}
+    </div>
+    <p class="crit-q">${esc(c.q)}</p>
+    <p class="crit-what">${esc(c.what)}</p>
+    <p class="crit-not">✕ ${esc(c.not)}</p>
+    <div class="crit-anchors">
+      ${[1, 3, 5].map(n => `<div class="crit-anchor">
+        <span class="crit-n n${n}">${n}</span>
+        <span>${esc(c.anchors[n])}</span>
+      </div>`).join("")}
+    </div>
+    <p class="crit-fix"><strong>If this scores high →</strong> ${esc(c.fix)}</p>
+  </div>`;
+}
+
+function openCriterionHelp(key) {
+  const all = AXIS_A_WEIGHTS.map(c => ({ c, axis: "A" }))
+    .concat(TKI_FACTORS.map(c => ({ c, axis: "B" })));
+  const one = key ? all.find(x => x.c.key === key) : null;
+  const cards = (one ? [one] : all).map(x => criterionCard(x.c, x.axis)).join("");
+  openModal(`
+    <button class="m-close" id="m-close">✕</button>
+    <h2>${one ? esc(one.c.label) : "Scoring guide"}</h2>
+    <p class="m-sub">${one
+      ? "Score against the anchors, not against a feeling. Only which side of " + HIGH_TACIT + " the axis lands on changes what you do."
+      : "Six criteria, six different remedies. Score against the anchors so two people would land in the same place — the decimal is not the point, the routing is."}</p>
+    ${cards}
+    ${one ? `<div class="m-row"><button class="btn-plain" id="crit-all">See all six criteria</button><span class="grow"></span><button class="btn-navy" id="crit-done">Back to scoring</button></div>`
+          : `<div class="m-row"><span class="grow"></span><button class="btn-navy" id="crit-done">Back to scoring</button></div>`}`);
+  $("m-close").addEventListener("click", closeModal);
+  $("crit-done").addEventListener("click", closeModal);
+  const allBtn = $("crit-all");
+  if (allBtn) allBtn.addEventListener("click", () => openCriterionHelp(null));
+}
+
 /* ---------- View: Roles (two-axis critical-role rubric) ---------- */
 let rolesCluster = null;
 
@@ -911,7 +967,7 @@ function viewRoles() {
     </tr>`;
   }).join("");
 
-  return `<div class="view-note"><strong>Roles are the checkable half of the rubric.</strong> A capability nobody is accountable for is not a Level 3. Each role is scored on two independent axes — <em>Criticality</em> (strategic leverage &amp; market scarcity: hard to hire) and <em>Tacit-Knowledge Intensity</em> (hard to rebuild internally, regardless of hiring). They are different risks with different fixes, which is exactly what a seniority-only view misses. Thresholds are explicit: ≥ ${HIGH_LEVERAGE} is high on either axis.</div>
+  return `<div class="view-note"><strong>Roles are the checkable half of the rubric.</strong> A capability nobody is accountable for is not a Level 3. Each role is scored on two independent axes — <em>Criticality</em> (strategic leverage &amp; market scarcity: hard to hire) and <em>Tacit-Knowledge Intensity</em> (hard to rebuild internally, regardless of hiring). They are different risks with different fixes, which is exactly what a seniority-only view misses. <strong>Three criteria per axis</strong>, each pointing at a different remedy — click any column heading for its definition and 1/3/5 anchors. Thresholds are explicit: ≥ ${HIGH_LEVERAGE} is high on either axis.</div>
     ${HOWTO_ROLES}
     <section class="print-section">
       <div class="rm-grid">
@@ -942,6 +998,7 @@ function viewRoles() {
         <span class="sig-meta">${(() => { const cov = roleCoverage(cluster); return cov.anchors ? `anchor seats filled: ${cov.exists}/${cov.anchors} (${cov.pct}%)` : "no anchor roles scored yet"; })()}</span>
         <button class="mini-btn" id="role-add">＋ Add role</button>
         <button class="mini-btn" id="role-import">Import roles CSV</button>
+        <button class="mini-btn ghost" id="role-guide">ⓘ Scoring guide</button>
       </div>
       <div class="rt-wrap">
         <table class="rt-table">
@@ -953,11 +1010,11 @@ function viewRoles() {
               <th rowspan="2">Route</th><th rowspan="2"></th>
             </tr>
             <tr>
-              ${AXIS_A_WEIGHTS.map(w => `<th class="rt-sub" title="${esc(w.label)}">${esc(w.label.split(" ")[0])}<br><span>${Math.round(w.wt * 100)}%</span></th>`).join("")}
-              ${TKI_FACTORS.map(f => `<th class="rt-sub" title="${esc(f.label)}">${esc(f.label.split(" ")[0].replace("/", ""))}</th>`).join("")}
+              ${AXIS_A_WEIGHTS.map(w => `<th class="rt-sub"><button class="crit-btn" data-crit="${esc(w.key)}" title="${esc(w.q)} — click for the 1/3/5 anchors">${esc(w.short)} <span class="crit-i">ⓘ</span><br><span>${Math.round(w.wt * 100)}%</span></button></th>`).join("")}
+              ${TKI_FACTORS.map(f => `<th class="rt-sub"><button class="crit-btn" data-crit="${esc(f.key)}" title="${esc(f.q)} — click for the 1/3/5 anchors">${esc(f.short)} <span class="crit-i">ⓘ</span><br><span>1–5</span></button></th>`).join("")}
             </tr>
           </thead>
-          <tbody>${roleRows || `<tr><td colspan="16" style="text-align:center;color:var(--muted)">No roles scored for this cluster yet. Add the anchor seats — the ones the capability genuinely depends on.</td></tr>`}</tbody>
+          <tbody>${roleRows || `<tr><td colspan="12" style="text-align:center;color:var(--muted)">No roles scored for this cluster yet. Add the anchor seats — the ones the capability genuinely depends on.</td></tr>`}</tbody>
         </table>
       </div>
 
@@ -985,12 +1042,17 @@ function bindRolesEvents() {
     cl.roles = cl.roles || [];
     cl.roles.push({
       id: "r_" + Date.now(), title: "New role", status: "absent",
-      axisA: { impact: 3, scarcity: 3, vacancy: 3, pivotal: 3, futurefit: 3 },
-      tki: { time: 3, codifiability: 3, concentration: 3, consequence: 3, relationship: 3 },
+      axisA: { consequence: 3, scarcity: 3, trend: 3 },
+      tki: { time: 3, locked: 3, relationship: 3 },
       note: ""
     });
     renderAll();
   });
+  document.querySelectorAll("[data-crit]").forEach(b => b.addEventListener("click", () => {
+    openCriterionHelp(b.dataset.crit);
+  }));
+  const guide = $("role-guide");
+  if (guide) guide.addEventListener("click", () => openCriterionHelp(null));
   $("role-import").addEventListener("click", () => $("file-roles").click());
   document.querySelectorAll("[data-role]").forEach(el => el.addEventListener("change", () => {
     const [field, roleId] = el.dataset.role.split("|");
@@ -1338,12 +1400,14 @@ const TEMPLATES = {
     label: "Role inventory (job titles → two-axis scoring)",
     hint: "The org-chart evidence: one row per anchor role. Import it straight back into the Roles view.",
     body: [
-      "cluster_id,role_title,status,impact,scarcity,vacancy,pivotal,futurefit,tki_time,tki_codifiability,tki_concentration,tki_consequence,tki_relationship,note",
-      "# status = exists | thin | absent. All scores 1-5. Delete these comment rows before importing.",
+      "cluster_id,role_title,status,consequence,scarcity,trend,tki_time,tki_locked,tki_relationship,note",
+      "# status = exists | thin | absent. All scores 1-5 (halves allowed). Delete these comment rows before importing.",
+      "# consequence = what breaks if the seat is empty | scarcity = how hard to fill | trend = is the need growing",
+      "# tki_time = how long to become effective | tki_locked = how much lives only in heads | tki_relationship = outside trust",
       "# cluster_id must match a cluster id in your diagnostic (see the Value Chain view's cluster dropdown).",
-      "commercial,Head of Pricing / Revenue Management,absent,5,5,4,5,4,3,2,3,4,2,Scarce technical keystone; pricing fragments without it",
-      "commercial,Bid & Solutions Architect,thin,4,5,3,4,4,4,3,3,3,3,Live bid economics",
-      "gateway,Load Control / Weight & Balance Officer,exists,2,3,5,4,1,5,4,4,5,3,Safety-critical judgement; years to master"
+      "commercial,Head of Pricing / Revenue Management,absent,4.5,5,4,3,2.5,2,Scarce technical keystone; pricing fragments without it",
+      "commercial,Bid & Solutions Architect,thin,3.5,5,4,4,3,3,Live bid economics",
+      "gateway,Load Control / Weight & Balance Officer,exists,3.5,3,1,5,4,3,Safety-critical judgement; years to master"
     ].join("\n")
   },
   "value-chain": {
@@ -1445,15 +1509,25 @@ function importRolesCsv(file) {
           id: "r_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
           title,
           status: ROLE_STATUSES.indexOf(status) !== -1 ? status : "exists",
-          axisA: {
-            impact: num(r, "impact", 3), scarcity: num(r, "scarcity", 3), vacancy: num(r, "vacancy", 3),
-            pivotal: num(r, "pivotal", 3), futurefit: num(r, "futurefit", 3)
-          },
-          tki: {
-            time: num(r, "tki_time", 3), codifiability: num(r, "tki_codifiability", 3),
-            concentration: num(r, "tki_concentration", 3), consequence: num(r, "tki_consequence", 3),
-            relationship: num(r, "tki_relationship", 3)
-          },
+          /* v4.4 headers, with the v4.2 five-column headers still accepted so
+             a spreadsheet filled in last quarter still imports — the same
+             migration the app applies to an older saved file. */
+          ...(col("consequence") !== -1 || col("impact") === -1
+            ? {
+              axisA: { consequence: num(r, "consequence", 3), scarcity: num(r, "scarcity", 3), trend: num(r, "trend", 3) },
+              tki: { time: num(r, "tki_time", 3), locked: num(r, "tki_locked", 3), relationship: num(r, "tki_relationship", 3) }
+            }
+            : migrateRoleScores({
+              axisA: {
+                impact: num(r, "impact", 3), scarcity: num(r, "scarcity", 3), vacancy: num(r, "vacancy", 3),
+                pivotal: num(r, "pivotal", 3), futurefit: num(r, "futurefit", 3)
+              },
+              tki: {
+                time: num(r, "tki_time", 3), codifiability: num(r, "tki_codifiability", 3),
+                concentration: num(r, "tki_concentration", 3), consequence: num(r, "tki_consequence", 3),
+                relationship: num(r, "tki_relationship", 3)
+              }
+            })),
           note: col("note") !== -1 ? (r[col("note")] || "").trim() : ""
         });
         added++;

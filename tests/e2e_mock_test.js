@@ -209,7 +209,10 @@ function check(name, cond) {
   const rlHow = await page.locator("details.howto").textContent();
   check("roles guidance anchors the 1–5 scales and warns against scoring seniority",
     await page.locator("details.howto li").count() >= 5 &&
-    rlHow.includes("Anchor your 1–5") && rlHow.includes("scoring seniority"));
+    rlHow.includes("Score against anchors, not feelings") && rlHow.includes("scoring seniority"));
+  check("roles guidance names the three criteria per axis with their weights",
+    ["Consequence", "Scarcity", "Trend", "Time to competence", "Locked in heads", "Relationship capital"]
+      .every(t => rlHow.includes(t)) && rlHow.includes("(45%)"));
   check("roles guidance points at the CSV and org-chart bulk paths",
     rlHow.includes("Role inventory") && rlHow.includes("org chart"));
 
@@ -325,31 +328,79 @@ function check(name, cond) {
   await page.locator('.rt-table tbody tr').first().locator('[data-role^="tki.time"]').fill("5");
   await page.locator('.rt-table tbody tr').first().locator('[data-role^="tki.time"]').dispatchEvent("change");
   await page.waitForTimeout(400);
-  await page.locator('.rt-table tbody tr').first().locator('[data-role^="tki.codifiability"]').fill("5");
-  await page.locator('.rt-table tbody tr').first().locator('[data-role^="tki.codifiability"]').dispatchEvent("change");
+  await page.locator('.rt-table tbody tr').first().locator('[data-role^="tki.locked"]').fill("5");
+  await page.locator('.rt-table tbody tr').first().locator('[data-role^="tki.locked"]').dispatchEvent("change");
   await page.waitForTimeout(400);
   const newRoute = await page.locator(".rt-table tbody tr").first().locator(".route-pill").textContent();
   check("raising tacit-knowledge scores re-routes Critical → Dual-critical",
     firstRoute.includes("Critical role") && newRoute.includes("Dual-critical"));
 
-  // Roles CSV import
+  // ---------- v4.4 scoring guide: definitions where the scoring happens ----------
+  check("each criterion column opens its own definition", await page.locator("[data-crit]").count() === 6);
+  await page.locator('[data-crit="locked"]').click();
+  await page.waitForTimeout(400);
+  const critText = await page.locator(".crit-card").textContent();
+  check("criterion card gives the question, the boundary and 1/3/5 anchors",
+    await page.locator(".crit-card").count() === 1 &&
+    critText.includes("only inside individuals") &&
+    critText.includes("Not how complicated") &&
+    await page.locator(".crit-anchor").count() === 3);
+  check("criterion card names the remedy a high score points at",
+    (await page.locator(".crit-fix").textContent()).includes("cross-train"));
+  await page.click("#crit-all");
+  await page.waitForTimeout(400);
+  check("scoring guide shows all six criteria at once",
+    await page.locator(".crit-card").count() === 6 && await page.locator(".crit-anchor").count() === 18);
+  check("guide separates the two axes visually",
+    await page.locator(".crit-axis.a").count() === 3 && await page.locator(".crit-axis.b").count() === 3);
+  await page.click("#crit-done");
+  await page.waitForTimeout(300);
+  check("closing the guide returns to the role register",
+    await page.locator(".modal-backdrop.open").count() === 0 && await page.locator(".rt-table").count() === 1);
+  await page.click("#role-guide");
+  await page.waitForTimeout(400);
+  check("the standalone Scoring guide button opens the full set",
+    await page.locator(".crit-card").count() === 6);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+
+  // Roles CSV import — current v4.4 headers
   const rolesCsv = [
-    "cluster_id,role_title,status,impact,scarcity,vacancy,pivotal,futurefit,tki_time,tki_codifiability,tki_concentration,tki_consequence,tki_relationship,note",
+    "cluster_id,role_title,status,consequence,scarcity,trend,tki_time,tki_locked,tki_relationship,note",
     "# comment row should be ignored",
-    'food,"Head of Food Safety, Group",thin,4,4,5,4,3,4,3,3,5,3,Licence to operate',
-    "not-a-cluster,Ghost Role,exists,3,3,3,3,3,3,3,3,3,3,should be skipped"
+    'food,"Head of Food Safety, Group",thin,4,4,3,4,3,3,Licence to operate',
+    "not-a-cluster,Ghost Role,exists,3,3,3,3,3,3,should be skipped"
   ].join("\n");
   await page.setInputFiles("#file-roles", { name: "roles.csv", mimeType: "text/csv", buffer: Buffer.from(rolesCsv) });
   await page.waitForTimeout(600);
   const imported = await page.evaluate(() => {
     const food = state.clusters.find(c => c.id === "food");
+    const r = food.roles.find(x => x.title === "Head of Food Safety, Group");
     return {
-      hasRole: food.roles.some(r => r.title === "Head of Food Safety, Group"),
-      ghost: state.clusters.some(c => (c.roles || []).some(r => r.title === "Ghost Role"))
+      hasRole: !!r,
+      scored: r && r.axisA.consequence === 4 && r.tki.locked === 3,
+      ghost: state.clusters.some(c => (c.roles || []).some(r2 => r2.title === "Ghost Role"))
     };
   });
   check("roles CSV import handles quoted commas and skips comment rows", imported.hasRole);
+  check("roles CSV import lands the six scores on the right keys", imported.scored);
   check("roles CSV import rejects rows with an unknown cluster_id", imported.ghost === false);
+
+  // BACK-COMPAT: a spreadsheet filled in against the v4.2 template still imports
+  const legacyCsv = [
+    "cluster_id,role_title,status,impact,scarcity,vacancy,pivotal,futurefit,tki_time,tki_codifiability,tki_concentration,tki_consequence,tki_relationship,note",
+    "food,Legacy Scored Role,exists,5,5,4,5,4,3,2,3,4,2,Filled in on the old template"
+  ].join("\n");
+  await page.setInputFiles("#file-roles", { name: "legacy.csv", mimeType: "text/csv", buffer: Buffer.from(legacyCsv) });
+  await page.waitForTimeout(600);
+  const legacyImport = await page.evaluate(() => {
+    const r = state.clusters.find(c => c.id === "food").roles.find(x => x.title === "Legacy Scored Role");
+    return r ? { a: r.axisA, t: r.tki, route: routeRole(r) } : null;
+  });
+  check("a v4.2 role spreadsheet still imports and is migrated, not defaulted",
+    !!legacyImport && legacyImport.a.consequence === 4.5 && legacyImport.a.scarcity === 5 &&
+    legacyImport.t.locked === 2.5 && legacyImport.a.impact === undefined &&
+    legacyImport.route === "critical");
 
   // ---------- v4 rubric: drawer confidence, evidence mix, watch signals ----------
   await page.click('.tab[data-view="matrix"]');

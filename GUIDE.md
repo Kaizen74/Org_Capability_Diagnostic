@@ -44,7 +44,9 @@ Your work saves automatically in that browser. Use **Export** in the top bar for
 
 **Calibration before scoring.** The money map's first job is not ranking — it is checking that the *rows themselves* are right. A lever with no cluster is money nobody owns; a cluster with no lever is usually a preset default that doesn't fit you; one cluster carrying two big levers is usually two capabilities sharing a score. The app checks all three automatically and never changes your cluster set without a click.
 
-**The two role axes.** *Criticality* is how hard a role is to hire — the fix is a succession bench. *Tacit-knowledge intensity* is how hard it is to rebuild internally even if you can hire — the fix is knowledge capture, overlap and apprenticeship. Scoring both separately is what surfaces the quiet expert whose departure degrades safety or continuity before anyone notices. Roles route into four boxes: Critical, Dual-critical, Specialist/key-person, Standard.
+**The two role axes.** *Criticality* is how much rides on the seat and how hard it is to fill — the fix is a succession bench. *Tacit-knowledge intensity* is how hard it is to rebuild internally even if you can hire — the fix is knowledge capture, overlap and apprenticeship. Scoring both separately is what surfaces the quiet expert whose departure degrades safety or continuity before anyone notices. Roles route into four boxes: Critical, Dual-critical, Specialist/key-person, Standard.
+
+Three criteria on each axis, and each one explains itself: click a column heading in the role register, or the **ⓘ Scoring guide** button, for the question it asks, what it does *not* cover, and written 1 / 3 / 5 anchors. Read the routing, not the decimals — only which side of 3.5 a score lands on changes what you do.
 
 ## Before you present it
 
