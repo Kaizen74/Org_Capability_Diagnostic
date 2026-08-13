@@ -202,21 +202,138 @@ function bindingConstraint(state, cluster, lenses) {
    which is exactly what a seniority-only or scarcity-only view misses.
    ============================================================ */
 
+/* ---- v4.4: ten criteria reduced to six -------------------------------
+   The previous rubric asked for five weighted criteria on each axis. Three
+   problems showed up in use, and all three are documented failure modes of
+   long weighted scorecards:
+
+   1. DOUBLE COUNTING. On Axis A, "strategic impact", "vacancy risk" and
+      "value-chain pivotalness" were three ways of asking the same question —
+      what breaks if this seat is empty. That put 65% of the weight on one
+      construct while looking like three independent judgements.
+   2. CROSS-AXIS LEAKAGE. Axis B's "consequence of inexperience" measured
+      consequence, which is Axis A's job. A safety-critical role scored high
+      twice for the same reason.
+   3. WEIGHTS BELOW THE NOISE FLOOR. "Future-fit" at 10% of a 1–5 scale can
+      move the index by at most 0.4 — it could never change a routing
+      decision at the 3.5 threshold. Precision that cannot affect an outcome
+      is decoration.
+
+   Also fixed: "codifiability" was scored backwards from its own label — the
+   scale ran 1–5 toward MORE tacit, so a 5 meant "not codifiable". Renaming
+   it removes the ambiguity rather than documenting it.
+
+   The test each surviving criterion had to pass: does it point at a DIFFERENT
+   REMEDY? Six criteria, six remedies, no overlaps. Each carries its own
+   definition and 1/3/5 anchors so two raters converge — anchored scales are
+   the single largest lever on agreement, far larger than adding criteria. */
+
 const AXIS_A_WEIGHTS = [
-  { key: "impact", label: "Strategic impact (P&L / ambition)", wt: 0.30 },
-  { key: "scarcity", label: "Market scarcity / replaceability", wt: 0.25 },
-  { key: "vacancy", label: "Vacancy risk (safety, licence, contract)", wt: 0.20 },
-  { key: "pivotal", label: "Value-chain pivotalness (choke point)", wt: 0.15 },
-  { key: "futurefit", label: "Future-fit (accelerating trend)", wt: 0.10 }
+  {
+    key: "consequence", label: "Business consequence", short: "Consequence", wt: 0.45,
+    q: "If this seat were empty for three months, what actually breaks?",
+    what: "The size of the hole. Revenue or margin at risk, a safety or licence exposure, a contractual commitment missed, a choke point in the value chain that stalls. One judgement covering all of them — take the most severe.",
+    not: "Not how hard the role is to fill. That is Scarcity.",
+    anchors: {
+      1: "Absorbed by the team within a week. Nothing external notices.",
+      3: "A visible dent — a slipped commitment, a stretched team, a number off track for a quarter.",
+      5: "Revenue, safety, licence or a customer contract is directly exposed. Someone outside the company would notice."
+    },
+    fix: "Protect it: dual cover, documented decision rights, an interim named in advance."
+  },
+  {
+    key: "scarcity", label: "Scarcity / replaceability", short: "Scarcity", wt: 0.35,
+    q: "How hard is it to put a capable person in this seat?",
+    what: "The supply side — external market plus your own bench. A role can be scarce because nobody has the skill, because your internal pipeline is empty, or both.",
+    not: "Not how much damage a vacancy does. That is Consequence.",
+    anchors: {
+      1: "Replaceable within a month, internally or externally. A known pool exists.",
+      3: "Findable within a quarter with effort, or one internal candidate is close.",
+      5: "We have searched and failed, lost a bid or an approval over it, or there is no internal successor at all."
+    },
+    fix: "Acquire ahead of need, or build a named pipeline now."
+  },
+  {
+    key: "trend", label: "Future demand", short: "Trend", wt: 0.20,
+    q: "Is the need for this seat growing, flat, or fading?",
+    what: "Direction of travel over the next two to three years, given the strategy, the technology and the regulatory picture.",
+    not: "Not whether the person in it is good. This is about the seat.",
+    anchors: {
+      1: "Shrinking — automation, consolidation or strategy is removing the need.",
+      3: "Flat. The same need, at the same size, for the foreseeable future.",
+      5: "Growing fast. We will need materially more of this capability, and so will everyone else."
+    },
+    fix: "Hire ahead of the curve, or plan the wind-down deliberately."
+  }
 ];
 
 const TKI_FACTORS = [
-  { key: "time", label: "Time-to-competence (years vs weeks)" },
-  { key: "codifiability", label: "Codifiability (in-person vs SOP)" },
-  { key: "concentration", label: "Concentration / bus-factor" },
-  { key: "consequence", label: "Consequence of inexperience" },
-  { key: "relationship", label: "Relationship / context capital" }
+  {
+    key: "time", label: "Time to competence", short: "Time",
+    q: "How long before a capable replacement is genuinely effective — not just in post?",
+    what: "The gap between the start date and the day the work is being done properly. This is what determines how much overlap a handover needs.",
+    not: "Not how long recruitment takes. The clock starts on day one.",
+    anchors: {
+      1: "Weeks. Trained from written material and a short shadow period.",
+      3: "Several months. Competent after a full cycle of the work.",
+      5: "Years. Judgement built from having seen enough situations, and there is no shortcut."
+    },
+    fix: "Start the overlap early — plan it in quarters, not weeks."
+  },
+  {
+    key: "locked", label: "Locked in heads", short: "Locked in",
+    q: "How much of the know-how exists only inside individuals, and how few of them?",
+    what: "Undocumented method and bus-factor together — the workarounds, the exceptions, the reasons behind the rules that never made it into an SOP, held by a small number of people.",
+    not: "Not how complicated the work is. Complicated but written down scores low.",
+    anchors: {
+      1: "Documented and several people do it. Anyone competent could pick it up from the material.",
+      3: "Partly written down; a couple of people fill the gaps from memory.",
+      5: "It lives in one or two heads. If they left tomorrow, we would be reconstructing it from scratch."
+    },
+    fix: "Capture and cross-train: shadow, write it down, rotate a second person through."
+  },
+  {
+    key: "relationship", label: "Relationship capital", short: "Relationships",
+    q: "How much of the value is trust and history with people outside the team?",
+    what: "Standing with customers, regulators, airport or port authorities, unions, key suppliers — earned over years and not transferable by introduction alone.",
+    not: "Not internal popularity. External or cross-boundary relationships that carry real weight.",
+    anchors: {
+      1: "The work runs on process, not on who holds the relationship.",
+      3: "Some relationships matter and would take a couple of quarters to rebuild.",
+      5: "Named individuals on the outside deal with this person specifically. A change of face costs us something real."
+    },
+    fix: "Plan joint working and staged introductions over quarters — a handover meeting is not a transfer."
+  }
 ];
+
+/* Legacy → v4.4 mapping. Kept next to the rubric it converts so the two
+   cannot drift, and used by BOTH the app's state migration and the LLM
+   response normaliser, so an old export and an old model reply convert the
+   same way. Consequence is the weighted mean of the three old criteria that
+   were all measuring it; "locked in heads" merges codifiability with
+   bus-factor; the old cross-axis duplicate is dropped rather than folded in
+   (folding it in would preserve the double count this change exists to
+   remove). */
+function migrateRoleScores(role) {
+  if (!role || typeof role !== "object") return role;
+  const a = role.axisA, t = role.tki;
+  const n = v => (typeof v === "number" && v >= 1 && v <= 5) ? v : 3;
+  if (a && a.consequence === undefined && (a.impact !== undefined || a.pivotal !== undefined)) {
+    role.axisA = {
+      consequence: Math.round(((0.30 * n(a.impact) + 0.20 * n(a.vacancy) + 0.15 * n(a.pivotal)) / 0.65) * 2) / 2,
+      scarcity: n(a.scarcity),
+      trend: n(a.futurefit)
+    };
+  }
+  if (t && t.locked === undefined && (t.codifiability !== undefined || t.concentration !== undefined)) {
+    role.tki = {
+      time: n(t.time),
+      locked: Math.round(((n(t.codifiability) + n(t.concentration)) / 2) * 2) / 2,
+      relationship: n(t.relationship)
+    };
+  }
+  return role;
+}
 
 /* Both thresholds are explicit and shown in the UI so the routing is
    auditable rather than a black box. */

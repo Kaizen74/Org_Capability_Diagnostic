@@ -619,6 +619,13 @@ function buildAnalysisPrompt(state) {
     "- Also report which ANCHOR ROLES for each cluster are present, thin, or absent. A capability with no named owner cannot be scored as established, however good the narrative.",
     "- Quote the real job title as it appears in the document. If a capability's anchor role is nowhere in the document, report it as absent with status_evidence explaining what you searched for.",
     "- Separate two different risks: market scarcity (hard to hire — fixed by a succession bench) and tacit-knowledge intensity (hard to rebuild internally even if you can hire — fixed by knowledge capture, overlap and apprenticeship). Score them independently, 1-5 each.",
+    "- Score six criteria, each measuring something different. Do NOT let one reason raise two scores.",
+    "  criticality.consequence 1-5 — what actually breaks if the seat is empty for three months (revenue, safety, licence, a contract, a choke point). 1 = absorbed within a week; 3 = a visible dent for a quarter; 5 = revenue, safety, licence or a customer contract directly exposed.",
+    "  criticality.scarcity 1-5 — how hard to put a capable person in the seat, externally or from the bench. 1 = replaceable within a month; 3 = findable within a quarter; 5 = searched and failed, or no internal successor at all.",
+    "  criticality.trend 1-5 — is the need growing, flat or fading over 2-3 years. 1 = shrinking; 3 = flat; 5 = growing fast.",
+    "  tacit.time 1-5 — how long until a replacement is genuinely effective, starting on day one. 1 = weeks; 3 = several months; 5 = years.",
+    "  tacit.locked 1-5 — how much of the know-how exists only in individuals' heads, and how few of them. 1 = documented and several people do it; 3 = partly written down; 5 = it lives in one or two heads.",
+    "  tacit.relationship 1-5 — trust and history with people OUTSIDE the team (customers, regulators, authorities, unions) that does not transfer by introduction. 1 = runs on process; 5 = named outsiders deal with this person specifically.",
     "",
     "Extract the 4 to 10 most decision-relevant findings. Respond with ONLY a JSON object, no prose:",
     "{",
@@ -643,8 +650,8 @@ function buildAnalysisPrompt(state) {
     '      "title": "the real job title as written in the document",',
     '      "status": "exists" | "thin" | "absent",',
     '      "status_evidence": "where you found it, or what you searched for and did not find",',
-    '      "criticality": { "impact": 1-5, "scarcity": 1-5, "vacancy": 1-5, "pivotal": 1-5, "futurefit": 1-5 },',
-    '      "tacit": { "time": 1-5, "codifiability": 1-5, "concentration": 1-5, "consequence": 1-5, "relationship": 1-5 },',
+    '      "criticality": { "consequence": 1-5, "scarcity": 1-5, "trend": 1-5 },',
+    '      "tacit": { "time": 1-5, "locked": 1-5, "relationship": 1-5 },',
     '      "note": "one sentence on why this role is critical or internally irreplaceable"',
     "    }",
     "  ]",
@@ -712,15 +719,15 @@ function mockAnalysis(state, docs) {
       {
         cluster_id: pick(3), title: "Head of Pricing / Revenue Management", status: "absent",
         status_evidence: "Searched the uploaded titles for pricing, revenue management and deal desk — no enterprise owner found (simulated extraction).",
-        criticality: { impact: 5, scarcity: 5, vacancy: 4, pivotal: 5, futurefit: 4 },
-        tacit: { time: 3, codifiability: 2, concentration: 3, consequence: 4, relationship: 2 },
+        criticality: { consequence: 4.5, scarcity: 5, trend: 4 },
+        tacit: { time: 3, locked: 2.5, relationship: 2 },
         note: "Scarce technical keystone; without it pricing fragments across sales, finance and ops."
       },
       {
         cluster_id: pick(0), title: "Load Control / Weight & Balance Officer", status: "exists",
         status_evidence: "Appears repeatedly across stations in the uploaded workforce data (simulated extraction).",
-        criticality: { impact: 2, scarcity: 3, vacancy: 5, pivotal: 4, futurefit: 1 },
-        tacit: { time: 5, codifiability: 4, concentration: 4, consequence: 5, relationship: 3 },
+        criticality: { consequence: 3.5, scarcity: 3, trend: 1 },
+        tacit: { time: 5, locked: 4, relationship: 3 },
         note: "Safety-critical loading judgement; years to master and error carries a safety consequence."
       }
     ]
@@ -787,14 +794,24 @@ async function analyzeEvidence(state, docs, blobStore) {
         title: String(r.title || "").trim(),
         status: ROLE_STATUSES.indexOf(r.status) !== -1 ? r.status : "exists",
         status_evidence: String(r.status_evidence || "").trim(),
-        axisA: {
-          impact: c15(a.impact, 3), scarcity: c15(a.scarcity, 3), vacancy: c15(a.vacancy, 3),
-          pivotal: c15(a.pivotal, 3), futurefit: c15(a.futurefit, 3)
-        },
-        tki: {
-          time: c15(t.time, 3), codifiability: c15(t.codifiability, 3), concentration: c15(t.concentration, 3),
-          consequence: c15(t.consequence, 3), relationship: c15(t.relationship, 3)
-        },
+        /* v4.4 keys, but a model that answers in the older five-criterion
+           shape is converted rather than defaulted to 3s — same migration
+           the app applies to an older saved file. */
+        ...migrateRoleScores(a.consequence !== undefined || a.impact === undefined
+          ? {
+            axisA: { consequence: c15(a.consequence, 3), scarcity: c15(a.scarcity, 3), trend: c15(a.trend, 3) },
+            tki: { time: c15(t.time, 3), locked: c15(t.locked, 3), relationship: c15(t.relationship, 3) }
+          }
+          : {
+            axisA: {
+              impact: c15(a.impact, 3), scarcity: c15(a.scarcity, 3), vacancy: c15(a.vacancy, 3),
+              pivotal: c15(a.pivotal, 3), futurefit: c15(a.futurefit, 3)
+            },
+            tki: {
+              time: c15(t.time, 3), codifiability: c15(t.codifiability, 3), concentration: c15(t.concentration, 3),
+              consequence: c15(t.consequence, 3), relationship: c15(t.relationship, 3)
+            }
+          }),
         note: String(r.note || "").trim(),
         applied: false
       };

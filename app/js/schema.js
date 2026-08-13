@@ -22,8 +22,13 @@ var DOC_TYPES = ["strategy-deck", "survey-report", "board-paper", "workforce-fil
 var EVIDENCE_CLASSES = ["leading", "lagging"];
 var ROLE_STATUSES = ["exists", "thin", "absent"];
 var ROLE_ROUTES = ["critical", "dual", "specialist", "standard"];
-var AXIS_A_KEYS = ["impact", "scarcity", "vacancy", "pivotal", "futurefit"];
-var TKI_KEYS = ["time", "codifiability", "concentration", "consequence", "relationship"];
+/* v4.4 role rubric: three criteria per axis, each pointing at a distinct
+   remedy. The v4.2 keys below are still recognised on import — migrateState
+   converts them before validation, so an older export still loads. */
+var AXIS_A_KEYS = ["consequence", "scarcity", "trend"];
+var TKI_KEYS = ["time", "locked", "relationship"];
+var LEGACY_AXIS_A_KEYS = ["impact", "scarcity", "vacancy", "pivotal", "futurefit"];
+var LEGACY_TKI_KEYS = ["time", "codifiability", "concentration", "consequence", "relationship"];
 var CALIBRATION_ACTIONS = ["add", "merge", "rename", "split", "keep"];
 var CONFIDENCE_LEVELS = ["high", "medium", "low"];
 
@@ -269,6 +274,8 @@ if (typeof module !== "undefined" && module.exports) {
     ROLE_ROUTES: ROLE_ROUTES,
     AXIS_A_KEYS: AXIS_A_KEYS,
     TKI_KEYS: TKI_KEYS,
+    LEGACY_AXIS_A_KEYS: LEGACY_AXIS_A_KEYS,
+    LEGACY_TKI_KEYS: LEGACY_TKI_KEYS,
     CALIBRATION_ACTIONS: CALIBRATION_ACTIONS,
     CONFIDENCE_LEVELS: CONFIDENCE_LEVELS,
     validateCalibration: validateCalibration,

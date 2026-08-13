@@ -280,12 +280,56 @@ const tkiOf = (cid, title) => vm.runInContext(
 const routeOf = (cid, title) => vm.runInContext(
   `routeRole(__dr.clusters.find(c=>c.id==="${cid}").roles.find(r=>r.title.indexOf(${JSON.stringify(title)})===0))`, sandbox);
 
-// Weighted index: 30/25/20/15/10 on 1-5 inputs must stay inside 1-5.
+// Weighted index: 45/35/20 on 1-5 inputs must stay inside 1-5.
 const allIdx = vm.runInContext("__dr.clusters.flatMap(c=>(c.roles||[]).map(r=>criticalityIndex(r)))", sandbox);
 const allTki = vm.runInContext("__dr.clusters.flatMap(c=>(c.roles||[]).map(r=>tkiScore(r)))", sandbox);
 checkOk("criticality index stays within [1,5]", allIdx.every(v => v >= 1 && v <= 5));
 checkOk("tacit-knowledge score stays within [1,5]", allTki.every(v => v >= 1 && v <= 5));
 checkOk("Axis A weights sum to 1.0", Math.abs(vm.runInContext("AXIS_A_WEIGHTS.reduce((a,w)=>a+w.wt,0)", sandbox) - 1) < 1e-9);
+
+// ---- 17b. v4.4 simplification: six criteria, six distinct remedies ----
+const axA = vm.runInContext("AXIS_A_WEIGHTS", sandbox);
+const axB = vm.runInContext("TKI_FACTORS", sandbox);
+checkOk("each axis carries exactly three criteria (ten reduced to six)",
+  axA.length === 3 && axB.length === 3);
+checkOk("no criterion is weighted below the level that could change a routing decision",
+  axA.every(w => w.wt >= 0.20));
+checkOk("the three consequence-measuring criteria collapsed into one",
+  axA.map(w => w.key).join(",") === "consequence,scarcity,trend");
+checkOk("the cross-axis duplicate (consequence on the tacit axis) is gone",
+  axB.map(f => f.key).join(",") === "time,locked,relationship");
+checkOk("the backwards 'codifiability' label is replaced by an unambiguous one",
+  axB.some(f => f.key === "locked" && /heads/i.test(f.label)) &&
+  !axB.some(f => f.key === "codifiability"));
+checkOk("every criterion carries a question, a definition, a boundary and a remedy",
+  [...axA, ...axB].every(c => c.q && c.what && c.not && c.fix && c.short));
+checkOk("every criterion carries written 1/3/5 anchors so two raters converge",
+  [...axA, ...axB].every(c => c.anchors && [1, 3, 5].every(n => typeof c.anchors[n] === "string" && c.anchors[n].length > 20)));
+checkOk("each criterion points at a DIFFERENT remedy (the test for keeping it)",
+  new Set([...axA, ...axB].map(c => c.fix)).size === 6);
+checkOk("every boundary line names what the criterion is NOT (anti-double-counting)",
+  [...axA, ...axB].every(c => /^Not /.test(c.not)));
+
+// Legacy v4.2 scores must convert deterministically, not default to 3s.
+const legacyRole = {
+  id: "r-legacy", title: "Legacy scored role", status: "exists",
+  axisA: { impact: 5, scarcity: 5, vacancy: 4, pivotal: 5, futurefit: 4 },
+  tki: { time: 3, codifiability: 2, concentration: 3, consequence: 4, relationship: 2 }
+};
+const converted = vm.runInContext("migrateRoleScores(" + JSON.stringify(legacyRole) + ")", sandbox);
+checkOk("legacy consequence-family criteria fold into one weighted score",
+  Math.abs(converted.axisA.consequence - 4.5) < 1e-9 && converted.axisA.scarcity === 5 && converted.axisA.trend === 4);
+checkOk("legacy codifiability + concentration merge into 'locked in heads'",
+  converted.tki.locked === 2.5 && converted.tki.time === 3 && converted.tki.relationship === 2);
+checkOk("legacy keys are removed, not left alongside the new ones",
+  converted.axisA.impact === undefined && converted.tki.codifiability === undefined);
+check("a converted legacy role passes the current contract", schema.validateRole(converted, "legacy"));
+checkOk("migration is idempotent — running it twice does not shift the scores",
+  JSON.stringify(vm.runInContext("migrateRoleScores(" + JSON.stringify(converted) + ")", sandbox)) === JSON.stringify(converted));
+checkOk("ROUTING IS PRESERVED across the migration (no role silently re-routes)",
+  vm.runInContext("routeRole(" + JSON.stringify(converted) + ")", sandbox) === "critical");
+checkOk("contract rejects the retired v4.2 keys once migration has run",
+  schema.validateRole(Object.assign({}, converted, { axisA: legacyRole.axisA }), "old").length > 0);
 
 // High leverage + low tacit → Critical (succession bench fix)
 checkOk("high-leverage, low-tacit role routes to Critical",
@@ -349,12 +393,12 @@ checkOk("contract rejects an out-of-range share_pct",
   schema.validateValueChain({ currency: "$", stages: [], levers: [{ id: "x", name: "n", share_pct: 140 }] }).length > 0);
 checkOk("contract rejects an out-of-range role score",
   schema.validateRole({ id: "r", title: "T", status: "exists",
-    axisA: { impact: 9, scarcity: 3, vacancy: 3, pivotal: 3, futurefit: 3 },
-    tki: { time: 3, codifiability: 3, concentration: 3, consequence: 3, relationship: 3 } }, "r").length > 0);
+    axisA: { consequence: 9, scarcity: 3, trend: 3 },
+    tki: { time: 3, locked: 3, relationship: 3 } }, "r").length > 0);
 checkOk("contract rejects an unknown role status",
   schema.validateRole({ id: "r", title: "T", status: "maybe",
-    axisA: { impact: 3, scarcity: 3, vacancy: 3, pivotal: 3, futurefit: 3 },
-    tki: { time: 3, codifiability: 3, concentration: 3, consequence: 3, relationship: 3 } }, "r").length > 0);
+    axisA: { consequence: 3, scarcity: 3, trend: 3 },
+    tki: { time: 3, locked: 3, relationship: 3 } }, "r").length > 0);
 
 // ---- 21. Harvest discipline in the external-signal prompt ----
 const scanPrompt = vm.runInContext("buildScanPrompt(buildDemoState(), ['cargo tonnage'])", sandbox);
@@ -383,7 +427,13 @@ const normRoles = {
 };
 check("analysis with roles conforms to the analysis contract", schema.validateAnalysis(normRoles));
 checkOk("contract rejects a role finding with an out-of-range score",
-  schema.validateAnalysis({ ...normRoles, roles: [{ ...normRoles.roles[0], axisA: { ...normRoles.roles[0].axisA, impact: 11 } }] }).length > 0);
+  schema.validateAnalysis({ ...normRoles, roles: [{ ...normRoles.roles[0], axisA: { ...normRoles.roles[0].axisA, consequence: 11 } }] }).length > 0);
+checkOk("analysis prompt teaches the six criteria and forbids one reason raising two scores",
+  anaPrompt2.includes("Do NOT let one reason raise two scores") &&
+  ["criticality.consequence", "criticality.scarcity", "criticality.trend",
+    "tacit.time", "tacit.locked", "tacit.relationship"].every(k => anaPrompt2.includes(k)));
+checkOk("analysis prompt gives the model the same 1/3/5 anchors the user sees",
+  anaPrompt2.includes("1 = absorbed within a week") && anaPrompt2.includes("5 = years"));
 
 // ---- 23. Upload templates are real, parseable artefacts ----
 const appSrc = fs.readFileSync(path.join(__dirname, "..", "app", "js", "app.js"), "utf8");
@@ -391,7 +441,10 @@ const appSrc = fs.readFileSync(path.join(__dirname, "..", "app", "js", "app.js")
   checkOk(`template '${f}' is defined in the app`, appSrc.indexOf(f) !== -1);
 });
 checkOk("role-inventory template header matches the CSV importer's required columns",
-  ["cluster_id", "role_title", "status", "impact", "tki_time"].every(c => appSrc.indexOf(c) !== -1));
+  ["cluster_id", "role_title", "status", "consequence", "tki_time", "tki_locked"].every(c => appSrc.indexOf(c) !== -1));
+checkOk("the CSV importer still accepts a v4.2 spreadsheet and migrates it",
+  appSrc.indexOf('col("consequence") !== -1 || col("impact") === -1') !== -1 &&
+  appSrc.indexOf("migrateRoleScores({") !== -1);
 
 // ---- 24. Value chain CALIBRATES the cluster set (not just context) ----
 checkOk("value-chain coverage reports mapped vs unmapped economic weight",
@@ -595,7 +648,12 @@ checkOk("value-chain guidance warns against false precision in the weights",
 checkOk("roles guidance gives ordered steps, scale anchors, and the mistake to avoid",
   (howRl.match(/<li>/g) || []).length >= 5 && howRl.includes("howto-eg") && howRl.includes("mistake to avoid"));
 checkOk("roles guidance anchors the 1–5 scales so two raters would agree",
-  howRl.includes("Anchor your 1–5") && howRl.includes("replaceable within a month"));
+  howRl.includes("Score against anchors, not feelings") && howRl.includes("replaceable within a month"));
+checkOk("roles guidance names the three criteria on each axis and their weights",
+  ["Consequence", "Scarcity", "Trend", "Time to competence", "Locked in heads", "Relationship capital"]
+    .every(t => howRl.includes(t)) && howRl.includes("(45%)") && howRl.includes("(35%)") && howRl.includes("(20%)"));
+checkOk("roles guidance points at the in-place scoring guide rather than a manual",
+  howRl.includes("column heading") && howRl.includes("Scoring guide"));
 checkOk("roles guidance warns against collapsing the two axes into seniority",
   howRl.includes("scoring seniority") && howRl.includes("knowledge-drain"));
 checkOk("guidance points users at the bulk-entry paths that already exist",

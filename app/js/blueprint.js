@@ -96,8 +96,8 @@ const BP_WATCHOUTS = [
   },
   {
     n: "F", at: "Roles",
-    title: "Ten subjective 1–5 ratings become one decimal",
-    body: "A Criticality Index of 4.6 looks more precise than its inputs are. <strong>Mitigation:</strong> score anchors, not feelings — 5 = “we have lost a deal or an approval over this”, 1 = “replaceable within a month”. Only the side of the 3.5 threshold matters."
+    title: "Six subjective 1–5 ratings still become one decimal",
+    body: "v4.4 cut ten criteria to six — the three that were all measuring consequence became one, and the cross-axis duplicate was dropped — and every criterion now carries written 1/3/5 anchors, which is the largest available lever on rater agreement. It remains judgement: a criticality index of 4.6 is not more precise than its inputs. <strong>Mitigation:</strong> score against the anchors in the scoring guide, and read only which side of the 3.5 threshold a role lands on."
   },
   {
     n: "G", at: "Cell",
@@ -239,7 +239,7 @@ function bpDiagram(st) {
     })}
     ${bpBox({
       x: b2[1].x, y: Y2, w: b2[1].w, h: H2, kind: "ground", title: "Roles — who is accountable",
-      lines: ["Axis A Criticality (weighted 1–5)", "Axis B Tacit-knowledge (mean 1–5)",
+      lines: ["Axis A criticality — 3 weighted criteria", "Axis B tacit knowledge — 3 factors",
         "→ Critical · Dual · Specialist · Standard", "→ two registers, not one",
         st.roles + " roles scored"],
       badges: [{ n: 2, kind: "good" }, { n: "F", kind: "warn" }, { n: "I", kind: "warn" }]

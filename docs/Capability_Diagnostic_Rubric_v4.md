@@ -1,12 +1,12 @@
 ---
 name: capability-diagnostic-rubric
-version: v4.3
-date: 2026-08-12
+version: v4.4
+date: 2026-08-13
 supersedes: Capability_Diagnostic_Rubric_v3.md (organisation-specific edition)
 classification: Generic / shareable — contains no organisation-specific data
 ---
 
-# Capability Diagnostic Rubric — v4.3 (Industry-Agnostic, Predictive, Value-Calibrated)
+# Capability Diagnostic Rubric — v4.4 (Industry-Agnostic, Predictive, Value-Calibrated)
 
 ## 1. Purpose and what changed from v3
 
@@ -93,17 +93,29 @@ A maturity level with no accountable owner is an opinion. Roles are the checkabl
 
 But role presence alone is insufficient. Two different risks hide behind "critical role", and they have different fixes:
 
-**Axis A — Criticality Index** (weighted, each criterion 1–5):
+**v4.4 simplification — ten criteria to six.** The v4.2 rubric asked for five weighted criteria per axis. In use it showed three documented failure modes of long weighted scorecards: *strategic impact*, *vacancy risk* and *value-chain pivotalness* were three ways of asking the same question (what breaks if the seat is empty), putting 65% of the weight on one construct while looking like three independent judgements; Axis B's *consequence of inexperience* measured consequence, which is Axis A's job, so a safety-critical role scored high twice for the same reason; and *future-fit* at 10% of a 1–5 scale could move the index by at most 0.4 — never enough to cross the 3.5 threshold, which is precision that cannot change an outcome. A fourth problem was a labelling error: *codifiability* was scored 1–5 toward **more** tacit, so a 5 meant "not codifiable" — the opposite of its own name.
 
-| Criterion | Weight |
-|---|---|
-| Strategic impact (P&L / stated ambition) | 30% |
-| Market scarcity / replaceability | 25% |
-| Vacancy risk (safety, licence, contract) | 20% |
-| Value-chain pivotalness (choke point) | 15% |
-| Future-fit (accelerating trend) | 10% |
+**The test each surviving criterion had to pass: does it point at a different remedy?** Six criteria, six remedies, no overlaps. Each carries a written 1 / 3 / 5 anchor, because anchored scales are the largest available lever on rater agreement — far larger than adding criteria.
 
-**Axis B — Tacit-Knowledge Intensity** (mean of five factors, each 1–5): time-to-competence · codifiability · concentration / bus-factor · consequence of inexperience · relationship and context capital.
+**Axis A — Criticality Index** (weighted, each 1–5):
+
+| Criterion | Weight | The question | Remedy if high |
+|---|---|---|---|
+| **Business consequence** | 45% | If this seat were empty for three months, what actually breaks? Revenue, safety, licence, a contract, a choke point — take the most severe. | Protect it: dual cover, documented decision rights, a named interim |
+| **Scarcity / replaceability** | 35% | How hard is it to put a capable person in the seat — market *and* bench? | Acquire ahead of need, or build a named pipeline |
+| **Future demand** | 20% | Is the need for this seat growing, flat or fading over 2–3 years? | Hire ahead of the curve, or plan the wind-down |
+
+**Axis B — Tacit-Knowledge Intensity** (mean of three, each 1–5):
+
+| Factor | The question | Remedy if high |
+|---|---|---|
+| **Time to competence** | How long until a replacement is genuinely effective — clock starts on day one, not at offer? | Plan overlap in quarters, not weeks |
+| **Locked in heads** | How much of the know-how exists only inside individuals, and how few of them? (undocumented method + bus factor) | Capture and cross-train: shadow, write it down, rotate a second person |
+| **Relationship capital** | How much of the value is trust and history with people *outside* the team — customers, regulators, authorities, unions? | Staged introductions and joint working over quarters |
+
+No criterion may be raised for a reason already counted on another. The scoring guide in the app states, for each one, what it covers, **what it explicitly does not**, and its 1 / 3 / 5 anchors.
+
+Legacy v4.2 scores migrate deterministically rather than resetting: the three consequence-family criteria fold into one weighted score, codifiability and concentration merge into *locked in heads*, and the cross-axis duplicate is dropped rather than folded in — folding it in would preserve the double count the change exists to remove. Routing is preserved across the migration.
 
 **Routing** (threshold 3.5 on both axes, stated explicitly so it can be challenged):
 

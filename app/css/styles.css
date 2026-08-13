@@ -810,3 +810,58 @@ footer { max-width: 1560px; margin: 0 auto; padding: 8px 22px 34px 22px; font-si
   border-radius: var(--radius-sm); padding: 9px 13px; font-size: 12.5px; margin-top: 8px;
 }
 .howto-warn strong { font-family: var(--head); }
+
+/* ---------- Scoring guide: criterion definitions on demand ---------- */
+.crit-btn {
+  background: transparent; border: 0; padding: 0; margin: 0;
+  font: inherit; color: inherit; text-align: center; cursor: pointer;
+  line-height: 1.25; width: 100%;
+}
+.crit-btn:hover { color: var(--accent); }
+.crit-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.crit-i { color: var(--muted); font-size: 10px; }
+.crit-btn:hover .crit-i { color: var(--accent); }
+
+.crit-card {
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--card); padding: 14px 16px; margin-bottom: 12px;
+}
+.crit-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.crit-head strong { font-family: var(--head); font-size: 15px; }
+.crit-axis {
+  font-family: var(--head); font-weight: 800; font-size: 10px; letter-spacing: .07em;
+  text-transform: uppercase; border-radius: 999px; padding: 2px 9px; color: #fff;
+}
+.crit-axis.a { background: var(--navy); }
+.crit-axis.b { background: var(--amber-deep); }
+.crit-wt {
+  font-family: var(--head); font-weight: 700; font-size: 10.5px;
+  color: var(--muted); margin-left: auto; white-space: nowrap;
+}
+.crit-q { margin: 9px 0 0 0; font-size: 14.5px; font-weight: 600; font-style: italic; }
+.crit-what { margin: 6px 0 0 0; font-size: 13px; color: var(--muted); }
+.crit-not { margin: 5px 0 0 0; font-size: 12.5px; color: var(--amber-deep); }
+.crit-anchors {
+  margin: 11px 0 0 0; display: flex; flex-direction: column; gap: 6px;
+  background: var(--l1); border-radius: var(--radius-sm); padding: 10px 12px;
+}
+.crit-anchor { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; font-size: 13px; }
+.crit-n {
+  font-family: var(--head); font-weight: 800; font-size: 11.5px;
+  width: 24px; height: 24px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+.crit-n.n1 { background: var(--l1); color: var(--l1-text); border: 1px solid var(--line); }
+.crit-n.n3 { background: var(--l2); color: var(--l2-text); }
+.crit-n.n5 { background: var(--l4); color: var(--l4-text); }
+.crit-fix { margin: 10px 0 0 0; font-size: 13px; }
+.crit-fix strong { font-family: var(--head); color: var(--accent); }
+
+/* v4.4: six score columns instead of ten. The register now fits a laptop
+   without horizontal scrolling, and equal-width score columns keep each
+   header sitting directly over its own numbers. */
+.rt-table { min-width: 900px; }
+.rt-table th.rt-sub { width: 86px; }
+.rt-table td { text-align: center; }
+.rt-table td:first-child, .rt-table td:nth-child(2) { text-align: left; }
+.rt-table td .vc-in.tiny { max-width: 74px; margin: 0 auto; }

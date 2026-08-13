@@ -112,14 +112,21 @@ Once weights exist, materiality follows you everywhere: each Signal Matrix row s
 
 A capability nobody is accountable for is not a Level 3. In the **Roles** tab, score each anchor role on two independent axes and the app routes it automatically:
 
-- **Criticality** — strategic impact (30%), market scarcity (25%), vacancy risk (20%), value-chain pivotalness (15%), future-fit (10%). High score = *hard to hire* → the fix is a **succession bench**.
-- **Tacit-Knowledge Intensity** — time-to-competence, codifiability, bus-factor, consequence of inexperience, relationship capital. High score = *hard to rebuild internally even if you can hire* → the fix is **knowledge capture, overlap and apprenticeship**.
+- **Criticality** — business consequence (45%), scarcity / replaceability (35%), future demand (20%). High score = *a lot rides on it and it is hard to fill* → the fix is a **succession bench**.
+- **Tacit-Knowledge Intensity** — time to competence, locked in heads (undocumented and held by few), relationship capital. High score = *hard to rebuild internally even if you can hire* → the fix is **knowledge capture, overlap and apprenticeship**.
+
+**Three criteria per axis, not five.** Ten criteria were cut to six: three of the old Axis-A criteria were all measuring the same thing (what breaks if the seat is empty), Axis B carried a duplicate of Axis A's consequence, and one weight was too small to ever change a routing decision. Each surviving criterion had to pass one test — *does it point at a different remedy?* Six criteria, six remedies.
+
+**Every criterion explains itself where you score it.** Click any column heading (or the **ⓘ Scoring guide** button) for that criterion's question, what it covers, **what it explicitly does not** cover, its written 1 / 3 / 5 anchors, and the remedy a high score points at. Anchored scales are the biggest thing you can do to make two people score alike — bigger than adding criteria.
+
+Scores from the earlier five-criterion version migrate automatically — in saved files, JSON imports and old CSV templates alike — and no role changes its route in the process.
 
 That produces four routes — **Critical**, **Dual-critical**, **Specialist/key-person**, **Standard** — and two separate registers. The separation matters: a load-control officer or a long-tenured system super-user scores modestly on leverage but is internally irreplaceable, and a scarcity-only view files them under "standard" until the day they resign.
 
 Record each role's status as *exists · thin bench · absent* using your real job titles. Absent anchor seats surface automatically as structural findings on the board and in the trajectory patterns. Bulk-load them with the **Import roles CSV** button (template in the Evidence tab), or let Claude extract them from your org chart.
 
 ![Roles](docs/screenshots/roles.png)
+![Scoring guide](docs/screenshots/scoring-guide.png)
 
 ### Grounding the diagnostic in your own documents (Evidence)
 
