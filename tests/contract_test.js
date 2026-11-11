@@ -22,7 +22,7 @@ const schema = require(path.join(__dirname, "..", "app", "js", "schema.js"));
 // Load the browser-global scripts (presets, engine, llm) into one sandbox.
 const sandbox = { module: undefined, console };
 vm.createContext(sandbox);
-for (const f of ["presets.js", "engine.js", "llm.js"]) {
+for (const f of ["presets.js", "engine.js", "handoff.js", "llm.js"]) {
   const code = fs.readFileSync(path.join(__dirname, "..", "app", "js", f), "utf8");
   vm.runInContext(code, sandbox, { filename: f });
 }
@@ -580,7 +580,7 @@ checkOk("HONESTY: prompts omit the money map entirely when no weights exist",
 const bpSrc = fs.readFileSync(path.join(__dirname, "..", "app", "js", "blueprint.js"), "utf8");
 const bpSandbox = { module: undefined, console };
 vm.createContext(bpSandbox);
-for (const f of ["presets.js", "engine.js", "llm.js", "blueprint.js"]) {
+for (const f of ["presets.js", "engine.js", "handoff.js", "llm.js", "blueprint.js"]) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "app", "js", f), "utf8"), bpSandbox, { filename: f });
 }
 Object.assign(bpSandbox, schema);
@@ -661,6 +661,186 @@ checkOk("guidance points users at the bulk-entry paths that already exist",
 checkOk("guidance is rendered in both views, collapsed by default",
   appSrc.includes("${HOWTO_VALUE_CHAIN}") && appSrc.includes("${HOWTO_ROLES}") &&
   !howVc.includes("<details class=\"howto\" open") && !howRl.includes("<details class=\"howto\" open"));
+
+// =====================================================================
+// v5 WORKFLOW LAYER — the Compass as the first of four apps
+// =====================================================================
+const run = code => vm.runInContext(code, sandbox);
+const wfDemo = () => { const d = run("ensureRefs(buildDemoState())"); return Object.assign(d, { briefings: [], signal_keywords: [], documents: [], analyses: [], calibrations: [] }); };
+const put = (name, obj) => run("globalThis." + name + " = " + JSON.stringify(obj));
+
+// ---- 30. Stable IDs ----
+const wd = wfDemo(); put("__wd", wd);
+const allRefs = [...wd.clusters.map(c => c.ref), ...wd.clusters.flatMap(c => c.roles.map(r => r.ref)), ...wd.valueChain.levers.map(l => l.ref)];
+checkOk("every cluster, role and lever carries a stable ID", allRefs.every(r => /^[A-Z]+-\d+$/.test(r)));
+checkOk("no two things share an ID", new Set(allRefs).size === allRefs.length);
+checkOk("IDs say what a thing is (CAP cluster, RL role, LV lever)",
+  wd.clusters[0].ref === "CAP-01" && wd.clusters[0].roles[0].ref === "RL-001" && wd.valueChain.levers[0].ref === "LV-01");
+checkOk("assigning IDs twice changes nothing", JSON.stringify(run("ensureRefs(__wd)")) === JSON.stringify(wd));
+const afterDelete = run(`(function(){ const s = JSON.parse(JSON.stringify(__wd)); s.clusters.pop();
+  s.clusters.push({ id: "new", no: 9, name: "New", cells: {}, roles: [] }); ensureRefs(s); return s.clusters[s.clusters.length-1].ref; })()`);
+checkOk("an ID is never reused after its owner is removed", afterDelete === "CAP-07");
+checkOk("a copied row gets its own ID instead of sharing one",
+  run(`(function(){ const s = JSON.parse(JSON.stringify(__wd)); s.valueChain.levers[1].ref = s.valueChain.levers[0].ref; ensureRefs(s);
+    return new Set(s.valueChain.levers.map(l=>l.ref)).size === s.valueChain.levers.length; })()`));
+checkOk("a value-stream workspace numbers its rows VS-01, VS-02…",
+  run(`(function(){ const s = JSON.parse(JSON.stringify(__wd)); s.unit = "value-stream"; s.idSeq = {}; s.clusters.forEach(c=>delete c.ref); ensureRefs(s); return s.clusters[1].ref; })()`) === "VS-02");
+check("demo state with the workflow layer conforms to the contract", schema.validateState(wd));
+const dup = JSON.parse(JSON.stringify(wd)); dup.clusters[1].ref = dup.clusters[0].ref;
+checkOk("contract rejects two things sharing an ID", schema.validateState(dup).some(e => e.includes("used twice")));
+checkOk("the ID vocabulary reserves the prefixes the other apps own",
+  run("ID_PREFIXES").some(p => p.prefix === "X" && p.owner === "Process Map Studio") &&
+  run("ID_PREFIXES").some(p => p.prefix === "H" && p.owner === "Org Modeling"));
+
+// ---- 31. Evidence grammar: a judgement, not a formula ----
+const grades = run("EVIDENCE_GRADES");
+checkOk("three grades, in one order, with the playbook's signal labels",
+  grades.map(g => g.label).join() === "Confirmed,Indicated,Hypothesis" && grades.map(g => g.signal).join() === "Metric,Trace,Claim");
+checkOk("each grade is translated into the other apps' own terms",
+  grades.every(g => g.orgModeling && g.processMap && g.means));
+const ungraded = JSON.parse(JSON.stringify(wd));
+const cellX = ungraded.clusters[0].cells.Structure;
+cellX.grade = ""; cellX.evidence = [{ label: "A", note: "" }, { label: "B", note: "" }, { label: "C", note: "" }];
+put("__ug", ungraded);
+checkOk("OWNER DECISION: the grade is never derived from a source count",
+  run("buildHandoffPacket(__ug)").clusters[0].cells.find(c => c.lens === "Structure").grade === null);
+checkOk("contract rejects an unknown grade",
+  schema.validateCell(Object.assign({}, cellX, { grade: "certain" }), "c").length > 0);
+
+// ---- 32. Stage 0 charter ----
+const blankCharter = run("defaultCharter()");
+check("the default charter conforms to the contract", schema.validateCharter(blankCharter));
+checkOk("default design criteria total exactly 100", run("criteriaWeightTotal(defaultCharter())") === 100);
+checkOk("default criteria use the metric names Org Modeling scores",
+  blankCharter.criteria.filter(c => c.kind === "measured").every(c => ["layers", "total_cost", "people_affected_pct", "spans_within_benchmark"].includes(c.metric)));
+checkOk("the reference model ships eight components, each with an observable test",
+  blankCharter.refModel.length === 8 && blankCharter.refModel.every(c => c.name && c.test));
+checkOk("the default evidence rules reflect the owner's decisions (one rater; grade is a judgement)",
+  blankCharter.rules.some(r => /One assessor scores each cell/.test(r.text)) &&
+  blankCharter.rules.some(r => /assessor's judgement/.test(r.text)) &&
+  !blankCharter.rules.some(r => /2 raters|two raters/i.test(r.text)));
+const s0demo = run("stage0Readiness(__wd)");
+checkOk("the demo charter is complete and locked", s0demo.complete && s0demo.locked);
+const blankWs = Object.assign({}, seededState, { charter: blankCharter, pilots: {}, unit: "capability" });
+put("__bw", blankWs); run("ensureRefs(__bw)");
+const s0blank = run("stage0Readiness(__bw)");
+checkOk("a new charter reports what is still open rather than passing",
+  !s0blank.complete && s0blank.open >= 3 && s0blank.checks.find(c => c.key === "thesis").ok === false);
+checkOk("defaults that are already complete are recognised (reference model, criteria, gate)",
+  ["refmodel", "criteria", "gate"].every(k => s0blank.checks.find(c => c.key === k).ok));
+checkOk("criteria that do not total 100 fail the gate",
+  run(`(function(){ const s = JSON.parse(JSON.stringify(__wd)); s.charter.criteria[0].weight = 40; return stage0Readiness(s).checks.find(c=>c.key==="criteria").ok; })()`) === false);
+checkOk("contract rejects a criterion that is neither measured nor judged",
+  schema.validateCharter(Object.assign({}, blankCharter, { criteria: [{ name: "x", kind: "guessed", weight: 10 }] })).length > 0);
+
+// ---- 33. Money at risk in currency ----
+const moneyTdx = run('clusterMoney(__wd, __wd.clusters.find(c=>c.id==="tdx"))');
+checkOk("money at risk = estimated amount at stake × capability gap",
+  moneyTdx.hasValue && moneyTdx.stake === 160 && Math.abs(moneyTdx.atRisk - moneyTdx.stake * moneyTdx.gap) < 1e-9);
+checkOk("figures stay flagged as estimates until every lever is validated", moneyTdx.validated === false);
+checkOk("with no figure entered, no money is reported", run('clusterMoney(__bw, __bw.clusters[0])').hasValue === false);
+checkOk("contract rejects a negative amount at stake",
+  schema.validateValueChain({ currency: "$", stages: [], levers: [{ id: "x", name: "n", share_pct: 5, value_at_stake: -4 }] }).length > 0);
+
+// ---- 34. Stage 1 readiness and the pilot shortlist ----
+const s1demo = run("stage1Readiness(__wd)");
+checkOk("the demo passes every must-have check", s1demo.ready && s1demo.mustOpen === 0);
+checkOk("readiness separates must-haves from good practice",
+  s1demo.checks.some(c => c.level === "must") && s1demo.checks.some(c => c.level === "should"));
+checkOk("every check says where to go to fix it", s1demo.checks.every(c => c.view && c.label && c.detail));
+const s1blank = run("stage1Readiness(__bw)");
+checkOk("an unscored diagnostic is not ready, and says why",
+  !s1blank.ready && ["scored", "baseline", "decisions", "pilot"].every(k => s1blank.checks.find(c => c.key === k).ok === false));
+checkOk("NOTHING SILENTLY DROPPED: an exclusion with no reason fails the gate",
+  run(`(function(){ const s = JSON.parse(JSON.stringify(__wd)); s.pilots.enabling.reason = ""; return stage1Readiness(s).checks.find(c=>c.key==="decisions").ok; })()`) === false);
+checkOk("a pilot without a process KPI fails the gate",
+  run(`(function(){ const s = JSON.parse(JSON.stringify(__wd)); s.pilots.tdx.kpi = ""; return stage1Readiness(s).checks.find(c=>c.key==="pilot").ok; })()`) === false);
+const cands = run("pilotCandidates(__wd)");
+checkOk("pilot candidates list every cluster with money, weak cells and seat gaps",
+  cands.length === wd.clusters.length && cands.every(c => typeof c.weak === "number" && typeof c.seatGaps === "number"));
+checkOk("candidates follow the same order as the Priority Board",
+  cands[0].cluster.id === run('orderClustersForBoard(__wd, "auto").clusters[0].id'));
+checkOk("contract rejects a pilot decision for a cluster that does not exist",
+  schema.validateState(Object.assign({}, wd, { pilots: { ghost: { decision: "pilot" } } })).length > 0);
+
+// ---- 35. The hand-off packet ----
+const withDocs = JSON.parse(JSON.stringify(wd));
+withDocs.documents = [{ id: "d1", name: "s.txt", label: "Survey", doc_type: "survey-report", kind: "text", text: "CONFIDENTIAL VERBATIM COMMENT" }];
+put("__pd", withDocs);
+const packet = run("buildHandoffPacket(__pd)");
+check("the hand-off packet conforms to its contract", schema.validateHandoffPacket(packet));
+checkOk("packet names its format and version", packet.format === "compass-handoff" && packet.format_version === "1.0");
+checkOk("packet carries every cluster and every cell with a derived cell ID",
+  packet.clusters.length === wd.clusters.length && packet.clusters[0].cells.length === 4 &&
+  packet.clusters[0].cells[0].ref === "CAP-01.Structure");
+checkOk("PRIVACY: uploaded document text never enters the packet",
+  !JSON.stringify(packet).includes("CONFIDENTIAL VERBATIM COMMENT"));
+checkOk("PRIVACY: contract rejects a packet carrying an API key",
+  schema.validateHandoffPacket(Object.assign({}, packet, { apiKey: "sk-ant-x" })).length > 0);
+checkOk("packet carries pilots with their KPI and exclusions with their reasons",
+  packet.pilots.length === 2 && packet.pilots.every(p => p.process_kpi && /^VS-\d+$/.test(p.ref)) &&
+  packet.exclusions.length === 4 && packet.exclusions.every(x => x.reason));
+checkOk("packet states money at risk as an unvalidated estimate",
+  packet.clusters.some(c => c.money_at_risk > 0 && c.value_validated === false));
+const omc = packet.for_apps.org_modeling.design_criteria;
+checkOk("ORG MODELING: criteria arrive in the shape its Compare options accepts",
+  omc.length === 6 && omc.every(c => c.id && c.name && ["measured", "judged"].includes(c.kind) && typeof c.weight === "number") &&
+  omc.filter(c => c.kind === "measured").every(c => c.metric && c.better) &&
+  omc.reduce((a, c) => a + c.weight, 0) === 100);
+checkOk("ORG MODELING: strategy text carries the thesis, principles and ranked priorities",
+  /Who we serve:/.test(packet.for_apps.org_modeling.strategy_text) && /P1 /.test(packet.for_apps.org_modeling.strategy_text) &&
+  /CAP-0\d /.test(packet.for_apps.org_modeling.strategy_text));
+const pmsEng = packet.for_apps.process_map_studio.engagements;
+checkOk("PROCESS MAP STUDIO: one engagement per pilot, with the scope-card KPI and roles in scope",
+  pmsEng.length === 2 && pmsEng.every(g => g.process_name && g.process_kpi && g.in_scope_roles.length > 0 && g.name.startsWith("MERIDIAN VS-")));
+checkOk("PROCESS MAP STUDIO: weak cells arrive as interview prompts quoting their IDs",
+  pmsEng.some(g => g.interview_prompts.some(p => /^CAP-\d+\.\w+ /.test(p))));
+checkOk("WORKBENCH: roles for the pilots and every critical seat, each with its ID",
+  packet.for_apps.workbench.roles.length > 0 && packet.for_apps.workbench.roles.every(r => /^RL-\d+$/.test(r.ref)));
+["org_modeling", "process_map_studio", "workbench"].forEach(app => {
+  put("__pk", packet);
+  const brief = run(`handoffBrief(__pk, "${app}")`);
+  checkOk(`copy-ready brief for ${app} names the engagement and the ID convention`,
+    brief.length > 120 && brief.includes("MERIDIAN") && brief.includes("MERIDIAN:<ID>"));
+});
+checkOk("an unready diagnostic says so inside the packet rather than hiding it",
+  run("buildHandoffPacket(__bw)").readiness.ready === false && run("buildHandoffPacket(__bw)").readiness.open.length > 3);
+
+// ---- 36. Stage 5 scoreboard ----
+const trend = run("versionTrend(__wd)");
+checkOk("the trend has one point per saved version plus now",
+  trend.points.length === wd.versions.length + 1 && trend.points[trend.points.length - 1].current === true);
+checkOk("every cluster has a level at every point", trend.rows.length === 6 && trend.rows.every(r => r.series.length === trend.points.length));
+const fc = run("forecastCheck(__wd)");
+checkOk("forecast check judges every cell against the last saved version",
+  fc.rows.length === 24 && fc.hits + fc.misses + fc.pending + fc.nocall === 24 && fc.baseline === "v1.0");
+checkOk("no forecast check is offered before a version exists", run("forecastCheck(__bw)") === null);
+const fcCase = JSON.parse(JSON.stringify(wd));
+const pastCell = fcCase.versions[0].snapshot.clusters[0].cells.Culture;      // gateway Culture, L2 then
+pastCell.leading = [{ name: "x", signal: "improving" }];
+fcCase.clusters[0].cells.Culture.level = 3;
+put("__fc", fcCase);
+const fcRow = run('forecastCheck(__fc).rows.find(r => r.cluster.id === "gateway" && r.lensKey === "Culture")');
+checkOk("an 'improving' call followed by a rise is a hit", fcRow.verdict === "hit" && fcRow.moved === 1);
+fcCase.clusters[0].cells.Culture.level = 2; put("__fc", fcCase);
+checkOk("an 'improving' call that has not moved yet is pending, not wrong",
+  run('forecastCheck(__fc).rows.find(r => r.cluster.id === "gateway" && r.lensKey === "Culture")').verdict === "pending");
+fcCase.clusters[0].cells.Culture.level = 1; put("__fc", fcCase);
+checkOk("an 'improving' call followed by a fall is a miss",
+  run('forecastCheck(__fc).rows.find(r => r.cluster.id === "gateway" && r.lensKey === "Culture")').verdict === "miss");
+checkOk("a cell with no call on the day is counted as 'no call', never as a hit",
+  run("forecastCheck(__wd)").rows.filter(r => r.verdict === "nocall").every(r => r.call.word === "Unknown"));
+
+// ---- 37. The journey ----
+const journey = run("journeyStages(__wd)");
+checkOk("the journey shows all six stages in order, Frame to Deliver",
+  journey.map(j => j.n).join() === "0,1,2,3,4,5" && journey[0].name === "Frame" && journey[5].name === "Deliver");
+checkOk("it says which stages happen here and which in the other apps",
+  journey.filter(j => j.here).map(j => j.n).join() === "0,1,5" && /Process Map Studio/.test(journey[2].app) && /Org Modeling/.test(journey[4].app));
+checkOk("stage status follows the gates (demo: Frame and Focus done)",
+  journey[0].status === "done" && journey[1].status === "done");
+checkOk("a new workspace starts with nothing marked done",
+  run("journeyStages(__bw)").every(j => j.status !== "done"));
 
 console.log(failures ? `\n${failures} CONTRACT FAILURE(S)` : "\nAll contract checks passed.");
 process.exit(failures ? 1 : 0);

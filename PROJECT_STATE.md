@@ -38,7 +38,7 @@ Owner decisions (2026-11-11): keep one rater per cell · evidence grade is the a
 Sibling apps read for context (read-only clones): Org Modeling, Process Map Studio, AI Org Advisory Workbench. None of them knows about the Compass, so there was no hand-off format to match; it is defined here (`docs/HANDOFF_FORMAT.md`).
 
 Increments (each ends green and committed):
-- [ ] I1 — Stable IDs, hand-off logic and contract (`app/js/handoff.js`, schema, contract tests)
+- [x] I1 — Stable IDs, hand-off logic and contract (`app/js/handoff.js`, schema, contract tests)
 - [ ] I2 — Workspaces (several named diagnostics) and the value-stream option
 - [ ] I3 — Stage 0 Charter view (thesis, principles, reference model, criteria, gate, rules, decision log, lock)
 - [ ] I4 — Evidence grade per cell and signal; cross-app ID on evidence; currency per lever and money at risk

@@ -81,6 +81,17 @@ function migrateState(s) {
   }
   if (!s.boardSort) s.boardSort = "auto";
   if (!Array.isArray(s.calibrations)) s.calibrations = [];
+  /* v5 workflow layer: Stage 0 charter, pilot shortlist, the unit being
+     scored, and a stable ID on everything that leaves this app. */
+  if (!s.unit) s.unit = "capability";
+  if (!s.charter || typeof s.charter !== "object") s.charter = defaultCharter();
+  else {
+    const d = defaultCharter();
+    Object.keys(d).forEach(k => { if (s.charter[k] === undefined) s.charter[k] = d[k]; });
+  }
+  if (!s.pilots || typeof s.pilots !== "object" || Array.isArray(s.pilots)) s.pilots = {};
+  Object.keys(s.pilots).forEach(cid => { if (!(s.clusters || []).some(c => c.id === cid)) delete s.pilots[cid]; });
+  ensureRefs(s);
   return s;
 }
 
