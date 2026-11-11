@@ -8,37 +8,73 @@ Download the repository as a ZIP (green **Code** button → **Download ZIP**), u
 
 Your work saves automatically in that browser. Use **Export** in the top bar for a backup file you can keep or move to another computer.
 
-## The eight views, and when to use each
+## Where this app sits
 
-**Diagnose** — reading the organisation:
+The Compass is the first of four apps used to design an operating model and operating system. The work runs in six stages:
 
-| View | The question it answers |
+| Stage | What is decided | Where |
+|---|---|---|
+| **0 Frame** | What business are we building, and how will we judge the design? | **This app** — Charter |
+| **1 Focus** | Where must the model change, and where to pilot? | **This app**, with Org Modeling |
+| **2 Find** | How does work really run? | Process Map Studio |
+| **3 Dial** | What to standardise, how much should AI do? | Process Map Studio and the Workbench — then findings come back here |
+| **4 Design** | Which model and system do we install? | Org Modeling and the Workbench |
+| **5 Deliver** | Is it lifting capability, cycle by cycle? | **This app** — Scoreboard |
+
+Every workspace opens on the **Journey**, which shows these six stages, what is done, and one **Next step** button. If you are ever unsure what to do, go there.
+
+## The screens, in the order you use them
+
+| Screen | The question it answers |
 |---|---|
-| **Signal Matrix** | Where do we stand, across every cluster and lens? |
-| **Priority Board** | What do we do first, and where is the money at risk? |
-| **Trajectory** | Where is this heading, and what would prove me wrong? |
-| **Delta** | What changed since the last time we looked? |
-
-**Ground it** — the evidence the reads stand on:
-
-| View | The question it answers |
-|---|---|
-| **Value Chain** | Where does our money actually come from and go to — and are these the right clusters for it? |
+| **Journey** | Where am I, and what is next? |
+| **Charter** (Stage 0) | What are we designing, by what rules, and who decides? |
+| **Value Chain** | Where is the money — and are these the right clusters for it? |
 | **Roles** | Who is accountable, and which knowledge walks out the door? |
 | **Evidence** | What do our own documents say? |
 | **Signals** | What is happening outside that should change our view? |
-| **Blueprint** | How does this all fit together — and where should I not over-claim? |
+| **Signal Matrix** | Where do we stand, across every cluster and lens? |
+| **Priority Board** | What do we do first, and where is the money at risk? |
+| **Trajectory** | Where is this heading, and what would prove me wrong? |
+| **Hand-off** | Is Stage 1 complete, where do we pilot, and what does the next app need? |
+| **Scoreboard** (Stage 5) | What moved since last cycle, and were our calls right? |
+| **Method** | How does this fit together, and where should I not over-claim? |
 
-## The recommended order for a first real diagnostic
+## Workspaces
 
-1. **Value Chain** — your industry preset already lists the levers that usually matter, each pointed at a cluster. Correct the list for your business, give each lever a rough weight, and check the **Cluster calibration** panel underneath: it tells you in one line whether these are the right clusters for where your money actually is, and offers a one-click fix for each mismatch. Do this before scoring anything.
-2. **Evidence** — download the *Evidence checklist* template, gather those documents, and upload them. Click **Analyze & synthesize evidence**.
-3. **Roles** — download the *Role inventory* template, fill in your real job titles, and import it. Or let the evidence analysis extract roles from your org chart and add them with one click.
-4. **Signal Matrix** — now score the cells. Every rating should cite evidence; uncited ones are flagged.
-5. **Save version** — this becomes the baseline that makes trajectory and delta possible.
-6. **Signals** — scan the outside world and apply what matters.
+A workspace is one complete diagnostic. Use the **Workspace** box at the top to switch, to start a new one, or to rename or delete the current one. Keep one for the whole group and one per segment or client: they never mix. Starting a new diagnostic, loading the demo, or importing a backup always makes a **new** workspace, so nothing you start can overwrite what is on screen.
 
-## Two ideas worth understanding
+When you create one you choose what its rows are: **capability clusters** (the industry preset's list, for an enterprise view) or **value streams** (you type the names, for one business segment end to end).
+
+## A first real diagnostic, step by step
+
+1. **Charter.** Write the five-sentence thesis, three to six design principles (each with what would prove it wrong), and name the sponsor and an owner for each stage decision. The reference model, design criteria, leapfrog gate and evidence rules come pre-filled: open each, adjust, and check the criteria weights still total 100. Then **Lock the charter**. If something has to change later, **Amend** asks for a reason and logs it.
+2. **Value Chain.** Correct the lever list, give each a rough weight, and act on the **Cluster calibration** panel. If you have figures, put an estimated amount at stake on each lever: the app then shows money at risk in currency, marked as an estimate until you tick **validated**.
+3. **Evidence.** Upload your documents and click **Analyze & synthesize evidence**.
+4. **Roles.** Import the role inventory, or accept the roles the evidence analysis proposes.
+5. **Signal Matrix.** Score every cell. For each one cite at least one source and choose an **evidence grade** (see below).
+6. **Save version.** This freezes the baseline.
+7. **Hand-off.** Work down the Stage 1 checklist. In the pilot shortlist give every row a decision: *Pilot now* (name the value stream and its KPI), *Later* or *Not this cycle* (say why). Then copy the brief for the next app.
+
+## Handing off to the other three apps
+
+On the **Hand-off** screen each of the other apps has a card with **Copy the brief**. The brief is plain text written to be pasted into that app:
+
+- **Org Modeling** gets your strategy text and the design criteria, with weights.
+- **Process Map Studio** gets one engagement per pilot: its name, process KPI, roles in scope and interview prompts.
+- **The Workbench** gets the roles to analyse first.
+
+**Download the full packet** saves everything as one file. The other apps cannot read that file yet, which is why the briefs exist. The packet never contains your API key or the text of your uploaded documents.
+
+Everything carries an ID that stays the same in every app: `CAP-03` is a cluster, `VS-01` a value stream, `LV-02` a lever, `RL-014` a role. Outside the workspace, put the engagement key in front: `MERIDIAN:CAP-03`.
+
+## When findings come back (after Stage 3)
+
+Upload them in **Evidence**. On the cells they bear on, add an evidence source and type the finding's ID (for example `X5`) in the small **ID** box. Re-score, set the grade, and **Save version**. The **Scoreboard** then shows the trend across every saved version, and checks each of last cycle's direction calls: *Right*, *Wrong*, *Not yet* or *No call made*.
+
+## Ideas worth understanding
+
+**Evidence grade.** Each score and each signal can be marked *Confirmed* (you would defend it to a sceptic), *Indicated* (a reasonable reading of limited evidence) or *Hypothesis* (not yet tested; never drives a decision alone). It is your judgement. The app shows how many sources and indicators the score rests on, but it does not work the grade out for you.
 
 **Value exposure.** A weak capability that carries 30% of your cost base is more urgent than an equally weak one carrying 2%. The board ranks on economic weight × capability gap and always tells you which basis it used. The Signal Matrix and Trajectory views follow the same order, so all three tell one story.
 
@@ -50,7 +86,7 @@ Three criteria on each axis, and each one explains itself: click a column headin
 
 ## Before you present it
 
-Open **Blueprint** and read the right-hand column. It lists what this method does *not* do — single-rater scoring, one-snapshot momentum, estimated weights shown precisely — each with a one-line mitigation. Saying those out loud in the first two minutes of a board conversation is what stops someone else saying them in the last two.
+Open **Method** and read the right-hand column. It lists what this method does *not* do — single-rater scoring, one-snapshot momentum, estimated weights shown precisely — each with a one-line mitigation. Saying those out loud in the first two minutes of a board conversation is what stops someone else saying them in the last two.
 
 Each of the two judgement-heavy sections also carries a **“How to fill this in”** panel at the top — click it open the first time. Value Chain tells you how many levers is right and how rough the weights should be; Roles gives you 1–5 anchors so two people would score alike.
 

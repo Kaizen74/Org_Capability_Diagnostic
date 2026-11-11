@@ -3,15 +3,15 @@
 **Read this first in any new session.** This file, not chat history, is the source of truth. If chat memory and this file disagree, this file wins.
 
 - **Owner:** Eric (non-technical) · **Branch:** `claude/org-diagnostic-system-app-syt54v`
-- **What it is:** a zero-install organizational capability diagnostic that runs by double-clicking `app/index.html`. No server, no accounts; all data stays in the browser.
+- **What it is:** a zero-install organizational capability diagnostic that runs by double-clicking `app/index.html`. No server, no accounts; all data stays in the browser. It is the first of four apps in the owner's six-stage leapfrog workflow (with Org Modeling, Process Map Studio and the AI Org Advisory Workbench): it runs Stage 0, Stage 1 and Stage 5 and writes the hand-off the others start from.
 - **Last updated:** 2026-11-11
 
 ## Status: working and fully tested
 
 | Check | Command | Current |
 |---|---|---|
-| Data contract (backend ↔ frontend) | `node tests/contract_test.js` | ✅ 185 checks passing |
-| End-to-end browser (mock mode) | `node tests/e2e_mock_test.js` | ✅ 152 checks passing |
+| Data contract (backend ↔ frontend) | `node tests/contract_test.js` | ✅ 250 checks passing |
+| End-to-end browser (mock mode) | `node tests/e2e_mock_test.js` | ✅ 224 checks passing |
 | Both at once | `./run_checks.sh` | ✅ green |
 
 ## What the app does today
@@ -30,6 +30,14 @@
 | Blueprint — workflow diagram + shipped self-assessment (9 strengths / 9 watch-outs, each with a mitigation) | Done |
 | "How to fill this in" guidance on Value Chain and Roles | Done |
 | Role rubric v4.4 — six criteria, embedded scoring guide with 1/3/5 anchors, legacy migration | Done |
+| Journey home and stage-ordered navigation | Done |
+| Workspaces (several named diagnostics); capability-cluster or value-stream rows | Done |
+| Stage 0 Charter with lock and logged amendments | Done |
+| Stable IDs on clusters, levers, roles, signals, pilots and charter items | Done |
+| Evidence grade per cell and signal (assessor's judgement); cross-app ID on evidence | Done |
+| Optional amount at stake per lever; money at risk in currency, an estimate until validated | Done |
+| Stage 1 readiness check, pilot shortlist, hand-off packet and per-app briefs | Done |
+| Stage 5 Scoreboard: trend across versions and forecast check | Done |
 
 ## This session (2026-11-11) — make the Compass the first app of the four-app leapfrog workflow
 
@@ -45,27 +53,35 @@ Increments (each ends green and committed):
 - [x] I5 — Stage 1 readiness check, pilot shortlist, hand-off packet and per-app briefs
 - [x] I6 — Stage 5 scoreboard (trend across versions, forecast check) on the Delta view
 - [x] I7 — Journey home and stage-ordered navigation (done with I3)
-- [ ] I8 — Docs (GUIDE, README, DECISIONS, HANDOFF_FORMAT), final full mock test
+- [x] I8 — Docs (GUIDE, README, DECISIONS, HANDOFF_FORMAT), final full mock test
 
-## Done in the last session
+## Done in this session (2026-11-11)
 
-1. **Role rubric simplified: ten criteria to six.** Axis A is now Consequence 45% / Scarcity 35% / Trend 20%; Axis B is Time to competence / Locked in heads / Relationship capital. Removed: the three-way consequence double count on Axis A, the cross-axis consequence duplicate on Axis B, and a 10% weight that could never cross the 3.5 routing threshold. Fixed: "codifiability" was scored backwards from its own label.
-2. **Embedded scoring guide.** Every column heading opens its criterion's card — the question, what it covers, what it explicitly does *not* cover, written 1/3/5 anchors, and the remedy a high score points at. A Scoring guide button opens all six. Definitions now appear where the scoring happens.
-3. **Deterministic legacy migration** in saved state, JSON import, the roles CSV (v4.2 headers still accepted) and LLM replies — routing preserved, idempotent, asserted by tests.
-4. The register now fits a laptop without horizontal scrolling (12 columns, not 16).
-5. Rubric §4c rewritten; PRD gains F19. Coverage: contract 164 → 185, e2e 142 → 152.
+1. Read the three sibling apps. None refers to the Compass, so the hand-off language was defined here: `docs/HANDOFF_FORMAT.md`.
+2. Stable IDs that are never reused; one evidence grammar; a hand-off packet with a block shaped for each receiving app (`app/js/handoff.js`).
+3. Workspaces and the value-stream option (`app/js/workspaces.js`).
+4. Stage 0 Charter, Journey home, Hand-off view and Scoreboard (`app/js/stages.js`); navigation reordered to follow the six stages.
+5. Evidence grades, cross-app IDs on evidence, and money at risk in currency.
+6. Fixed a lost click when a button was pressed straight after typing in a field (found by the Charter browser test; fixed app-wide).
+7. Unpinned the browser test from one Chromium build so it survives machine updates.
+8. Checks: contract 185 → 250, end-to-end 152 → 224. All green.
+
+## Not done, and why
+
+- **The other three apps do not read the hand-off packet.** That is a change in their repositories, which this session could only read. Until then the per-app briefs are pasted by hand.
+- **The Compass does not import a file from the other apps.** Findings come back through Evidence, citing the other app's ID.
+- **Operating-model hypotheses H1 to H4** (playbook Stage 1) are written in Org Modeling, not here.
+- **A second rater** was deliberately not added (owner decision).
 
 ## Suggested next session
 
-- **Board briefing export**: a one-page PDF that leads with value exposure, the two role registers, and the top three moves
-- **Half-yearly recalibration reminder**: prompt to re-score when a snapshot is older than 6 months
-- **Second worked example**: a services-industry demo alongside the aviation one
-- **Calibration history**: keep more than the latest Claude calibration and show what was applied vs dismissed over time
-- **Close watch-out D**: score last cycle's directional calls against what happened (the rubric's forecast-honesty ritual) in the Delta view
-- **Close watch-out A**: an optional second-rater column on the highest-weight cells, with disagreement surfaced rather than averaged
+- Teach Org Modeling to read `for_apps.org_modeling` from the packet (criteria and strategy text), so that step stops being copy and paste. Then the same for Process Map Studio's engagement scope card.
+- A board briefing export that leads with money at risk, the pilot decision and the two role registers.
+- Run a real engagement through Stage 0 and Stage 1 and note where the wording or the defaults fight you.
 
 ## How to resume
 
-1. `cd` into the repo, run `./run_checks.sh` — everything must be green before new work
-2. Read `DECISIONS.md` for why things are built the way they are
-3. Pick the next item above, or ask the owner what matters most
+1. `cd` into the repo and run `./run_checks.sh` — both suites must pass before new work. The browser suite needs Playwright (`npm install playwright`); it is skipped with a clear message when absent.
+2. Read `DECISIONS.md` (44 entries) for why things are built the way they are, and `docs/HANDOFF_FORMAT.md` for the shared language.
+3. Where things live: scoring and prediction in `app/js/engine.js`; IDs, gates, packet and scoreboard logic in `app/js/handoff.js`; Journey, Charter, Hand-off and Scoreboard screens in `app/js/stages.js`; workspace storage in `app/js/workspaces.js`; everything else in `app/js/app.js`; the data contract in `app/js/schema.js`.
+4. Watch out for: the active workspace is stored under the original key `capability_compass_state_v1`, other workspaces under `capability_compass_ws_<id>`; a redraw is deliberately delayed while the mouse is down (`renderAll` in `app.js`).

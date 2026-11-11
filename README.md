@@ -4,6 +4,13 @@ A **holistic and directionally predictive** capability diagnostic you run entire
 
 > **Where do we stand? Why? Where are we heading? What must we do next?**
 
+**It is also the first of four apps** in a six-stage workflow for designing an operating model and operating system (with Org Modeling, Process Map Studio and the AI Org Advisory Workbench). It runs Stage 0 (the charter), Stage 1 (the diagnostic and the pilot decision) and Stage 5 (the scoreboard), and writes the hand-off the other three start from. See [`docs/HANDOFF_FORMAT.md`](docs/HANDOFF_FORMAT.md).
+
+- **Journey** — the six stages on one screen, with what is done and one next step. Every workspace opens here.
+- **Charter** (Stage 0) — business-model thesis, design principles, operating-system reference model, weighted design criteria, leapfrog gate, evidence rules and decision log. Locked before any data is seen; reopened only with a logged reason.
+- **Hand-off** — the Stage 1 checklist, a pilot shortlist that requires a reason for every exclusion, and a copy-ready brief for each of the other three apps.
+- **Scoreboard** (Stage 5) — the trend across every saved version, and whether last cycle's directional calls were right.
+- **Workspaces** — several named diagnostics side by side (group, segment, client), scoring capability clusters or value streams.
 - **Signal Matrix** — the analytical read: every capability cluster scored across Structure, People, Process, and Culture on a colorblind-safe 4-level maturity scale, with evidence citations.
 - **Priority Board** — the action read: cross-cluster hero patterns on top, clusters sorted weakest-first, the priority move for each always visible.
 - **Trajectory** — the predictive read: momentum per cell (from version history + leading indicators you maintain), early-warning alerts (*erosion risk*, *stalled weakness*, *breakout underway*), and a directional projection two review cycles ahead.
@@ -15,6 +22,7 @@ A **holistic and directionally predictive** capability diagnostic you run entire
 - **Evidence** — the grounding read: upload your own documents (strategy decks, engagement surveys, annual reports, workforce files, org charts) and Claude runs an evidence-extraction protocol against your clusters and lenses — verbatim figures, leading vs lagging classification, conservative level suggestions, and falsifiable watch signals — each finding one click away from landing in the right cell.
 - **Delta** — the recalibration read: exactly what changed since any saved baseline, declines first, with the logged rationale for every move.
 
+![Journey](docs/screenshots/journey.png)
 ![Signal Matrix](docs/screenshots/signal-matrix.png)
 
 **No installation, no account, no server, no technical skills required.** It's a single web page that runs in your browser. All data stays on your machine.
@@ -147,6 +155,14 @@ Each cell's **momentum** blends two signals 50/50: how its level moved since you
 
 ---
 
+### Working with the other three apps
+
+Open **Hand-off**. The checklist tells you whether Stage 1 is complete; the pilot shortlist records where you will pilot and why each other cluster is not chosen; and each receiving app has a **Copy the brief** button. The other apps do not read the packet file yet, so paste the brief into the fields it names. Everything keeps one ID in every app (`CAP-03`, `VS-01`, `LV-02`, `RL-014`), and each score can carry an evidence grade (Confirmed, Indicated, Hypothesis) that you choose.
+
+![Hand-off](docs/screenshots/handoff.png)
+![Charter](docs/screenshots/charter.png)
+![Scoreboard](docs/screenshots/scoreboard.png)
+
 ## 🔒 Privacy
 
 Everything runs and stays in your browser (localStorage). No server, no account, no analytics, no data ever leaves your machine. The only network access is optional font loading. Use **Export** regularly to keep JSON backups.
@@ -160,8 +176,13 @@ app/                  ← the application (open app/index.html to run)
   js/schema.js        ← shared data contract (validated at runtime AND in tests)
   js/presets.js       ← 7 industry presets + fictional demo data (edit freely)
   js/engine.js        ← the transparent predictive engine
+  js/handoff.js       ← stable IDs, stage gates, hand-off packet, scoreboard logic
+  js/workspaces.js    ← several named diagnostics in one browser
   js/llm.js           ← Claude API client (external signals) + offline mock mode
-  js/app.js           ← views, drawer, wizard, persistence
+  js/parsers.js       ← PDF / Word / PowerPoint / Excel text extraction, on this machine
+  js/blueprint.js     ← the Method page (workflow diagram + strengths and limits)
+  js/stages.js        ← Journey, Charter, Hand-off and Scoreboard screens
+  js/app.js           ← the other screens, drawer, wizard, persistence
 tests/
   contract_test.js    ← data-layer ↔ UI-layer alignment checks (node tests/contract_test.js)
   e2e_mock_test.js    ← full browser regression in mock mode (never calls the real API)
@@ -169,6 +190,7 @@ docs/
   Capability_Compass_PRD_v3.md          ← revised product spec (v2 → v3 changelog inside)
   Capability_Diagnostic_Rubric_v4.md    ← revised, industry-agnostic scoring standard
   capability_dashboard_skill_v2.md      ← revised dashboard design skill
+  HANDOFF_FORMAT.md                     ← the IDs, grades and file shared with the other three apps
   IMPROVEMENTS.md                       ← research basis for all revisions (with sources)
   screenshots/
 ```
