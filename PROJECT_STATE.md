@@ -4,7 +4,7 @@
 
 - **Owner:** Eric (non-technical) · **Branch:** `claude/org-diagnostic-system-app-syt54v`
 - **What it is:** a zero-install organizational capability diagnostic that runs by double-clicking `app/index.html`. No server, no accounts; all data stays in the browser.
-- **Last updated:** 2026-08-12
+- **Last updated:** 2026-11-11
 
 ## Status: working and fully tested
 
@@ -30,6 +30,22 @@
 | Blueprint — workflow diagram + shipped self-assessment (9 strengths / 9 watch-outs, each with a mitigation) | Done |
 | "How to fill this in" guidance on Value Chain and Roles | Done |
 | Role rubric v4.4 — six criteria, embedded scoring guide with 1/3/5 anchors, legacy migration | Done |
+
+## This session (2026-11-11) — make the Compass the first app of the four-app leapfrog workflow
+
+Owner decisions (2026-11-11): keep one rater per cell · evidence grade is the assessor's judgement with the evidence visible, NOT a two-source rule · optional currency figure per lever, an estimate until validated · add a Stage 1 readiness check and pilot shortlist · one stable ID language across the four apps · multiple named workspaces and a value-stream option · Delta becomes the Stage 5 scoreboard · embed Stage 0 (Frame) here · simplify navigation.
+
+Sibling apps read for context (read-only clones): Org Modeling, Process Map Studio, AI Org Advisory Workbench. None of them knows about the Compass, so there was no hand-off format to match; it is defined here (`docs/HANDOFF_FORMAT.md`).
+
+Increments (each ends green and committed):
+- [ ] I1 — Stable IDs, hand-off logic and contract (`app/js/handoff.js`, schema, contract tests)
+- [ ] I2 — Workspaces (several named diagnostics) and the value-stream option
+- [ ] I3 — Stage 0 Charter view (thesis, principles, reference model, criteria, gate, rules, decision log, lock)
+- [ ] I4 — Evidence grade per cell and signal; cross-app ID on evidence; currency per lever and money at risk
+- [ ] I5 — Stage 1 readiness check, pilot shortlist, hand-off packet and per-app briefs
+- [ ] I6 — Stage 5 scoreboard (trend across versions, forecast check) on the Delta view
+- [ ] I7 — Journey home and stage-ordered navigation
+- [ ] I8 — Docs (GUIDE, README, DECISIONS, HANDOFF_FORMAT), final full mock test
 
 ## Done in the last session
 
