@@ -207,6 +207,146 @@ function bindCharterGate() {
   });
 }
 
-/* ---------- Hand-off (filled in by the Stage 1 increment) ---------- */
-function viewHandoff() { return `<div class="view-note">Hand-off is being built.</div>`; }
-function bindHandoffEvents() {}
+/* ---------- Hand-off: Stage 1 gate, pilot shortlist, packet ---------- */
+const HO_APPS = [
+  { key: "org_modeling", name: "Org Modeling", stage: "Stages 1 and 4", gets: "Your strategy text and the design criteria locked in Stage 0, to score structural options against." },
+  { key: "process_map_studio", name: "Process Map Studio", stage: "Stage 2", gets: "One engagement per pilot, with its process KPI, the roles in scope and the weak cells as interview prompts." },
+  { key: "workbench", name: "AI Org Advisory Workbench", stage: "Stage 3", gets: "The roles to start Task Intelligence with: the pilots' roles and every critical seat." }
+];
+
+function hoGate() {
+  const r = stage1Readiness(state);
+  return `<div class="gate-panel ${r.ready ? "ready" : ""}">
+    <div class="gate-head">
+      <div><h2>Stage 1 gate — <span id="ho-verdict">${esc(r.verdict)}</span></h2>
+        <p>Everything scored, nothing silently dropped, a pilot chosen. <span class="gate-tag must">Must</span> items are the gate; the rest make the hand-off stronger and are your call.</p></div>
+    </div>
+    <ul class="gate-list">${r.checks.map(c => `<li class="${c.ok ? "ok" : "open"}"><span class="gate-mark">${c.ok ? "✓" : "○"}</span>
+      <span><strong>${esc(c.label)}</strong>${c.level === "must" ? '<span class="gate-tag must">Must</span>' : ""} <span class="gate-detail">${esc(c.detail)}</span>
+      ${c.ok || c.view === "handoff" ? "" : `<button class="link-btn" data-goto="${esc(c.view)}">Fix →</button>`}</span></li>`).join("")}</ul>
+  </div>`;
+}
+
+function hoBriefs() {
+  const packet = buildHandoffPacket(state);
+  return HO_APPS.map(a => `<div class="ho-card">
+    <div class="ho-card-head"><h3>${esc(a.name)}</h3><span class="sig-meta">${esc(a.stage)}</span></div>
+    <p class="ho-gets">${esc(a.gets)}</p>
+    <div class="calib-actions">
+      <button class="mini-btn" data-ho-copy="${a.key}">Copy the brief</button>
+      <button class="mini-btn ghost" data-ho-dl="${a.key}">Download as text</button>
+    </div>
+    <details class="ho-preview"><summary>Preview</summary><pre id="ho-pre-${a.key}">${esc(handoffBrief(packet, a.key))}</pre></details>
+  </div>`).join("");
+}
+
+function viewHandoff() {
+  const cands = pilotCandidates(state);
+  const U = unitWord(state);
+  const rows = cands.map(c => {
+    const cl = c.cluster, p = c.pilot;
+    return `<tr class="${p.decision === "pilot" ? "is-pilot" : ""}">
+      <td><span class="ref-chip">${esc(cl.ref)}</span> <strong>${esc(cl.name)}</strong></td>
+      <td>${c.money.hasValue ? "≈ " + fmtMoney(state, c.money.atRisk) + (c.money.validated ? "" : " (est.)") : (c.weight ? "Exposure " + Math.round(c.exposure) : "—")}</td>
+      <td>${c.weak ? c.weak + " weak" + (c.binding ? " · " + esc(c.binding) : "") : "none weak"}</td>
+      <td>${c.seatGaps ? c.seatGaps + " at risk" : "—"}</td>
+      <td><select data-pl-decision="${esc(cl.id)}">
+        <option value="" ${!p.decision ? "selected" : ""}>Decide…</option>
+        <option value="pilot" ${p.decision === "pilot" ? "selected" : ""}>Pilot now</option>
+        <option value="later" ${p.decision === "later" ? "selected" : ""}>Later</option>
+        <option value="out" ${p.decision === "out" ? "selected" : ""}>Not this cycle</option></select></td>
+      <td>${p.decision === "pilot"
+        ? `<div class="pl-pilot"><span class="ref-chip">${esc(p.ref || "")}</span>
+            <input type="text" class="vc-in" data-pl="${esc(cl.id)}|name" value="${esc(p.name || "")}" placeholder="Value stream to map, e.g. Bid to contract renewal">
+            <input type="text" class="vc-in" data-pl="${esc(cl.id)}|kpi" value="${esc(p.kpi || "")}" placeholder="Its process KPI"></div>`
+        : `<input type="text" class="vc-in" data-pl="${esc(cl.id)}|reason" value="${esc(p.reason || "")}" placeholder="${p.decision ? "Why — an exclusion needs a stated reason" : "—"}" ${p.decision ? "" : "disabled"}>`}</td>
+    </tr>`;
+  }).join("");
+
+  return `<div class="view-note"><strong>Stage 1 ends with a decision.</strong> Check the diagnostic is complete, choose where to pilot — and say why each other ${esc(U)} is not chosen — then hand the next app exactly what it needs to start.</div>
+    <section class="print-section">
+      <div id="ho-gate">${hoGate()}</div>
+
+      <div class="vc-tablewrap">
+        <div class="sig-brief-head"><h2>Pilot shortlist</h2>
+          <span class="sig-meta">ranked as on the Priority Board — pilot where money at risk, weak cells and seat gaps point the same way</span></div>
+        <table class="vc-table ho-table">
+          <thead><tr><th>${state.unit === "value-stream" ? "Value stream" : "Capability cluster"}</th><th>Money at risk</th><th>Weak lenses · binding</th><th>Anchor seats</th><th>Decision</th><th>Pilot value stream and KPI — or the reason</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+
+      <div class="vc-tablewrap" style="margin-top:18px">
+        <div class="sig-brief-head"><h2>Hand off to the next app</h2>
+          <span class="sig-meta">one brief per app, shaped to the fields it already has</span>
+          <button class="mini-btn" id="ho-packet">Download the full packet (.json)</button></div>
+        <p class="ho-note">The other three apps cannot read the packet file yet, so each brief is written to be pasted straight into that app. The packet is the complete machine-readable record: every ID, score, grade, pilot and exclusion. It never contains your API key or the text of an uploaded document.</p>
+        <div class="ho-grid" id="ho-briefs">${hoBriefs()}</div>
+        <details class="ho-preview" style="margin-top:12px"><summary>The shared language — IDs and grades used in all four apps</summary>
+          <table class="delta-table"><thead><tr><th>Prefix</th><th>What it names</th><th>Minted by</th><th>Example</th></tr></thead><tbody>
+            ${ID_PREFIXES.map(x => `<tr><td><span class="ref-chip">${x.prefix}</span></td><td>${esc(x.what)}</td><td>${esc(x.owner)}</td><td>${esc(state.charter.engagementKey)}:${x.example}</td></tr>`).join("")}</tbody></table>
+        </details>
+      </div>
+    </section>`;
+}
+
+function downloadText(filename, text, mime) {
+  const blob = new Blob([text], { type: mime || "text/plain" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function copyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text).catch(() => copyTextFallback(text));
+  }
+  return Promise.resolve(copyTextFallback(text));
+}
+function copyTextFallback(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); } catch (e) { /* the preview is still there to copy by hand */ }
+  document.body.removeChild(ta);
+}
+
+function bindHandoffEvents() {
+  if (!$("ho-gate")) return;
+  const slug = () => (state.charter.engagementKey || "compass").toLowerCase();
+  document.querySelectorAll("[data-pl-decision]").forEach(sel => sel.addEventListener("change", () => {
+    const cid = sel.dataset.plDecision;
+    state.pilots[cid] = Object.assign({ reason: "", name: "", kpi: "" }, state.pilots[cid] || {}, { decision: sel.value });
+    if (!sel.value) delete state.pilots[cid];
+    renderAll();
+  }));
+  document.querySelectorAll("[data-pl]").forEach(inp => inp.addEventListener("change", () => {
+    const [cid, field] = inp.dataset.pl.split("|");
+    if (!state.pilots[cid]) return;
+    state.pilots[cid][field] = inp.value.trim();
+    saveState();
+    // Refresh only what depends on it; the table (and the cursor) stay put.
+    afterPointer(() => {
+      if (!$("ho-gate")) return;
+      $("ho-gate").innerHTML = hoGate();
+      $("ho-gate").querySelectorAll("[data-goto]").forEach(el => el.addEventListener("click", () => { activeView = el.dataset.goto; renderView(); }));
+      const packet = buildHandoffPacket(state);
+      HO_APPS.forEach(a => { const pre = $("ho-pre-" + a.key); if (pre) pre.textContent = handoffBrief(packet, a.key); });
+    });
+  }));
+  /* Briefs are built at the moment of the click, so they can never be stale. */
+  document.querySelectorAll("[data-ho-copy]").forEach(b => b.addEventListener("click", () => {
+    copyText(handoffBrief(buildHandoffPacket(state), b.dataset.hoCopy)).then(() => toast("Brief copied — paste it into " + HO_APPS.find(a => a.key === b.dataset.hoCopy).name + "."));
+  }));
+  document.querySelectorAll("[data-ho-dl]").forEach(b => b.addEventListener("click", () => {
+    downloadText(slug() + "_brief_" + b.dataset.hoDl + ".txt", handoffBrief(buildHandoffPacket(state), b.dataset.hoDl));
+  }));
+  $("ho-packet").addEventListener("click", () => {
+    const packet = buildHandoffPacket(state);
+    const errs = validateHandoffPacket(packet);
+    if (errs.length) { toast("Packet not written: " + errs[0]); return; }
+    downloadText(slug() + "_compass_handoff.json", JSON.stringify(packet, null, 2), "application/json");
+    saveState();
+    toast(packet.readiness.ready ? "Hand-off packet downloaded." : "Packet downloaded — it records that Stage 1 is not yet complete.");
+  });
+}

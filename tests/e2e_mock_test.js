@@ -482,6 +482,69 @@ function check(name, cond) {
       return state.clusters.find(x => x.id === "tdx").cells.Culture.grade === "indicated";
     }));
 
+  // ---------- Stage 1 gate, pilot shortlist and hand-off ----------
+  await page.click('.tab[data-view="handoff"]');
+  await page.waitForTimeout(400);
+  check("Stage 1 gate lists eleven checks, four of them must-haves",
+    await page.locator("#ho-gate .gate-list li").count() === 11 && await page.locator("#ho-gate .gate-list .gate-tag.must").count() === 4);
+  check("the demo is ready to hand off", (await page.locator("#ho-verdict").textContent()).startsWith("Ready"));
+  check("pilot shortlist ranks every cluster and shows the two pilots with VS IDs",
+    await page.locator(".ho-table tbody tr").count() === 6 && await page.locator(".ho-table tr.is-pilot").count() === 2 &&
+    (await page.locator(".ho-table tr.is-pilot .pl-pilot .ref-chip").allTextContents()).every(t => /^VS-\d+$/.test(t)));
+  check("the shortlist follows the Priority Board order",
+    (await page.locator(".ho-table tbody tr strong").first().textContent()) ===
+    await page.evaluate(() => orderClustersForBoard(state, state.boardSort || "auto").clusters[0].name));
+
+  await page.locator('[data-pl="enabling|reason"]').fill("");
+  await page.locator('[data-pl="enabling|reason"]').dispatchEvent("change");
+  await page.waitForTimeout(300);
+  check("NOTHING SILENTLY DROPPED: removing an exclusion's reason closes the gate",
+    (await page.locator("#ho-verdict").textContent()).startsWith("Not ready"));
+  await page.locator('[data-pl="enabling|reason"]').fill("Small economic weight; covered elsewhere.");
+  await page.locator('[data-pl="enabling|reason"]').dispatchEvent("change");
+  await page.waitForTimeout(300);
+  check("restating the reason reopens it, without redrawing the table",
+    (await page.locator("#ho-verdict").textContent()).startsWith("Ready") &&
+    (await page.locator('[data-pl="enabling|reason"]').inputValue()).startsWith("Small economic"));
+
+  await page.selectOption('[data-pl-decision="gateway"]', "pilot");
+  await page.waitForTimeout(400);
+  check("choosing a third pilot mints the next value-stream ID and asks for its name and KPI",
+    await page.evaluate(() => state.pilots.gateway.ref === "VS-03") &&
+    (await page.locator("#ho-verdict").textContent()).startsWith("Not ready"));
+  await page.fill('[data-pl="gateway|name"]', "Export cargo acceptance");
+  await page.locator('[data-pl="gateway|name"]').dispatchEvent("change");
+  await page.fill('[data-pl="gateway|kpi"]', "Acceptance to ready-for-carriage, minutes");
+  await page.locator('[data-pl="gateway|kpi"]').dispatchEvent("change");
+  await page.waitForTimeout(300);
+  check("naming the pilot and its KPI completes the gate again",
+    (await page.locator("#ho-verdict").textContent()).startsWith("Ready"));
+  check("the Process Map Studio brief picks the new pilot up immediately",
+    (await page.locator("#ho-pre-process_map_studio").textContent()).includes("MERIDIAN VS-03 Export cargo acceptance"));
+
+  const briefDl = page.waitForEvent("download", { timeout: 5000 });
+  await page.click('[data-ho-dl="org_modeling"]');
+  const briefFile = await briefDl.catch(() => null);
+  const briefText = briefFile ? require("fs").readFileSync(await briefFile.path(), "utf8") : "";
+  check("the Org Modeling brief downloads with the engagement key in its name",
+    !!briefFile && briefFile.suggestedFilename() === "meridian_brief_org_modeling.txt");
+  check("it carries the strategy text and the six weighted criteria, ready to paste",
+    briefText.includes("STRATEGY (paste into the strategy box)") && briefText.includes("weights total 100") &&
+    (briefText.match(/DC-\d/g) || []).length === 6);
+  check("the shared ID vocabulary is shown for all four apps",
+    await page.locator(".ho-preview .delta-table tbody tr").count() === await page.evaluate(() => ID_PREFIXES.length));
+  await page.selectOption('[data-pl-decision="gateway"]', "later");
+  await page.waitForTimeout(300);
+  await page.fill('[data-pl="gateway|reason"]', "Revisit after the safety-culture work reports.");
+  await page.locator('[data-pl="gateway|reason"]').dispatchEvent("change");
+  await page.waitForTimeout(300);
+  await page.click('.tab[data-view="journey"]');
+  await page.waitForTimeout(300);
+  await page.locator(".jr-card").nth(2).locator("[data-goto]").click();
+  await page.waitForTimeout(300);
+  check("'Get the brief' on a stage run by another app opens the Hand-off view",
+    await page.locator("#ho-gate").count() === 1);
+
   // ---------- v4 rubric: drawer confidence, evidence mix, watch signals ----------
   await page.click('.tab[data-view="matrix"]');
   await page.waitForTimeout(300);
@@ -777,6 +840,27 @@ function check(name, cond) {
     return validateState(parsed).length === 0;
   }, exported);
   check("export → import round-trip passes contract validation", importOk);
+
+  // The hand-off packet: complete, valid, and free of the key and of document text
+  await page.click('.tab[data-view="handoff"]');
+  await page.waitForTimeout(400);
+  const pkDl = page.waitForEvent("download", { timeout: 5000 });
+  await page.click("#ho-packet");
+  const pkFile = await pkDl.catch(() => null);
+  const pkRaw = pkFile ? require("fs").readFileSync(await pkFile.path(), "utf8") : "{}";
+  const pk = JSON.parse(pkRaw);
+  check("the hand-off packet downloads as <engagement key>_compass_handoff.json",
+    !!pkFile && pkFile.suggestedFilename() === "meridian_compass_handoff.json");
+  check("the downloaded packet passes its contract", await page.evaluate(p => validateHandoffPacket(p).length === 0, pk));
+  check("PRIVACY: the packet holds no API key although one is set in this browser",
+    !/apiKey|api_key|sk-ant/.test(pkRaw) && await page.evaluate(() => getApiConfig().apiKey === "mock"));
+  check("PRIVACY: the packet holds no uploaded document text although eight documents are loaded",
+    !pkRaw.includes("CRM deployed to 8 of 12 sites") && !pkRaw.includes("scale hub-of-the-future globally") &&
+    await page.evaluate(() => state.documents.length === 8));
+  check("the packet carries the cross-app finding cited on a cell (X5) and the graded signal",
+    pkRaw.includes('"ref": "X5"') && pk.signals.some(sg => sg.grade === "hypothesis" && /^SG-\d+$/.test(sg.ref)));
+  check("the packet's frontend view and its data agree (same pilots as on screen)",
+    pk.pilots.length === await page.locator(".ho-table tr.is-pilot").count());
 
   // Trajectory reflects the applied signal (regression: engine still in range)
   await page.click('.tab[data-view="trajectory"]');

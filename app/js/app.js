@@ -232,7 +232,15 @@ function stateFromPreset(preset, orgName, streams) {
    reliably reported), and a timer guarantees the redraw always happens. */
 let pointerDownAt = 0, renderPending = false;
 function pointerIsDown() { return pointerDownAt > 0 && Date.now() - pointerDownAt < 700; }
-function flushRender() { if (renderPending && state && !pointerIsDown()) { renderPending = false; renderAll(); } }
+const afterPointerQueue = [];
+function flushRender() {
+  if (pointerIsDown() || !state) return;
+  if (renderPending) { renderPending = false; afterPointerQueue.length = 0; renderAll(); return; }
+  while (afterPointerQueue.length) afterPointerQueue.shift()();
+}
+/* Run a partial screen refresh now, or — if a click is in progress —
+   as soon as it has landed. Same reason as the deferred redraw. */
+function afterPointer(fn) { if (pointerIsDown()) afterPointerQueue.push(fn); else fn(); }
 document.addEventListener("mousedown", e => {
   pointerDownAt = /^(SELECT|OPTION)$/.test(e.target.tagName) ? 0 : Date.now();
   setTimeout(flushRender, 800);

@@ -984,3 +984,22 @@ footer { max-width: 1560px; margin: 0 auto; padding: 8px 22px 34px 22px; font-si
 .ev-row .ev-ref { max-width: 62px; flex: none; text-align: center; }
 .sig-grade { margin-left: auto; border: 1px solid var(--line); border-radius: 7px; padding: 3px 6px; background: #fff; font-size: 11.5px; }
 .drawer-head .grade-pill { margin-left: 4px; }
+/* Hand-off */
+.link-btn { background: none; border: 0; padding: 0; color: var(--accent); font-family: var(--head); font-weight: 700; font-size: 11.5px; cursor: pointer; }
+.ho-table td { vertical-align: middle; font-size: 12.5px; }
+.ho-table select { border: 1px solid var(--line); border-radius: 7px; padding: 5px 6px; background: #fff; font-size: 12px; }
+.ho-table tr.is-pilot td { background: #F4F7FC; }
+.pl-pilot { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px; align-items: center; }
+.ho-note { font-size: 12.5px; color: var(--muted); margin: 0 0 12px 0; max-width: 110ch; }
+.ho-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.ho-card { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 13px 15px; background: var(--card); min-width: 0; }
+.ho-card-head { display: flex; align-items: baseline; gap: 8px; justify-content: space-between; }
+.ho-card h3 { margin: 0; font-size: 14.5px; }
+.ho-gets { font-size: 12.5px; color: var(--muted); margin: 6px 0 2px 0; min-height: 52px; }
+.ho-preview > summary { cursor: pointer; font-family: var(--head); font-weight: 700; font-size: 12px; color: var(--navy); margin-top: 10px; }
+.ho-preview pre {
+  background: var(--l1); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 11.5px; line-height: 1.5;
+  white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow: auto; margin: 8px 0 0 0;
+}
+@media (max-width: 1100px) { .ho-grid { grid-template-columns: 1fr; } .pl-pilot { grid-template-columns: 1fr; } }
+#ho-gate .gate-panel { margin: 0 0 14px 0; }
