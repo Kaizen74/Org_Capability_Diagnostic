@@ -119,7 +119,27 @@ function check(name, cond) {
 
   await page.click('.tab[data-view="delta"]');
   await page.waitForTimeout(300);
-  check("delta renders rows against demo baseline", await page.locator(".delta-table tbody tr").count() > 0);
+  check("delta renders rows against demo baseline", await page.locator(".delta-table:not(.sb-table):not(.fc-table) tbody tr").count() > 0);
+
+  // ---------- Stage 5 scoreboard: trend and forecast check ----------
+  check("scoreboard shows one column per saved version plus now",
+    await page.locator(".sb-table").first().locator("thead th").count() === 4);
+  check("it tracks three headline measures and every cluster",
+    await page.locator(".sb-table").first().locator("tbody tr").count() === 3 &&
+    await page.locator(".sb-table").nth(1).locator("tbody tr").count() === 6);
+  check("each cluster has a trend line with a text description for screen readers",
+    await page.locator(".spark").count() === 6 && (await page.locator(".spark").first().getAttribute("aria-label")).includes("from"));
+  check("movement is stated in words and symbols, never by colour alone",
+    (await page.locator(".sb-table .mv").allTextContents()).every(t => /▲|▼|→/.test(t)));
+  const fcUi = await page.evaluate(() => { const f = forecastCheck(state); return { hits: f.hits, misses: f.misses, pending: f.pending, nocall: f.nocall, rate: f.rate }; });
+  check("forecast check reports how many of last cycle's calls were right",
+    (await page.locator(".sb-big").textContent()) === fcUi.rate + "%" &&
+    (await page.locator(".sb-n").allTextContents()).join() === [fcUi.hits, fcUi.misses, fcUi.pending, fcUi.nocall].join());
+  check("calls that were wrong or are still waiting are on screen; the rest is one click away",
+    await page.locator(".sb-fc > .fc-table tbody tr").count() === fcUi.misses + fcUi.pending &&
+    await page.locator(".fc-rest:not([open])").count() === 1);
+  check("a call with no evidence on the day is shown as 'No call made', not counted as right",
+    fcUi.nocall > 0 && fcUi.hits + fcUi.misses + fcUi.pending + fcUi.nocall === 24);
 
   // ---------- Value Chain: follow the money ----------
   await page.click('.tab[data-view="valuechain"]');

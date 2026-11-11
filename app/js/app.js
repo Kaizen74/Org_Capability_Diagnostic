@@ -1502,7 +1502,7 @@ function applyFinding(analysisId, findingIndex) {
 function viewDelta() {
   if (!state.versions.length) {
     return `<div class="delta-empty"><strong>No saved versions yet.</strong><br>
-      Click “Save version” in the top bar to snapshot the current diagnostic. Future changes can then be compared here — and momentum in the Trajectory view will use the snapshot as its baseline.</div>`;
+      Click “Save version” in the top bar to snapshot the current diagnostic. That snapshot is the baseline the scoreboard measures every later cycle against — and what the Trajectory view reads direction from.</div>`;
   }
   const opts = state.versions.map((v, i) =>
     `<option value="${i}" ${i === state.versions.length - 1 ? "selected" : ""}>${esc(v.version)} — ${esc(v.label)} (${new Date(v.savedAt).toLocaleDateString()})</option>`).join("");
@@ -1520,7 +1520,9 @@ function viewDelta() {
       <td>${esc(r.cell.rationale || "—")}</td>
     </tr>`).join("")
     : `<tr><td colspan="4" style="text-align:center;color:var(--muted)">No differences between ${esc(base.version)} and the current working state.</td></tr>`;
-  return `<div class="view-note">Recalibration read — what changed since a saved baseline, and why. Level moves are sorted declines-first.</div>
+  return `<div class="view-note"><strong>Stage 5 — Deliver.</strong> The scoreboard: the trend across every saved version, whether last cycle's directional calls were right, and exactly what changed since a baseline you choose.</div>
+    <section class="print-section">${scoreboardHtml()}</section>
+    <div class="sig-brief-head" style="margin:18px 22px 6px 22px"><h2>What changed, and why</h2><span class="sig-meta">declines first, each with its logged rationale</span></div>
     <div class="delta-controls"><label class="head" style="font-weight:800;font-size:12px">Compare current state against:</label>
       <select id="delta-base">${opts}</select></div>
     <section class="print-section"><table class="delta-table">

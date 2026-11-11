@@ -350,3 +350,76 @@ function bindHandoffEvents() {
     toast(packet.readiness.ready ? "Hand-off packet downloaded." : "Packet downloaded — it records that Stage 1 is not yet complete.");
   });
 }
+
+/* ---------- Scoreboard: Stage 5 (drawn above the Delta table) ---------- */
+function sparkline(series) {
+  const pts = series.map((v, i) => ({ v, i })).filter(p => p.v !== null);
+  if (pts.length < 2) return "";
+  const W = 120, H = 26, pad = 4;
+  const x = i => pad + (i / (series.length - 1)) * (W - pad * 2);
+  const y = v => H - pad - ((v - 1) / 3) * (H - pad * 2);       // fixed 1–4 scale: rows are comparable
+  const last = pts[pts.length - 1];
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Level over ${pts.length} points, from ${fmt1(pts[0].v)} to ${fmt1(last.v)}">
+    <polyline points="${pts.map(p => x(p.i).toFixed(1) + "," + y(p.v).toFixed(1)).join(" ")}"></polyline>
+    <circle cx="${x(last.i).toFixed(1)}" cy="${y(last.v).toFixed(1)}" r="3"></circle></svg>`;
+}
+
+function moveWord(d) {
+  if (Math.abs(d) < 0.05) return `<span class="mv flat">→ no change</span>`;
+  return d > 0 ? `<span class="mv up">▲ +${fmt1(d)}</span>` : `<span class="mv down">▼ ${fmt1(d)}</span>`;
+}
+
+const FC_WORD = {
+  hit: { sym: "✓", word: "Right" }, miss: { sym: "✕", word: "Wrong" },
+  pending: { sym: "…", word: "Not yet" }, nocall: { sym: "?", word: "No call made" }
+};
+
+function scoreboardHtml() {
+  const tr = versionTrend(state), fc = forecastCheck(state);
+  const pts = tr.points, first = pts[0], last = pts[pts.length - 1];
+  const head = pts.map(p => `<th>${esc(p.label)}${p.when ? `<span>${new Date(p.when).toLocaleDateString()}</span>` : ""}</th>`).join("");
+  const kpiRow = (label, get, fmt, betterDown) => `<tr><td><strong>${label}</strong></td>
+    ${pts.map(p => `<td>${fmt(get(p))}</td>`).join("")}
+    <td>${(() => { const d = get(last) - get(first); const shown = betterDown ? -d : d;
+      return Math.abs(d) < 0.05 ? '<span class="mv flat">→ no change</span>' : `<span class="mv ${shown > 0 ? "up" : "down"}">${d > 0 ? "▲ +" : "▼ "}${fmt(Math.abs(d)) === fmt(d) ? fmt(d) : (d > 0 ? fmt(d) : "−" + fmt(Math.abs(d)))}</span>`; })()}</td></tr>`;
+  const clusterRows = tr.rows.map(r => {
+    const vals = r.series.filter(v => v !== null);
+    return `<tr><td><span class="ref-chip">${esc(r.cluster.ref || "")}</span> <strong>${esc(r.cluster.name)}</strong></td>
+      ${r.series.map(v => `<td>${v === null ? "—" : fmt1(v)}</td>`).join("")}
+      <td>${sparkline(r.series)}</td><td>${vals.length > 1 ? moveWord(vals[vals.length - 1] - vals[0]) : "—"}</td></tr>`;
+  }).join("");
+
+  const fcBlock = fc ? `<div class="sb-fc">
+      <div class="sig-brief-head"><h2>Were last cycle's calls right?</h2>
+        <span class="sig-meta">each direction called at ${esc(fc.baseline)}, checked against what the level has done since</span></div>
+      <div class="sb-tally">
+        <div class="sb-rate"><span class="sb-big">${fc.rate === null ? "—" : fc.rate + "%"}</span><span>of calls that can be judged were right</span></div>
+        ${["hit", "miss", "pending", "nocall"].map(k => `<div class="sb-count fc-${k}"><span class="sb-n">${fc[{ hit: "hits", miss: "misses", pending: "pending", nocall: "nocall" }[k]]}</span><span>${FC_WORD[k].sym} ${FC_WORD[k].word}</span></div>`).join("")}
+      </div>
+      <p class="ch-note">“Not yet” is an improving or at-risk call whose level has not moved: the forecast runs two cycles, so it is not wrong yet. A call that is wrong twice means the leading indicator behind it should be replaced.</p>
+      ${(() => {
+        const row = r => `<tr class="fc-${r.verdict}"><td><strong>${esc(r.cluster.name)}</strong> · ${esc(r.lensName)}</td>
+          <td>${r.call.sym} ${r.call.word}</td><td>L${r.from} → L${r.to}</td>
+          <td><span class="fc-pill fc-${r.verdict}">${FC_WORD[r.verdict].sym} ${FC_WORD[r.verdict].word}</span></td></tr>`;
+        const tbl = rows => `<table class="delta-table fc-table"><thead><tr><th>Cell</th><th>Call at ${esc(fc.baseline)}</th><th>Level then → now</th><th>Verdict</th></tr></thead><tbody>${rows.map(row).join("")}</tbody></table>`;
+        const look = fc.rows.filter(r => r.verdict === "miss" || r.verdict === "pending");
+        const rest = fc.rows.filter(r => r.verdict === "hit" || r.verdict === "nocall");
+        // What needs a second look is always on screen; the rest is one click away.
+        return (look.length ? tbl(look) : `<div class="alert-empty">No call was wrong and none is still waiting.</div>`) +
+          (rest.length ? `<details class="ho-preview fc-rest"><summary>${rest.length} more — right, or no call made</summary>${tbl(rest)}</details>` : "");
+      })()}
+    </div>` : "";
+
+  return `<div class="vc-tablewrap sb-wrap">
+      <div class="sig-brief-head"><h2>Scoreboard</h2>
+        <span class="sig-meta">is the system lifting capability, cycle by cycle? ${pts.length - 1} saved version${pts.length === 2 ? "" : "s"} and now</span></div>
+      <table class="delta-table sb-table"><thead><tr><th></th>${head}<th>Since ${esc(first.label)}</th></tr></thead><tbody>
+        ${kpiRow("Average maturity (of 4)", p => p.avg, v => fmt1(v), false)}
+        ${kpiRow("Cells needing action", p => p.weak, v => String(Math.round(v)), true)}
+        ${kpiRow("Scores citing a source (%)", p => p.grounded, v => String(Math.round(v)), false)}
+      </tbody></table>
+      <table class="delta-table sb-table" style="margin-top:12px"><thead><tr><th>${state.unit === "value-stream" ? "Value stream" : "Capability cluster"}</th>${head}<th>Trend</th><th>Since ${esc(first.label)}</th></tr></thead>
+        <tbody>${clusterRows}</tbody></table>
+      ${pts.length < 3 ? `<p class="ch-note">One saved version gives a before and an after. Save a version at every recalibration and this becomes a trend.</p>` : ""}
+    </div>${fcBlock}`;
+}
