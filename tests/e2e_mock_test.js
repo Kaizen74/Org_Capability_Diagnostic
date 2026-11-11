@@ -762,6 +762,74 @@ function check(name, cond) {
   check("REGRESSION FIX: upload works on a fresh wizard-created diagnostic (no 'push of undefined')",
     await page.locator(".doc-row").count() === 1);
 
+  // ---------- Workspaces: several named diagnostics, never overwriting each other ----------
+  const wsCount = async () => page.evaluate(() => [...document.querySelectorAll("#ws-switch option")].filter(o => !o.disabled && !o.value.startsWith("__")).length);
+  check("starting a new diagnostic kept the demo as its own workspace", await wsCount() === 2);
+  const demoWsId = await page.evaluate(() => wsReadIndex().list.find(w => /demo/i.test(w.name)).id);
+  await page.selectOption("#ws-switch", demoWsId);
+  await page.waitForTimeout(500);
+  const backInDemo = await page.evaluate(() => ({
+    org: state.orgName, docs: state.documents.length, roles: state.clusters.reduce((a, c) => a + c.roles.length, 0),
+    parkedSelf: localStorage.getItem("capability_compass_ws_" + state.workspaceId)
+  }));
+  check("switching workspace restores the other diagnostic intact (documents, roles, scores)",
+    backInDemo.org.includes("Meridian") && backInDemo.docs === 8 && backInDemo.roles >= 19);
+  check("the active workspace is stored once, not duplicated", backInDemo.parkedSelf === null);
+
+  await page.selectOption("#ws-switch", "__new__");
+  await page.waitForTimeout(400);
+  await page.click('[data-preset="aviation-logistics"]');
+  await page.waitForTimeout(300);
+  await page.fill("#wiz-org", "Meridian Group");
+  await page.fill("#wiz-ws", "Gateway segment");
+  await page.check('[name="wiz-unit"][value="value-stream"]');
+  await page.fill("#wiz-streams", "Export cargo handling\nImport cargo and delivery\nGround turn operations");
+  await page.click("#wiz-go");
+  await page.waitForTimeout(600);
+  await page.click('.tab[data-view="matrix"]');
+  await page.waitForTimeout(300);
+  const vsWs = await page.evaluate(() => ({
+    unit: state.unit, n: state.clusters.length, refs: state.clusters.map(c => c.ref).join(), levers: state.valueChain.levers.length,
+    name: state.workspaceName, head: document.querySelector(".mh.corner").textContent
+  }));
+  check("a value-stream workspace scores the streams the owner named", vsWs.unit === "value-stream" && vsWs.n === 3 && await page.locator(".cell").count() === 12);
+  check("its rows carry value-stream IDs and the matrix says 'Value stream'", vsWs.refs === "VS-01,VS-02,VS-03" && vsWs.head.includes("Value stream"));
+  check("it starts with no orphan levers pointing at clusters it does not have", vsWs.levers === 0);
+  check("three workspaces now listed, the new one active", await wsCount() === 3 && vsWs.name === "Gateway segment");
+  check("every workspace passes the contract",
+    await page.evaluate(() => wsReadIndex().list.every(w => {
+      const raw = w.id === state.workspaceId ? localStorage.getItem("capability_compass_state_v1") : localStorage.getItem("capability_compass_ws_" + w.id);
+      return raw && validateState(migrateState(JSON.parse(raw))).length === 0;
+    })));
+  check("no workspace store contains the API key",
+    await page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith("capability_compass_ws_") || k === "capability_compass_workspaces_v1" || k === "capability_compass_state_v1")
+      .every(k => !/apiKey|sk-ant/.test(localStorage.getItem(k)))));
+
+  await page.selectOption("#ws-switch", "__manage__");
+  await page.waitForTimeout(300);
+  await page.fill("#wsm-name", "Gateway Services");
+  await page.click("#wsm-save");
+  await page.waitForTimeout(300);
+  check("a workspace can be renamed", (await page.locator("#ws-switch option:checked").textContent()) === "Gateway Services");
+  await page.reload();
+  await page.waitForTimeout(600);
+  check("the active workspace survives a reload", await page.evaluate(() => state.workspaceName === "Gateway Services" && state.unit === "value-stream"));
+
+  // An imported file becomes its own workspace — it never overwrites the one on screen
+  const exportedWs = await page.evaluate(() => JSON.stringify(Object.assign(JSON.parse(localStorage.getItem("capability_compass_state_v1")), { workspaceName: "Imported copy" })));
+  await page.setInputFiles("#file-import", { name: "backup.json", mimeType: "application/json", buffer: Buffer.from(exportedWs) });
+  await page.waitForTimeout(600);
+  check("importing a backup adds a workspace instead of replacing the current one",
+    await wsCount() === 4 && await page.evaluate(() => state.workspaceName === "Imported copy"));
+
+  await page.selectOption("#ws-switch", "__manage__");
+  await page.waitForTimeout(300);
+  page.once("dialog", d => d.accept());
+  await page.click("#wsm-delete");
+  await page.waitForTimeout(600);
+  check("deleting a workspace removes only that one and lands in another",
+    await wsCount() === 3 && await page.evaluate(() => !!state && state.workspaceName !== "Imported copy"));
+
   const realErrors = jsErrors.filter(e => !e.includes("ERR_TUNNEL") && !e.includes("Failed to load resource"));
   check("no JavaScript errors during the whole run", realErrors.length === 0);
   if (realErrors.length) console.log("  JS errors:", realErrors);

@@ -39,7 +39,7 @@ Sibling apps read for context (read-only clones): Org Modeling, Process Map Stud
 
 Increments (each ends green and committed):
 - [x] I1 — Stable IDs, hand-off logic and contract (`app/js/handoff.js`, schema, contract tests)
-- [ ] I2 — Workspaces (several named diagnostics) and the value-stream option
+- [x] I2 — Workspaces (several named diagnostics) and the value-stream option
 - [ ] I3 — Stage 0 Charter view (thesis, principles, reference model, criteria, gate, rules, decision log, lock)
 - [ ] I4 — Evidence grade per cell and signal; cross-app ID on evidence; currency per lever and money at risk
 - [ ] I5 — Stage 1 readiness check, pilot shortlist, hand-off packet and per-app briefs

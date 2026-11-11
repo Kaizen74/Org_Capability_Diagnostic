@@ -26,8 +26,74 @@ function toast(msg) {
 }
 
 function saveState() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); wsRegister(state); }
   catch (e) { toast("Warning: could not save locally (" + e.message + ")"); }
+}
+
+/* ---------- Workspaces: several named diagnostics in one browser ---------- */
+/* A new diagnostic never overwrites the one on screen: the current one
+   is parked first and stays one click away in the workspace list. */
+function adoptNewState(fresh, name) {
+  if (state) { saveState(); wsPark(state); }
+  fresh.workspaceId = wsNewId();
+  fresh.workspaceName = (name || fresh.orgName || "Workspace").trim();
+  state = fresh;
+}
+
+function switchWorkspace(id) {
+  if (!state || id === state.workspaceId) return;
+  try {
+    saveState(); wsPark(state);
+    const next = wsTakeParked(id);
+    if (!next) { wsTakeParked(state.workspaceId); toast("That workspace could not be found."); renderAll(); return; }
+    state = migrateState(next);
+    closeDrawer(); activeView = "journey"; renderAll();
+    toast("Switched to “" + state.workspaceName + "”.");
+  } catch (e) { toast(e.message); }
+}
+
+function renderWorkspaceSwitch() {
+  const sel = $("ws-switch");
+  if (!sel || !state) return;
+  const ix = wsReadIndex();
+  const rows = ix.list.length ? ix.list : [{ id: state.workspaceId, name: state.workspaceName }];
+  sel.innerHTML = rows.map(w => `<option value="${esc(w.id)}" ${w.id === state.workspaceId ? "selected" : ""}>${esc(w.name)}</option>`).join("") +
+    `<option disabled>──────────</option>
+     <option value="__new__">＋ New workspace…</option>
+     <option value="__manage__">Rename or delete this one…</option>`;
+}
+
+function openWorkspaceManager() {
+  const others = wsReadIndex().list.filter(w => w.id !== state.workspaceId);
+  openModal(`
+    <button class="m-close" id="m-close">✕</button>
+    <h2>This workspace</h2>
+    <p class="m-sub">A workspace is one complete diagnostic. Keep one for the group and one per segment or client; they never mix. ${others.length ? "You also have: " + others.map(w => esc(w.name)).join(", ") + "." : "This is your only workspace."}</p>
+    <div class="m-field"><label>Workspace name</label><input type="text" id="wsm-name" value="${esc(state.workspaceName)}"></div>
+    <div class="m-row">
+      <button class="btn-plain danger" id="wsm-delete">Delete this workspace</button>
+      <span class="grow"></span>
+      <button class="btn-navy" id="wsm-save">Save name</button>
+    </div>`);
+  $("m-close").addEventListener("click", () => { closeModal(); renderWorkspaceSwitch(); });
+  $("wsm-save").addEventListener("click", () => {
+    state.workspaceName = $("wsm-name").value.trim() || state.workspaceName;
+    closeModal(); renderAll(); toast("Workspace renamed.");
+  });
+  $("wsm-delete").addEventListener("click", () => {
+    if (!confirm(`Delete the workspace “${state.workspaceName}” and everything in it?\n\nExport a JSON backup first if you may want it back. Your other workspaces are not affected.`)) return;
+    const gone = state.workspaceId;
+    const next = wsReadIndex().list.filter(w => w.id !== gone)[0];
+    wsForget(gone);
+    localStorage.removeItem(STORE_KEY);
+    state = null; closeModal(); closeDrawer();
+    if (next) {
+      state = migrateState(wsTakeParked(next.id));
+      activeView = "journey"; renderAll(); toast("Workspace deleted. Now in “" + state.workspaceName + "”.");
+    } else {
+      $("view").innerHTML = ""; $("kpis").innerHTML = ""; openWizard(false);
+    }
+  });
 }
 function loadState() {
   try {
@@ -107,8 +173,14 @@ const DEFAULT_VC_STAGES = [
 const docBlobs = {};
 
 /* ---------- Blank diagnostic from a preset ---------- */
-function stateFromPreset(preset, orgName) {
-  const clusters = preset.clusters.map(c => {
+function stateFromPreset(preset, orgName, streams) {
+  /* A value-stream workspace scores a business segment end to end: the
+     rows are the streams the owner names, not the preset's functions. */
+  const useStreams = Array.isArray(streams) && streams.length > 0;
+  const rows = useStreams
+    ? streams.map((n, i) => ({ id: "vs_" + (i + 1) + "_" + n.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 24), no: i + 1, name: n, desc: "", priority_move: "Score this value stream from evidence, then name the one move that matters." }))
+    : preset.clusters;
+  const clusters = rows.map(c => {
     const cells = {};
     DEFAULT_LENSES.forEach(l => {
       cells[l.key] = {
@@ -135,10 +207,13 @@ function stateFromPreset(preset, orgName) {
     /* The industry preset seeds the STRUCTURE of the money map, never
        the numbers. Weights start at 0 so nothing is fabricated — the
        board keeps saying "weakest-first" until real weights arrive. */
+    unit: useStreams ? "value-stream" : "capability",
     valueChain: {
       currency: "$", revenue: "", as_of: "",
       stages: DEFAULT_VC_STAGES.map(x => ({ ...x })),
-      levers: JSON.parse(JSON.stringify(preset.value_levers || []))
+      /* The preset's starter levers point at the preset's clusters, so a
+         value-stream workspace starts with none rather than orphans. */
+      levers: useStreams ? [] : JSON.parse(JSON.stringify(preset.value_levers || []))
     },
     vc_seeded: true,
     boardSort: "auto",
@@ -150,6 +225,7 @@ function stateFromPreset(preset, orgName) {
    RENDERING
    ============================================================ */
 function renderAll() {
+  ensureRefs(state);
   document.documentElement.style.setProperty("--lens-count", state.lenses.length);
   $("org-name").textContent = state.orgName + " · " + state.industry_name;
   const fv = $("footer-version");
@@ -159,6 +235,7 @@ function renderAll() {
   renderKpis();
   renderView();
   saveState();
+  renderWorkspaceSwitch();   // after the save, which is what lists a new workspace
 }
 
 function renderKpis() {
@@ -236,7 +313,7 @@ function viewMatrix() {
   const cal = calibrationSummary(state);
   const ordered = orderClustersForBoard(state, state.boardSort || "auto");
   const head = `<div class="matrix-head">
-      <div class="mh corner">Capability cluster<span class="sub">Weight · priority move always visible</span></div>
+      <div class="mh corner">${state.unit === "value-stream" ? "Value stream" : "Capability cluster"}<span class="sub">Weight · priority move always visible</span></div>
       ${state.lenses.map(l => `<div class="mh">${esc(l.name)}<span class="sub">${esc(l.sub)}</span></div>`).join("")}
     </div>`;
   const rows = ordered.clusters.map(cl => {
@@ -250,7 +327,7 @@ function viewMatrix() {
     <div class="matrix-row">
       <div class="cluster-head">
         <button class="c-edit" data-editcluster="${esc(cl.id)}" title="Edit cluster">Edit</button>
-        <span class="c-no">CLUSTER ${cl.no}</span>
+        <span class="c-no" title="Stable ID — quote it in the other apps">${esc(cl.ref || ("CLUSTER " + cl.no))}</span>
         <span class="c-name">${esc(cl.name)}</span>
         <span class="c-desc">${esc(cl.desc)}</span>
         ${matChip}
@@ -735,6 +812,7 @@ function mergeCluster(fromId, intoId) {
   state.valueChain.levers.forEach(l => { if (l.cluster_id === fromId) l.cluster_id = intoId; });
   into.roles = (into.roles || []).concat(from.roles || []);
   state.clusters = state.clusters.filter(c => c.id !== fromId);
+  if (state.pilots) delete state.pilots[fromId];
   renumberClusters();
   return true;
 }
@@ -746,6 +824,7 @@ function removeCluster(id) {
   if (!confirm(`Remove “${cl.name}” from the diagnostic?\n\nIts ratings, evidence and roles go with it. Any P&L lever mapped to it becomes unmapped, and saved version snapshots keep the history.`)) return false;
   state.valueChain.levers.forEach(l => { if (l.cluster_id === id) l.cluster_id = ""; });
   state.clusters = state.clusters.filter(c => c.id !== id);
+  if (state.pilots) delete state.pilots[id];
   renumberClusters();
   return true;
 }
@@ -1782,7 +1861,7 @@ function openWizard(allowCancel) {
     </div>`);
   if (allowCancel) $("m-close").addEventListener("click", closeModal);
   document.querySelectorAll("[data-demo]").forEach(b => b.addEventListener("click", () => {
-    state = migrateState(buildDemoState()); closeModal(); activeView = "matrix"; renderAll();
+    adoptNewState(migrateState(buildDemoState()), "Meridian Group (demo)"); closeModal(); activeView = "matrix"; renderAll();
     toast("Demo loaded — fictional data. Use the menu to start fresh anytime.");
   }));
   document.querySelectorAll("[data-preset]").forEach(b => b.addEventListener("click", () => wizardPreview(b.dataset.preset)));
@@ -1795,6 +1874,12 @@ function wizardPreview(presetId) {
     <p class="m-sub">${esc(p.description)} Review the scaffold, name your organisation, then generate. Every cluster, move, and rating is editable later.</p>
     <div class="m-field"><label>Organisation name</label>
       <input type="text" id="wiz-org" value="My Organisation"></div>
+    <div class="m-field"><label>Workspace name — what this diagnostic covers (for example “Group” or a segment)</label>
+      <input type="text" id="wiz-ws" placeholder="Defaults to the organisation name"></div>
+    <div class="m-field"><label>What are you scoring?</label>
+      <label class="wiz-radio"><input type="radio" name="wiz-unit" value="capability" checked> <span><strong>Capability clusters</strong> — the ${p.clusters.length} listed below. Best for a whole-enterprise view.</span></label>
+      <label class="wiz-radio"><input type="radio" name="wiz-unit" value="value-stream"> <span><strong>Value streams</strong> — one business segment, end to end. You name the streams; each becomes a row.</span></label>
+      <textarea id="wiz-streams" style="display:none" placeholder="One value stream per line, for example:&#10;Export cargo handling&#10;Import cargo and delivery&#10;Ground turn operations"></textarea></div>
     <div class="wiz-preview">
       <h4>Capability clusters (${p.clusters.length})</h4>
       <ul>${p.clusters.map(c => `<li><strong>${esc(c.name)}</strong> — ${esc(c.desc)}<br><em style="color:var(--accent)">➜ ${esc(c.priority_move)}</em></li>`).join("")}</ul>
@@ -1809,10 +1894,21 @@ function wizardPreview(presetId) {
       <button class="btn-navy" id="wiz-go">Generate diagnostic</button>
     </div>`);
   $("wiz-back").addEventListener("click", () => openWizard(!!state));
+  document.querySelectorAll('[name="wiz-unit"]').forEach(r => r.addEventListener("change", () => {
+    $("wiz-streams").style.display = r.value === "value-stream" && r.checked ? "block" : "none";
+    document.querySelector(".wiz-preview").style.display = r.value === "value-stream" && r.checked ? "none" : "block";
+  }));
   $("wiz-go").addEventListener("click", () => {
-    state = migrateState(stateFromPreset(p, $("wiz-org").value.trim()));
+    const unit = document.querySelector('[name="wiz-unit"]:checked').value;
+    let streams = null;
+    if (unit === "value-stream") {
+      streams = [...new Set($("wiz-streams").value.split("\n").map(x => x.trim()).filter(Boolean))].slice(0, 12);
+      if (streams.length < 2) { toast("Name at least two value streams, one per line."); return; }
+    }
+    const org = $("wiz-org").value.trim();
+    adoptNewState(migrateState(stateFromPreset(p, org, streams)), $("wiz-ws").value.trim() || org);
     closeModal(); activeView = "matrix"; renderAll();
-    toast("Diagnostic scaffold created. Click any cell to start rating with evidence.");
+    toast("Workspace created. Start with the Charter, then ground and score.");
   });
 }
 
@@ -1890,8 +1986,8 @@ function openSettings() {
     <h2 style="font-size:15px;margin-top:18px">Priority Board hero patterns</h2>
     ${heroes}
     <div class="m-row">
-      <button class="btn-plain" id="set-wizard">Change industry / start fresh…</button>
-      <button class="btn-plain" id="set-reset" style="color:var(--amber-deep)">Erase all local data</button>
+      <button class="btn-plain" id="set-wizard">New workspace…</button>
+      <button class="btn-plain" id="set-reset" style="color:var(--amber-deep)">Erase all workspaces</button>
       <span class="grow"></span>
       <button class="btn-navy" id="set-save">Save settings</button>
     </div>`);
@@ -1931,8 +2027,8 @@ function openSettings() {
   });
   $("set-wizard").addEventListener("click", () => openWizard(true));
   $("set-reset").addEventListener("click", () => {
-    if (confirm("Erase ALL locally stored diagnostic data? Export a JSON backup first if you want to keep it.")) {
-      localStorage.removeItem(STORE_KEY);
+    if (confirm("Erase ALL workspaces stored in this browser? Export a JSON backup of each one you want to keep first.")) {
+      wsEraseAll(STORE_KEY);
       state = null; closeModal(); openWizard(false);
     }
   });
@@ -1978,9 +2074,12 @@ function importJson(file) {
       const parsed = migrateState(JSON.parse(reader.result));
       const errs = validateState(parsed);
       if (errs.length) throw new Error(errs[0]);
-      state = parsed;
+      /* An imported file arrives as its own workspace, so it can never
+         overwrite the diagnostic that happens to be on screen. */
+      adoptNewState(parsed, parsed.workspaceName || parsed.orgName);
+      activeView = "journey";
       renderAll();
-      toast("Import successful — file passed contract validation.");
+      toast("Imported as a new workspace — the file passed contract validation.");
     } catch (e) { toast("Import failed: " + e.message); }
   };
   reader.readAsText(file);
@@ -1999,6 +2098,12 @@ document.addEventListener("DOMContentLoaded", () => {
   $("file-roles").addEventListener("change", e => { if (e.target.files[0]) importRolesCsv(e.target.files[0]); e.target.value = ""; });
   $("btn-report").addEventListener("click", () => window.print());
   $("btn-settings").addEventListener("click", openSettings);
+  $("ws-switch").addEventListener("change", e => {
+    const v = e.target.value;
+    if (v === "__new__") { renderWorkspaceSwitch(); openWizard(true); }
+    else if (v === "__manage__") { renderWorkspaceSwitch(); openWorkspaceManager(); }
+    else switchWorkspace(v);
+  });
   $("drawer-backdrop").addEventListener("click", closeDrawer);
   document.addEventListener("keydown", e => { if (e.key === "Escape") { closeDrawer(); closeModal(); } });
 
