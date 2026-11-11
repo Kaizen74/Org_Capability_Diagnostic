@@ -13,7 +13,10 @@
 const { chromium } = require("playwright");
 const path = require("path");
 
-const CHROMIUM = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+/* No hard-coded browser path: a pinned build number breaks the suite the
+   moment the machine's Chromium is updated. Playwright finds its own
+   browser; CHROMIUM_PATH overrides when a specific one is wanted. */
+const CHROMIUM = process.env.CHROMIUM_PATH || undefined;
 const APP_URL = "file://" + path.resolve(__dirname, "..", "app", "index.html");
 
 /* Build a small but fully valid PDF with a real text layer (exact xref
@@ -45,7 +48,7 @@ function check(name, cond) {
 }
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: CHROMIUM });
+  const browser = await chromium.launch(CHROMIUM ? { executablePath: CHROMIUM } : {});
   const page = await browser.newPage({ viewport: { width: 1440, height: 950 } });
   const jsErrors = [];
   page.on("pageerror", e => jsErrors.push(e.message));
