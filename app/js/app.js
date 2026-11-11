@@ -6,7 +6,7 @@
 
 const STORE_KEY = "capability_compass_state_v1";
 let state = null;
-let activeView = "matrix";
+let activeView = "journey";
 let drawerCtx = null; // { clusterId, lensKey, pendingLevel }
 
 /* ---------- Utilities ---------- */
@@ -224,7 +224,24 @@ function stateFromPreset(preset, orgName, streams) {
 /* ============================================================
    RENDERING
    ============================================================ */
+/* A field's "change" fires as it loses focus — which is usually the
+   mouse-down of the very button the user is about to click. Redrawing
+   at that instant replaces the button under the pointer and the click
+   is lost. So a redraw requested while the mouse is down waits until
+   the click has landed. Drop-downs are exempt (their mouse-up is not
+   reliably reported), and a timer guarantees the redraw always happens. */
+let pointerDownAt = 0, renderPending = false;
+function pointerIsDown() { return pointerDownAt > 0 && Date.now() - pointerDownAt < 700; }
+function flushRender() { if (renderPending && state && !pointerIsDown()) { renderPending = false; renderAll(); } }
+document.addEventListener("mousedown", e => {
+  pointerDownAt = /^(SELECT|OPTION)$/.test(e.target.tagName) ? 0 : Date.now();
+  setTimeout(flushRender, 800);
+}, true);
+document.addEventListener("mouseup", () => { pointerDownAt = 0; setTimeout(flushRender, 0); }, true);
+
 function renderAll() {
+  if (pointerIsDown()) { renderPending = true; return; }
+  renderPending = false;
   ensureRefs(state);
   document.documentElement.style.setProperty("--lens-count", state.lenses.length);
   $("org-name").textContent = state.orgName + " · " + state.industry_name;
@@ -273,7 +290,10 @@ function renderView() {
   else if (activeView === "valuechain") el.innerHTML = viewValueChain();
   else if (activeView === "roles") el.innerHTML = viewRoles();
   else if (activeView === "blueprint") el.innerHTML = viewBlueprint();
-  else el.innerHTML = viewDelta();
+  else if (activeView === "charter") el.innerHTML = viewCharter();
+  else if (activeView === "handoff") el.innerHTML = viewHandoff();
+  else if (activeView === "delta") el.innerHTML = viewDelta();
+  else el.innerHTML = viewJourney();
   bindViewEvents();
 }
 
@@ -1477,6 +1497,8 @@ function bindViewEvents() {
   document.querySelectorAll("[data-goto]").forEach(el => el.addEventListener("click", () => {
     activeView = el.dataset.goto; renderView();
   }));
+  bindCharterEvents();
+  bindHandoffEvents();
   bindSignalEvents();
   bindEvidenceEvents();
   bindValueChainEvents();
@@ -1861,7 +1883,7 @@ function openWizard(allowCancel) {
     </div>`);
   if (allowCancel) $("m-close").addEventListener("click", closeModal);
   document.querySelectorAll("[data-demo]").forEach(b => b.addEventListener("click", () => {
-    adoptNewState(migrateState(buildDemoState()), "Meridian Group (demo)"); closeModal(); activeView = "matrix"; renderAll();
+    adoptNewState(migrateState(buildDemoState()), "Meridian Group (demo)"); closeModal(); activeView = "journey"; renderAll();
     toast("Demo loaded — fictional data. Use the menu to start fresh anytime.");
   }));
   document.querySelectorAll("[data-preset]").forEach(b => b.addEventListener("click", () => wizardPreview(b.dataset.preset)));
@@ -1907,7 +1929,7 @@ function wizardPreview(presetId) {
     }
     const org = $("wiz-org").value.trim();
     adoptNewState(migrateState(stateFromPreset(p, org, streams)), $("wiz-ws").value.trim() || org);
-    closeModal(); activeView = "matrix"; renderAll();
+    closeModal(); activeView = "journey"; renderAll();
     toast("Workspace created. Start with the Charter, then ground and score.");
   });
 }

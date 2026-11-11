@@ -60,6 +60,10 @@ function check(name, cond) {
   check("wizard opens on first run", await page.locator(".modal-backdrop.open").count() === 1);
   await page.click("[data-demo]");
   await page.waitForTimeout(500);
+  check("a new workspace lands on the Journey, not in the middle of the detail",
+    await page.locator(".jr-card").count() === 6 && await page.locator(".tab.active").getAttribute("data-view") === "journey");
+  await page.click('.tab[data-view="matrix"]');
+  await page.waitForTimeout(300);
   check("matrix renders 24 cells", await page.locator(".cell").count() === 24);
   check("amber action pills on weak cells", await page.locator(".action-pill").count() === 3);
   check("5 KPI chips", await page.locator(".kpi").count() === 5);
@@ -719,6 +723,8 @@ function check(name, cond) {
   await page.waitForTimeout(300);
   await page.click("#wiz-go");
   await page.waitForTimeout(500);
+  await page.click('.tab[data-view="matrix"]');
+  await page.waitForTimeout(300);
   check("fresh diagnostic renders 24 cells", await page.locator(".cell").count() === 24);
   check("fresh cells show '? Unknown' trajectory — never a guessed arrow",
     await page.locator(".momo-unknown").count() === 24);
@@ -762,6 +768,92 @@ function check(name, cond) {
   check("REGRESSION FIX: upload works on a fresh wizard-created diagnostic (no 'push of undefined')",
     await page.locator(".doc-row").count() === 1);
 
+  // ---------- Stage 0: the Charter (on the fresh workspace) ----------
+  await page.click('.tab[data-view="journey"]');
+  await page.waitForTimeout(300);
+  check("a fresh workspace's journey starts at Stage 0 with nothing marked done",
+    (await page.locator(".jr-next strong").textContent()).includes("Stage 0") && await page.locator(".jr-card.st-done").count() === 0);
+  await page.click(".jr-next [data-goto]");
+  await page.waitForTimeout(400);
+  check("'Continue' on the journey opens the Charter", await page.locator("#ch-gate").count() === 1);
+  check("Stage 0 gate lists six checks; the defaults already satisfy three",
+    await page.locator("#ch-gate .gate-list li").count() === 6 && await page.locator("#ch-gate .gate-list li.ok").count() === 3);
+  check("only the sections that need the owner's words start open",
+    (await page.locator(".ch-sec[open]").evaluateAll(els => els.map(e => e.dataset.sec).join())) === "thesis,principles,decisions");
+  for (const k of ["serve", "outcome", "profit", "moat", "scale"]) {
+    await page.fill(`[data-ch="thesis.${k}"]`, "Test " + k + " statement.");
+    await page.locator(`[data-ch="thesis.${k}"]`).dispatchEvent("change");
+  }
+  await page.waitForTimeout(200);
+  check("the gate updates as the thesis is written, without redrawing the page",
+    (await page.locator("#ch-gate .gate-list li").first().getAttribute("class")).includes("ok") &&
+    (await page.locator('[data-ch="thesis.scale"]').inputValue()) === "Test scale statement.");
+  for (let i = 0; i < 3; i++) {
+    await page.click('[data-ch-add="principles"]');
+    await page.waitForTimeout(150);
+    await page.fill(`[data-ch="principles.${i}.text"]`, "Principle " + (i + 1));
+    await page.locator(`[data-ch="principles.${i}.text"]`).dispatchEvent("change");
+    await page.fill(`[data-ch="principles.${i}.refute"]`, "Refuted by evidence " + (i + 1));
+    await page.locator(`[data-ch="principles.${i}.refute"]`).dispatchEvent("change");
+  }
+  check("principles are numbered P1 to P3 and each carries what would refute it",
+    await page.evaluate(() => state.charter.principles.map(p => p.ref).join() === "P1,P2,P3" && state.charter.principles.every(p => p.refute)));
+  await page.fill('[data-ch="sponsor"]', "Group sponsor");
+  await page.locator('[data-ch="sponsor"]').dispatchEvent("change");
+  for (let i = 0; i < 6; i++) {
+    await page.fill(`[data-ch="decisions.${i}.owner"]`, "Owner " + i);
+    await page.locator(`[data-ch="decisions.${i}.owner"]`).dispatchEvent("change");
+  }
+  await page.waitForTimeout(200);
+  check("with thesis, principles and owners in, every Stage 0 check is met",
+    await page.locator("#ch-gate .gate-list li.ok").count() === 6);
+
+  await page.locator('.ch-sec[data-sec="criteria"] > summary').click();
+  await page.fill('[data-ch="criteria.0.weight"]', "30");
+  await page.locator('[data-ch="criteria.0.weight"]').dispatchEvent("change");
+  await page.waitForTimeout(200);
+  check("criteria that no longer total 100 fail the gate and say so",
+    (await page.locator("#ch-total").textContent()) === "105" && await page.locator("#ch-gate .gate-list li.ok").count() === 5);
+  await page.fill('[data-ch="criteria.0.weight"]', "25");
+  await page.locator('[data-ch="criteria.0.weight"]').dispatchEvent("change");
+  await page.waitForTimeout(200);
+
+  await page.click("#ch-lock");
+  await page.waitForTimeout(400);
+  const locked = await page.evaluate(() => ({
+    at: !!state.charter.lockedAt, dec0: state.charter.decisions[0].status,
+    disabled: document.querySelector('[data-ch="thesis.serve"]').disabled,
+    ownerEditable: !document.querySelector('[data-ch="decisions.1.owner"]').disabled
+  }));
+  check("locking the charter freezes the rules and records the Stage 0 decision",
+    locked.at && locked.dec0 === "decided" && locked.disabled && await page.locator(".gate-panel.locked").count() === 1);
+  check("the decision log stays writable after the lock", locked.ownerEditable);
+  page.once("dialog", d => d.accept("Sponsor changed the weighting after the offsite"));
+  await page.click("#ch-amend");
+  await page.waitForTimeout(400);
+  const amended = await page.evaluate(() => ({
+    open: state.charter.lockedAt === null, n: state.charter.amendments.length,
+    logged: state.charter.decisions.some(d => /Charter reopened: Sponsor changed/.test(d.decision) && /^DEC-\d+$/.test(d.ref))
+  }));
+  check("reopening a locked charter needs a reason, and the reason lands in the decision log",
+    amended.open && amended.n === 1 && amended.logged);
+  await page.fill('[data-ch="sponsor"]', "");
+  await page.locator('[data-ch="sponsor"]').dispatchEvent("change");
+  let lockDialog = "";
+  page.once("dialog", d => { lockDialog = d.message(); d.accept(); });
+  await page.click("#ch-lock");
+  await page.waitForTimeout(400);
+  check("FLEXIBLE BUT VISIBLE: locking with an item open is allowed, warned, and recorded",
+    lockDialog.includes("still open") &&
+    await page.evaluate(() => !!state.charter.lockedAt && state.charter.decisions.some(d => /locked with 1 item\(s\) open/.test(d.decision))));
+  check("the charter passes the data contract",
+    await page.evaluate(() => validateState(JSON.parse(localStorage.getItem("capability_compass_state_v1"))).length === 0));
+  await page.click('.tab[data-view="journey"]');
+  await page.waitForTimeout(300);
+  check("the journey now shows Stage 0 done and moves the next step to Stage 1",
+    (await page.locator(".jr-card").first().getAttribute("class")).includes("st-done") &&
+    (await page.locator(".jr-next strong").textContent()).includes("Stage 1"));
+
   // ---------- Workspaces: several named diagnostics, never overwriting each other ----------
   const wsCount = async () => page.evaluate(() => [...document.querySelectorAll("#ws-switch option")].filter(o => !o.disabled && !o.value.startsWith("__")).length);
   check("starting a new diagnostic kept the demo as its own workspace", await wsCount() === 2);
@@ -795,6 +887,20 @@ function check(name, cond) {
   check("a value-stream workspace scores the streams the owner named", vsWs.unit === "value-stream" && vsWs.n === 3 && await page.locator(".cell").count() === 12);
   check("its rows carry value-stream IDs and the matrix says 'Value stream'", vsWs.refs === "VS-01,VS-02,VS-03" && vsWs.head.includes("Value stream"));
   check("it starts with no orphan levers pointing at clusters it does not have", vsWs.levers === 0);
+  // Regression: typing in a field and clicking a button straight away must not lose the click
+  await page.click('.tab[data-view="valuechain"]');
+  await page.waitForTimeout(300);
+  await page.click("#vc-add");
+  await page.waitForTimeout(300);
+  await page.fill('[data-lv="name|0"]', "Yield per tonne");      // no blur, no change event yet
+  await page.click("#vc-add");                                   // the blur and the click arrive together
+  await page.waitForTimeout(400);
+  check("REGRESSION FIX: a button clicked straight after typing still works (redraw waits for the click)",
+    await page.evaluate(() => state.valueChain.levers.length === 2 && state.valueChain.levers[0].name === "Yield per tonne"));
+  check("levers added by hand get stable IDs too",
+    await page.evaluate(() => state.valueChain.levers.map(l => l.ref).join() === "LV-01,LV-02"));
+  await page.evaluate(() => { state.valueChain.levers[1].name = "Cost per tonne"; renderAll(); });
+
   check("three workspaces now listed, the new one active", await wsCount() === 3 && vsWs.name === "Gateway segment");
   check("every workspace passes the contract",
     await page.evaluate(() => wsReadIndex().list.every(w => {
