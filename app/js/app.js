@@ -319,7 +319,7 @@ function cellHtml(cluster, lens) {
     </span>
     <span class="meta">
       <span class="momo ${t.known ? "" : "momo-unknown"}" title="${esc(trajTitle)}"><span class="sym">${ml.sym}</span>${ml.word}</span>
-      ${conf.grounded ? `<span class="conf-dot">◈ ${esc(conf.label)}</span>` : '<span class="unsupported">Unsupported</span>'}
+      ${conf.grounded ? `<span class="conf-dot" ${cell.grade ? `title="Evidence grade: ${gradeMeta(cell.grade).label}"` : ""}>◈ ${esc(conf.label)}${cell.grade ? " · " + gradeMeta(cell.grade).label : ""}</span>` : '<span class="unsupported">Unsupported</span>'}
     </span>
   </button>`;
 }
@@ -340,7 +340,7 @@ function viewMatrix() {
     const mat = clusterMateriality(state, cl);
     const matChip = mat.mapped
       ? (mat.weight
-        ? `<span class="mat-chip" title="${esc(mat.levers.map(l => l.name).join('; '))}">◧ ${mat.weight}% of P&L weight · ${mat.share}% of the mapped money</span>`
+        ? `<span class="mat-chip" title="${esc(mat.levers.map(l => l.name).join('; '))}">◧ ${mat.weight}% of P&L weight${(() => { const m = clusterMoney(state, cl); return m.hasValue ? " · ≈ " + fmtMoney(state, m.atRisk) + " at risk" + (m.validated ? "" : " (est.)") : " · " + mat.share + "% of the mapped money"; })()}</span>`
         : `<span class="mat-chip none" title="No P&L lever maps to this cluster">◧ no economic weight mapped</span>`)
       : "";
     return `
@@ -405,6 +405,7 @@ function viewBoard() {
         ${weak ? `<span class="b-flagpill">⚑ ${weak} ${weak > 1 ? "lenses need" : "lens needs"} action</span>` : ""}
         <span class="b-velocity">${ct.known ? `${ml.sym} ${ml.word} (${fmtSigned(ct.m)})` : "? direction unknown"}</span>
         ${exp.weight ? `<span class="b-exposure" title="Economic weight ${exp.weight}% × capability gap">◧ Exposure ${Math.round(exp.exposure)}</span>` : ""}
+        ${(() => { const m = clusterMoney(state, cl); return m.hasValue ? `<span class="b-money" title="Amount at stake ${fmtMoney(state, m.stake)} × capability gap. ${m.validated ? "Validated by finance." : "An estimate until finance validates it."}">≈ ${fmtMoney(state, m.atRisk)} at risk${m.validated ? "" : " (est.)"}</span>` : ""; })()}
         ${cov.gaps.length ? `<span class="b-flagpill" title="${esc(cov.gaps.map(r => r.title).join('; '))}">⚑ ${cov.gaps.length} anchor seat${cov.gaps.length > 1 ? "s" : ""} ${cov.gaps.every(r => r.status === "absent") ? "absent" : "at risk"}</span>` : ""}
       </div>
       <div class="pm-banner"><span class="arrow">➜</span><span>${esc(cl.priority_move)}</span></div>
@@ -522,7 +523,11 @@ function viewSignals() {
       return `<div class="sig-card">
         <div class="sig-head">
           <span class="sig-dir ${d.cls}">${d.sym} ${d.word}</span>
-          <h3>${esc(sig.headline)}</h3>
+          <h3>${sig.ref ? `<span class="ref-chip">${esc(sig.ref)}</span> ` : ""}${esc(sig.headline)}</h3>
+          <select class="sig-grade" data-sig-grade="${esc(b.id)}|${si}" title="Your judgement of how solid this signal is">
+            <option value="">Grade…</option>
+            ${EVIDENCE_GRADES.map(g => `<option value="${g.key}" ${sig.grade === g.key ? "selected" : ""}>${g.signal} (${g.label})</option>`).join("")}
+          </select>
         </div>
         <p class="sig-summary">${esc(sig.summary)}</p>
         <p class="sig-meta">Source: ${esc(sig.source || "—")}${sig.source_quality ? ` <span class="src-q q${sig.source_quality}" title="Source quality 1–5: 5 = primary (filings, regulator, the organisation itself), 4 = reputable secondary, 3 = trade aggregate, 2 = SEO farm, 1 = content mill">Q${sig.source_quality}</span>` : ""}${sig.calibration_note ? ` · <em>${esc(sig.calibration_note)}</em>` : ""}</p>
@@ -558,6 +563,13 @@ function bindSignalEvents() {
   document.querySelectorAll("[data-apply-sig]").forEach(b => b.addEventListener("click", () => {
     const [bid, si, cid] = b.dataset.applySig.split("|");
     applySignal(bid, parseInt(si, 10), cid);
+  }));
+  document.querySelectorAll("[data-sig-grade]").forEach(sel => sel.addEventListener("change", () => {
+    const [bid, si] = sel.dataset.sigGrade.split("|");
+    const br = state.briefings.find(x => x.id === bid);
+    if (!br) return;
+    br.signals[parseInt(si, 10)].grade = sel.value;
+    saveState();
   }));
   document.querySelectorAll("[data-del-brief]").forEach(b => b.addEventListener("click", () => {
     state.briefings = state.briefings.filter(x => x.id !== b.dataset.delBrief);
@@ -658,8 +670,10 @@ function viewValueChain() {
     const cl = state.clusters.find(c => c.id === l.cluster_id);
     const gap = cl ? clusterValueExposure(state, cl, state.lenses) : null;
     return `<tr>
-      <td><input type="text" class="vc-in" data-lv="name|${i}" value="${esc(l.name)}" placeholder="P&L lever"></td>
+      <td><div class="lv-name"><span class="ref-chip">${esc(l.ref || "")}</span><input type="text" class="vc-in" data-lv="name|${i}" value="${esc(l.name)}" placeholder="P&L lever"></div></td>
       <td><input type="text" class="vc-in narrow" data-lv="figure|${i}" value="${esc(l.figure || "")}" placeholder="figure"></td>
+      <td><div class="lv-stake"><input type="number" class="vc-in tiny" data-lv="value_at_stake|${i}" value="${typeof l.value_at_stake === "number" ? l.value_at_stake : ""}" min="0" step="any" placeholder="—">
+        <label title="Tick once finance has validated this figure"><input type="checkbox" data-lv="validated|${i}" ${l.validated ? "checked" : ""}> validated</label></div></td>
       <td><input type="number" class="vc-in tiny" data-lv="share_pct|${i}" value="${l.share_pct}" min="0" max="100" step="1"></td>
       <td><input type="text" class="vc-in" data-lv="capability|${i}" value="${esc(l.capability || "")}" placeholder="capability that moves it"></td>
       <td><select data-lv="cluster_id|${i}">
@@ -679,6 +693,7 @@ function viewValueChain() {
           <div><label>Currency</label><input type="text" id="vc-currency" value="${esc(vc.currency || "")}" style="width:70px"></div>
           <div><label>Revenue</label><input type="text" id="vc-revenue" value="${esc(vc.revenue || "")}" placeholder="e.g. 6.35B"></div>
           <div><label>As of</label><input type="text" id="vc-asof" value="${esc(vc.as_of || "")}" placeholder="e.g. FY2026"></div>
+          <div><label title="The unit your amounts at stake are in, e.g. m or bn">Amounts in</label><input type="text" id="vc-unit" value="${esc(vc.value_unit || "")}" placeholder="e.g. m" style="width:60px"></div>
         </div>
         <div class="vc-flow">${stages}</div>
       </div>
@@ -688,10 +703,19 @@ function viewValueChain() {
           <h2>From P&amp;L lever to critical capability</h2>
           <span class="sig-meta">${vc.levers.length} levers · ${mapped}% of weight mapped to clusters${total !== 100 && total > 0 ? ` · weights total ${total}% (they need not sum to 100)` : ""}</span>
           <button class="mini-btn" id="vc-add">＋ Add lever</button>
+          ${vc.levers.some(l => l.value_at_stake > 0) ? `<button class="mini-btn ghost" id="vc-derive" title="Set each weight to the lever's share of the total amount at stake">Weights from amounts</button>` : ""}
         </div>
+        ${(() => {
+          const valued = vc.levers.filter(l => l.value_at_stake > 0);
+          if (!valued.length) return `<p class="money-line">Optional: put an estimated amount at stake on each lever and the app shows money at risk in currency. Weights alone are enough to rank.</p>`;
+          const atRisk = state.clusters.reduce((a, c) => a + clusterMoney(state, c).atRisk, 0);
+          const stake = valued.reduce((a, l) => a + l.value_at_stake, 0);
+          const ok = valued.filter(l => l.validated).length;
+          return `<p class="money-line"><strong>${fmtMoney(state, atRisk)} at risk</strong> of ${fmtMoney(state, stake)} at stake — amount at stake × capability gap. <span class="est-tag">${ok === valued.length ? "Finance-validated" : "Estimate — " + ok + " of " + valued.length + " figures validated"}</span></p>`;
+        })()}
         <table class="vc-table">
-          <thead><tr><th>P&amp;L lever</th><th>Figure</th><th title="Share of economic weight">Weight %</th><th>Capability that moves it</th><th>Cluster that owns it</th><th title="Economic weight × capability gap">Exposure</th><th></th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="7" style="text-align:center;color:var(--muted)">No levers yet — add the handful of drivers that actually move your P&L.</td></tr>'}</tbody>
+          <thead><tr><th>P&amp;L lever</th><th>Figure</th><th title="Optional: your estimate of the amount this lever puts at stake, in ${esc((vc.currency || "") + (vc.value_unit || ""))}. An estimate until finance validates it.">At stake (est.)</th><th title="Share of economic weight">Weight %</th><th>Capability that moves it</th><th>Cluster that owns it</th><th title="Economic weight × capability gap">Exposure</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="8" style="text-align:center;color:var(--muted)">No levers yet — add the handful of drivers that actually move your P&L.</td></tr>'}</tbody>
         </table>
         ${unmapped.length ? `<p class="sig-meta" style="margin-top:8px">⚑ ${unmapped.length} lever${unmapped.length > 1 ? "s" : ""} not yet mapped to a cluster — that money has no capability owner in this diagnostic.</p>` : ""}
       </div>
@@ -915,6 +939,15 @@ function bindValueChainEvents() {
   cur.addEventListener("change", () => { state.valueChain.currency = cur.value.trim(); save(); });
   $("vc-revenue").addEventListener("change", () => { state.valueChain.revenue = $("vc-revenue").value.trim(); save(); });
   $("vc-asof").addEventListener("change", () => { state.valueChain.as_of = $("vc-asof").value.trim(); save(); });
+  $("vc-unit").addEventListener("change", () => { state.valueChain.value_unit = $("vc-unit").value.trim(); renderAll(); });
+  const derive = $("vc-derive");
+  if (derive) derive.addEventListener("click", () => {
+    const tot = state.valueChain.levers.reduce((a, l) => a + (l.value_at_stake > 0 ? l.value_at_stake : 0), 0);
+    if (!tot) return;
+    if (state.valueChain.levers.some(l => l.share_pct > 0) && !confirm("Replace the current weights with each lever's share of the total amount at stake?")) return;
+    state.valueChain.levers.forEach(l => { l.share_pct = l.value_at_stake > 0 ? Math.round((l.value_at_stake / tot) * 100) : 0; });
+    renderAll(); toast("Weights set from the amounts at stake.");
+  });
   document.querySelectorAll("[data-vc-stage]").forEach(inp => inp.addEventListener("change", () => {
     state.valueChain.stages[parseInt(inp.dataset.vcStage, 10)].note = inp.value.trim(); save();
   }));
@@ -925,7 +958,12 @@ function bindValueChainEvents() {
   document.querySelectorAll("[data-lv]").forEach(el => el.addEventListener("change", () => {
     const [field, idx] = el.dataset.lv.split("|");
     const lever = state.valueChain.levers[parseInt(idx, 10)];
-    lever[field] = field === "share_pct" ? Math.max(0, Math.min(100, parseFloat(el.value) || 0)) : el.value.trim();
+    if (field === "share_pct") lever[field] = Math.max(0, Math.min(100, parseFloat(el.value) || 0));
+    else if (field === "validated") lever.validated = el.checked;
+    else if (field === "value_at_stake") {
+      const v = parseFloat(el.value);
+      if (isNaN(v) || v <= 0) { delete lever.value_at_stake; lever.validated = false; } else lever.value_at_stake = v;
+    } else lever[field] = el.value.trim();
     renderAll();
   }));
   document.querySelectorAll("[data-lv-del]").forEach(b => b.addEventListener("click", () => {
@@ -1064,7 +1102,7 @@ function viewRoles() {
   const roleRows = (cluster.roles || []).map(r => {
     const s = roleSummary(r);
     return `<tr>
-      <td><input type="text" class="vc-in" data-role="title|${esc(r.id)}" value="${esc(r.title)}"></td>
+      <td><div class="lv-name"><span class="ref-chip">${esc(r.ref || "")}</span><input type="text" class="vc-in" data-role="title|${esc(r.id)}" value="${esc(r.title)}"></div></td>
       <td><select data-role="status|${esc(r.id)}">
         ${Object.keys(STATUS_META).map(k => `<option value="${k}" ${r.status === k ? "selected" : ""}>${STATUS_META[k].label}</option>`).join("")}
       </select></td>
@@ -1703,6 +1741,7 @@ function renderDrawer() {
     <div class="ev-row">
       <input type="text" value="${esc(ev.label)}" data-ev-label="${i}" placeholder="Source (e.g. Engagement Survey 2026)">
       <input type="text" value="${esc(ev.note || "")}" data-ev-note="${i}" placeholder="What it evidences">
+      <input type="text" class="ev-ref" value="${esc(ev.ref || "")}" data-ev-ref="${i}" placeholder="ID" title="Optional: the ID of a finding from another app — a discrepancy (X5), a step (S-03), a hypothesis (H2)">
       <button class="mini-btn danger" data-ev-del="${i}">✕</button>
     </div>`).join("");
 
@@ -1719,6 +1758,7 @@ function renderDrawer() {
         <span>${ml.sym} ${ml.word}${t.known ? ` (${fmtSigned(t.m)}) · ${t.confidence} confidence` : ""}</span>
         <span>${esc(cls)}${t.known && proj !== cell.level ? ` · toward L${proj} within 2 cycles IF indicators hold` : ""}</span>
         ${conf.grounded ? "" : '<span class="unsupported">Unsupported — add evidence</span>'}
+        ${cell.grade ? `<span class="grade-pill g-${esc(cell.grade)}">${gradeMeta(cell.grade).label}</span>` : ""}
       </div>
       <div class="d-meta" style="margin-top:5px">
         <span class="mix-badge ${mixMeta.cls}">${esc(mixMeta.label)}</span>
@@ -1758,6 +1798,14 @@ function renderDrawer() {
       </div>
       <div class="d-section">
         <h4>Evidence sources (grounding guardrail)</h4>
+        <div class="grade-row">
+          <label for="d-grade">Evidence grade — your judgement</label>
+          <select id="d-grade">
+            <option value="">Not graded yet</option>
+            ${EVIDENCE_GRADES.map(g => `<option value="${g.key}" ${cell.grade === g.key ? "selected" : ""}>${g.label} — ${esc(g.means)}</option>`).join("")}
+          </select>
+          <span class="grade-basis">Rests on ${(cell.evidence || []).length} source${(cell.evidence || []).length === 1 ? "" : "s"}, ${(cell.leading || []).length} leading indicator${(cell.leading || []).length === 1 ? "" : "s"}${(cell.evidence || []).some(e => e.ref) ? ", " + (cell.evidence || []).filter(e => e.ref).length + " cross-app finding(s)" : ""}. The app shows this; it does not decide the grade.</span>
+        </div>
         <div id="ev-list">${evRows || '<p style="font-size:12px;color:var(--muted);margin:0">No sources yet — this rating is flagged as unsupported until you cite at least one.</p>'}</div>
         <button class="mini-btn" id="ev-add" style="margin-top:6px">＋ Add evidence source</button>
       </div>
@@ -1825,6 +1873,11 @@ function persistDrawerFields(cluster, cell, includeLevel) {
   document.querySelectorAll("[data-li-sig]").forEach(sel => { cell.leading[parseInt(sel.dataset.liSig, 10)].signal = sel.value; });
   document.querySelectorAll("[data-ev-label]").forEach(inp => { cell.evidence[parseInt(inp.dataset.evLabel, 10)].label = inp.value.trim(); });
   document.querySelectorAll("[data-ev-note]").forEach(inp => { cell.evidence[parseInt(inp.dataset.evNote, 10)].note = inp.value.trim(); });
+  document.querySelectorAll("[data-ev-ref]").forEach(inp => {
+    const v = inp.value.trim();
+    if (v) cell.evidence[parseInt(inp.dataset.evRef, 10)].ref = v; else delete cell.evidence[parseInt(inp.dataset.evRef, 10)].ref;
+  });
+  if ($("d-grade")) cell.grade = $("d-grade").value;
   cell.watch = cell.watch || [];
   document.querySelectorAll("[data-w]").forEach(inp => { cell.watch[parseInt(inp.dataset.w, 10)] = inp.value.trim(); });
   cell.evidence = cell.evidence.filter(e => e.label || e.note);

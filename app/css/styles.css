@@ -968,3 +968,19 @@ footer { max-width: 1560px; margin: 0 auto; padding: 8px 22px 34px 22px; font-si
 .tab { padding: 10px 11px; }
 .tab-divider { margin: 0 5px 10px 5px; }
 .tab-step { color: #55627C; font-weight: 900; align-self: flex-end; margin: 0 1px 11px 1px; }
+.lv-name { display: flex; align-items: center; gap: 6px; }
+.lv-stake { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.lv-stake label { font-size: 10.5px; color: var(--muted); display: flex; align-items: center; gap: 3px; font-weight: 400; text-transform: none; letter-spacing: 0; }
+.money-line { font-size: 12.5px; color: var(--muted); margin: 6px 0 8px 0; }
+.money-line strong { font-family: var(--head); color: var(--ink); font-size: 14px; }
+.est-tag, .b-money {
+  font-family: var(--head); font-weight: 700; font-size: 10.5px; color: var(--amber-deep);
+  background: var(--amber-bg); border: 1px solid #EBD9BE; border-radius: 999px; padding: 2px 9px; white-space: nowrap;
+}
+.grade-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 9px; }
+.grade-row label { font-family: var(--head); font-weight: 800; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.grade-row select { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: #fff; font-size: 12.5px; max-width: 100%; }
+.grade-basis { font-size: 11.5px; color: var(--muted); }
+.ev-row .ev-ref { max-width: 62px; flex: none; text-align: center; }
+.sig-grade { margin-left: auto; border: 1px solid var(--line); border-radius: 7px; padding: 3px 6px; background: #fff; font-size: 11.5px; }
+.drawer-head .grade-pill { margin-left: 4px; }

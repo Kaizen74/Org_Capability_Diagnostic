@@ -409,6 +409,79 @@ function check(name, cond) {
     legacyImport.t.locked === 2.5 && legacyImport.a.impact === undefined &&
     legacyImport.route === "critical");
 
+  // ---------- Money at risk in currency (optional, an estimate until validated) ----------
+  await page.click('.tab[data-view="valuechain"]');
+  await page.waitForTimeout(400);
+  check("every lever shows its stable ID", await page.locator(".vc-table .ref-chip").count() === 7 &&
+    (await page.locator(".vc-table .ref-chip").first().textContent()) === "LV-01");
+  const moneyLine = await page.locator(".money-line").textContent();
+  check("money at risk is stated in currency and labelled an estimate",
+    /\$[\d.,]+m at risk/.test(moneyLine) && moneyLine.includes("Estimate — 0 of 7 figures validated"));
+  await page.locator('[data-lv="validated|0"]').check();
+  await page.waitForTimeout(400);
+  check("ticking a lever as finance-validated updates the label",
+    (await page.locator(".money-line").textContent()).includes("1 of 7 figures validated"));
+  const weightsBefore = await page.evaluate(() => state.valueChain.levers.map(l => l.share_pct));
+  page.once("dialog", d => d.accept());
+  await page.click("#vc-derive");
+  await page.waitForTimeout(400);
+  const derived = await page.evaluate(() => {
+    const ls = state.valueChain.levers, tot = ls.reduce((a, l) => a + l.value_at_stake, 0);
+    return ls.every(l => l.share_pct === Math.round(l.value_at_stake / tot * 100));
+  });
+  check("weights can be derived from the amounts at stake in one click", derived);
+  await page.evaluate(w => { state.valueChain.levers.forEach((l, i) => { l.share_pct = w[i]; }); renderAll(); }, weightsBefore);
+  await page.click('.tab[data-view="board"]');
+  await page.waitForTimeout(300);
+  const moneyChips = await page.locator(".b-money").allTextContents();
+  check("board cards show money at risk, marked as an estimate until validated",
+    moneyChips.length === 6 && moneyChips.filter(t => t.includes("(est.)")).length === 5);
+  check("the cluster whose only lever is validated drops the estimate label",
+    moneyChips.filter(t => !t.includes("(est.)")).length === 1);
+  await page.click('.tab[data-view="matrix"]');
+  await page.waitForTimeout(300);
+  check("matrix rows carry the same money figure", (await page.locator(".mat-chip").first().textContent()).includes("at risk"));
+  await page.click('.tab[data-view="valuechain"]');
+  await page.waitForTimeout(300);
+  await page.locator('[data-lv="value_at_stake|6"]').fill("");
+  await page.locator('[data-lv="value_at_stake|6"]').dispatchEvent("change");
+  await page.waitForTimeout(300);
+  check("clearing an amount removes the money figure for that cluster rather than showing zero",
+    await page.evaluate(() => clusterMoney(state, state.clusters.find(c => c.id === "enabling")).hasValue === false));
+  await page.evaluate(() => { state.valueChain.levers[6].value_at_stake = 25; renderAll(); });
+
+  // ---------- Evidence grade: the assessor's judgement, with the evidence in view ----------
+  await page.click('.tab[data-view="matrix"]');
+  await page.waitForTimeout(300);
+  await page.click('.cell[data-cluster="tdx"][data-lens="Culture"]');
+  await page.waitForTimeout(400);
+  check("the drawer offers the three grades and says what the grade rests on",
+    await page.locator("#d-grade option").count() === 4 &&
+    (await page.locator(".grade-basis").textContent()).includes("it does not decide the grade"));
+  check("the demo's own grade is shown, not recomputed", (await page.locator("#d-grade").inputValue()) === "hypothesis");
+  await page.selectOption("#d-grade", "indicated");
+  await page.click("#ev-add");
+  await page.waitForTimeout(200);
+  await page.locator("[data-ev-label]").last().fill("Process Map Studio reality view");
+  await page.locator("[data-ev-note]").last().fill("Decision made by a different role in 22% of cases");
+  await page.locator("[data-ev-ref]").last().fill("X5");
+  await page.click("#d-save");
+  await page.waitForTimeout(400);
+  const graded = await page.evaluate(() => {
+    const c = state.clusters.find(x => x.id === "tdx").cells.Culture;
+    return { grade: c.grade, ref: c.evidence[c.evidence.length - 1].ref, n: c.evidence.length };
+  });
+  check("the chosen grade is saved exactly as chosen", graded.grade === "indicated");
+  check("an evidence item can cite another app's finding by its ID", graded.ref === "X5");
+  check("the matrix cell shows the grade beside the source count",
+    (await page.locator('.cell[data-cluster="tdx"][data-lens="Culture"] .conf-dot').textContent()).includes("Indicated"));
+  check("OWNER DECISION: adding sources never changes a grade by itself",
+    await page.evaluate(() => {
+      const c = state.clusters.find(x => x.id === "tdx").cells.Culture;
+      c.evidence.push({ label: "A", note: "" }, { label: "B", note: "" }); renderAll();
+      return state.clusters.find(x => x.id === "tdx").cells.Culture.grade === "indicated";
+    }));
+
   // ---------- v4 rubric: drawer confidence, evidence mix, watch signals ----------
   await page.click('.tab[data-view="matrix"]');
   await page.waitForTimeout(300);
@@ -463,6 +536,12 @@ function check(name, cond) {
   await page.click("#sig-scan");
   await page.waitForTimeout(1200);
   check("scan produces a briefing with 3 signals", await page.locator(".sig-card").count() === 3);
+  check("each signal gets a stable ID", (await page.locator(".sig-card .ref-chip").allTextContents()).join() === "SG-001,SG-002,SG-003");
+  await page.locator(".sig-grade").first().selectOption("hypothesis");
+  await page.waitForTimeout(200);
+  check("a signal is graded by hand as Metric, Trace or Claim",
+    (await page.locator(".sig-grade option").nth(3).textContent()).includes("Claim") &&
+    await page.evaluate(() => state.briefings[state.briefings.length - 1].signals[0].grade === "hypothesis"));
   check("direction badges are text-labelled (no colour-only)",
     (await page.locator(".sig-dir").allTextContents()).every(t => /Tailwind|Headwind|Neutral/.test(t)));
 
