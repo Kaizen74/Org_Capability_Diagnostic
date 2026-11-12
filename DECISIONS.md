@@ -39,3 +39,12 @@ Why the app is built the way it is. One line of reasoning each, newest last.
 | 33 | Every criterion carries written 1/3/5 anchors and an explicit "not" boundary | Anchored scales are the largest lever on inter-rater agreement, and the boundary line is what stops one reason raising two scores. |
 | 34 | Definitions open from the column header, not a manual | Guidance read at the moment of scoring is guidance used. The same cards are also reachable as a full six-criterion guide. |
 | 35 | Legacy scores migrate deterministically, never reset to 3 | A rubric change must not silently destroy last quarter's judgements or re-route a role. The migration runs on saved state, JSON import, old CSV headers and LLM replies, and the tests assert routing is preserved. |
+| 36 | Hand-off format defined here, not copied | None of the three sibling apps mentions the Compass, so there was nothing to match. The packet is shaped around fields they already accept (Org Modeling's criteria and strategy text, Process Map Studio's engagement scope card, the Workbench's role list). |
+| 37 | Evidence grade is the assessor's judgement, never derived (owner decision) | Real evidence is fragmentary. The app shows what a grade rests on but does not compute it from a source count. |
+| 38 | One rater per cell stays (owner decision) | The playbook's two-rater rule is dropped for this app; the default evidence rules say so explicitly. |
+| 39 | IDs are never reused within a workspace | An ID quoted in a board paper must mean the same thing a year later, even after the row it named is deleted. |
+| 40 | The active workspace stays under the original storage key | A diagnostic saved before workspaces existed becomes the first workspace with nothing to migrate; other workspaces are parked under their own keys. |
+| 41 | New, demo and imported diagnostics each become a new workspace | Nothing the owner starts can overwrite the diagnostic on screen. |
+| 42 | The Stage 0 lock can be applied with items open | A gate that blocks is rigid; a gate that can be skipped silently is not a gate. Open items are warned, then written into the decision log at the moment of locking. |
+| 43 | Navigation follows the six stages; every workspace opens on the Journey | Twelve destinations in workflow order, with one "next step", replace nine unordered tabs. |
+| 44 | A redraw waits while the mouse is down | A field's change fires as it loses focus, usually the mouse-down of the next button. Redrawing then swallowed the click. Found by the charter browser test; fixed app-wide. |

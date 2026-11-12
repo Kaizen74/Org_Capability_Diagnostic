@@ -30,6 +30,13 @@ var TKI_KEYS = ["time", "locked", "relationship"];
 var LEGACY_AXIS_A_KEYS = ["impact", "scarcity", "vacancy", "pivotal", "futurefit"];
 var LEGACY_TKI_KEYS = ["time", "codifiability", "concentration", "consequence", "relationship"];
 var CALIBRATION_ACTIONS = ["add", "merge", "rename", "split", "keep"];
+/* Workflow layer (v5): one evidence grammar and one ID scheme shared with
+   the three sibling apps. See docs/HANDOFF_FORMAT.md. */
+var EVIDENCE_GRADE_KEYS = ["confirmed", "indicated", "hypothesis"];
+var UNIT_KINDS = ["capability", "value-stream"];
+var PILOT_DECISION_KEYS = ["", "pilot", "later", "out"];
+var CRITERION_KINDS = ["measured", "judged"];
+var REF_PATTERN = /^[A-Z]{1,4}-?\d{1,4}$/;
 var CONFIDENCE_LEVELS = ["high", "medium", "low"];
 
 function _isStr(v) { return typeof v === "string"; }
@@ -51,6 +58,11 @@ function validateCell(cell, where) {
       if (!_isStr(w)) errs.push(where + ".watch[" + i + "]: watch signals must be strings");
     });
   }
+  if (cell.grade !== undefined && cell.grade !== null && cell.grade !== "" && EVIDENCE_GRADE_KEYS.indexOf(cell.grade) === -1)
+    errs.push(where + ": grade must be one of " + EVIDENCE_GRADE_KEYS.join("/"));
+  (cell.evidence || []).forEach(function (ev, i) {
+    if (ev && ev.ref !== undefined && ev.ref !== null && !_isStr(ev.ref)) errs.push(where + ".evidence[" + i + "]: ref must be a string");
+  });
   (cell.leading || []).forEach(function (li, i) {
     if (!_isStr(li.name)) errs.push(where + ".leading[" + i + "]: name must be a string");
     if (LEADING_SIGNALS.indexOf(li.signal) === -1) errs.push(where + ".leading[" + i + "]: signal must be one of " + LEADING_SIGNALS.join("/"));
@@ -107,6 +119,37 @@ function validateState(s) {
   if (s.calibrations !== undefined && !_isArr(s.calibrations)) errs.push("calibrations must be an array");
   (s.calibrations || []).forEach(function (c, i) {
     errs = errs.concat(validateCalibration(c).map(function (e) { return "calibrations[" + i + "]: " + e; }));
+  });
+  if (s.unit !== undefined && UNIT_KINDS.indexOf(s.unit) === -1) errs.push("unit must be one of " + UNIT_KINDS.join("/"));
+  if (s.charter !== undefined && s.charter !== null) errs = errs.concat(validateCharter(s.charter));
+  if (s.pilots !== undefined && s.pilots !== null) {
+    if (!_isObj(s.pilots)) errs.push("pilots must be an object keyed by cluster id");
+    else Object.keys(s.pilots).forEach(function (cid) {
+      var p = s.pilots[cid];
+      if (!(s.clusters || []).some(function (c) { return c.id === cid; })) errs.push("pilots." + cid + ": no such cluster");
+      if (!_isObj(p)) { errs.push("pilots." + cid + ": must be an object"); return; }
+      if (PILOT_DECISION_KEYS.indexOf(p.decision || "") === -1) errs.push("pilots." + cid + ": decision must be pilot, later, out or empty");
+    });
+  }
+  /* A stable ID that two things share is not an ID. */
+  var seenRefs = {};
+  var checkRef = function (o, where, sharedOk) {
+    if (!o || o.ref === undefined || o.ref === null) return;
+    if (!_isStr(o.ref) || !REF_PATTERN.test(o.ref)) { errs.push(where + ": ref '" + o.ref + "' is not a valid ID"); return; }
+    if (seenRefs[o.ref] && !sharedOk) errs.push(where + ": ref " + o.ref + " is used twice");
+    seenRefs[o.ref] = true;
+  };
+  (s.clusters || []).forEach(function (c, i) {
+    checkRef(c, "clusters[" + i + "]");
+    (_isArr(c.roles) ? c.roles : []).forEach(function (r, ri) { checkRef(r, "clusters[" + i + "].roles[" + ri + "]"); });
+  });
+  ((s.valueChain || {}).levers || []).forEach(function (l, i) { checkRef(l, "valueChain.levers[" + i + "]"); });
+  (s.briefings || []).forEach(function (b, bi) {
+    (b.signals || []).forEach(function (sig, si) {
+      checkRef(sig, "briefings[" + bi + "].signals[" + si + "]");
+      if (sig.grade !== undefined && sig.grade !== null && sig.grade !== "" && EVIDENCE_GRADE_KEYS.indexOf(sig.grade) === -1)
+        errs.push("briefings[" + bi + "].signals[" + si + "]: grade must be one of " + EVIDENCE_GRADE_KEYS.join("/"));
+    });
   });
   // The API key must NEVER live inside exported/persisted state.
   if (s.apiKey || s.api_key || (s.settings && s.settings.apiKey)) errs.push("state must not contain an API key");
@@ -169,6 +212,11 @@ function validateValueChain(vc) {
       errs.push(w + ": share_pct must be a number 0-100");
     if (l.cluster_id !== null && l.cluster_id !== undefined && !_isStr(l.cluster_id))
       errs.push(w + ": cluster_id must be null or a string");
+    if (l.value_at_stake !== undefined && l.value_at_stake !== null &&
+        (typeof l.value_at_stake !== "number" || !(l.value_at_stake >= 0)))
+      errs.push(w + ": value_at_stake must be a number of 0 or more");
+    if (l.validated !== undefined && typeof l.validated !== "boolean")
+      errs.push(w + ": validated must be true or false");
   });
   return errs;
 }
@@ -254,6 +302,72 @@ function validateCalibration(c) {
   return errs;
 }
 
+/* Validate the Stage 0 engagement charter. */
+function validateCharter(ch) {
+  var errs = [];
+  if (!_isObj(ch)) return ["charter is not an object"];
+  if (!_isObj(ch.thesis)) errs.push("charter.thesis must be an object");
+  ["principles", "refModel", "criteria", "gate", "rules", "decisions"].forEach(function (k) {
+    if (!_isArr(ch[k])) errs.push("charter." + k + " must be an array");
+  });
+  (_isArr(ch.criteria) ? ch.criteria : []).forEach(function (c, i) {
+    var w = "charter.criteria[" + i + "]";
+    if (!_isStr(c.name)) errs.push(w + ": name must be a string");
+    if (CRITERION_KINDS.indexOf(c.kind) === -1) errs.push(w + ": kind must be measured or judged");
+    if (typeof c.weight !== "number" || c.weight < 0 || c.weight > 100) errs.push(w + ": weight must be a number 0-100");
+  });
+  (_isArr(ch.decisions) ? ch.decisions : []).forEach(function (d, i) {
+    if (!_isStr(d.decision)) errs.push("charter.decisions[" + i + "]: decision must be a string");
+  });
+  if (ch.lockedAt !== undefined && ch.lockedAt !== null && !_isStr(ch.lockedAt)) errs.push("charter.lockedAt must be null or a date string");
+  return errs;
+}
+
+/* Validate a hand-off packet — the file the other three apps receive.
+   Two promises are enforced here because they are the ones that matter
+   once a file leaves this machine: it never carries an API key, and it
+   never carries the text of an uploaded document. */
+function validateHandoffPacket(p) {
+  var errs = [];
+  if (!_isObj(p)) return ["packet is not an object"];
+  if (p.format !== "compass-handoff") errs.push("format must be compass-handoff");
+  if (!_isStr(p.format_version)) errs.push("format_version must be a string");
+  if (!_isStr(p.generated_at)) errs.push("generated_at must be a string");
+  if (!_isObj(p.engagement) || !_isStr(p.engagement.key) || !p.engagement.key) errs.push("engagement.key required");
+  if (!_isObj(p.vocabulary) || !_isArr(p.vocabulary.evidence_grades) || !_isArr(p.vocabulary.id_prefixes)) errs.push("vocabulary must list evidence_grades and id_prefixes");
+  if (!_isObj(p.charter)) errs.push("charter required");
+  ["clusters", "levers", "roles", "signals", "pilots", "exclusions"].forEach(function (k) {
+    if (!_isArr(p[k])) errs.push(k + " must be an array");
+  });
+  var refs = {};
+  (_isArr(p.clusters) ? p.clusters : []).forEach(function (c, i) {
+    if (!_isStr(c.ref) || !REF_PATTERN.test(c.ref)) errs.push("clusters[" + i + "]: ref required");
+    refs[c.ref] = true;
+    (c.cells || []).forEach(function (x, xi) {
+      var w = "clusters[" + i + "].cells[" + xi + "]";
+      if (!_isStr(x.ref) || x.ref.indexOf(c.ref + ".") !== 0) errs.push(w + ": ref must be <cluster ref>.<lens>");
+      if (!(x.level >= 1 && x.level <= 4)) errs.push(w + ": level must be 1-4");
+      if (x.grade !== null && EVIDENCE_GRADE_KEYS.indexOf(x.grade) === -1) errs.push(w + ": grade must be null or a known grade");
+    });
+  });
+  ["levers", "roles"].forEach(function (k) {
+    (_isArr(p[k]) ? p[k] : []).forEach(function (o, i) {
+      if (!_isStr(o.ref) || !REF_PATTERN.test(o.ref)) errs.push(k + "[" + i + "]: ref required");
+      if (o.cluster_ref !== null && o.cluster_ref !== undefined && !refs[o.cluster_ref]) errs.push(k + "[" + i + "]: cluster_ref " + o.cluster_ref + " is not in this packet");
+    });
+  });
+  (_isArr(p.pilots) ? p.pilots : []).forEach(function (o, i) {
+    if (!_isStr(o.ref) || !REF_PATTERN.test(o.ref)) errs.push("pilots[" + i + "]: ref required");
+    if (!refs[o.cluster_ref]) errs.push("pilots[" + i + "]: cluster_ref is not in this packet");
+  });
+  if (!_isObj(p.for_apps) || !_isObj(p.for_apps.org_modeling) || !_isObj(p.for_apps.process_map_studio) || !_isObj(p.for_apps.workbench))
+    errs.push("for_apps must carry a block for each of the three receiving apps");
+  var raw = JSON.stringify(p);
+  if (/"apiKey"|"api_key"|sk-ant-/.test(raw)) errs.push("packet must not contain an API key");
+  if (/"text"\s*:/.test(raw)) errs.push("packet must not contain uploaded document text");
+  return errs;
+}
+
 /* Map a signal direction to a leading-indicator signal. */
 function directionToLeading(direction) {
   if (direction === "tailwind") return "improving";
@@ -279,6 +393,10 @@ if (typeof module !== "undefined" && module.exports) {
     CALIBRATION_ACTIONS: CALIBRATION_ACTIONS,
     CONFIDENCE_LEVELS: CONFIDENCE_LEVELS,
     validateCalibration: validateCalibration,
+    EVIDENCE_GRADE_KEYS: EVIDENCE_GRADE_KEYS,
+    UNIT_KINDS: UNIT_KINDS,
+    validateCharter: validateCharter,
+    validateHandoffPacket: validateHandoffPacket,
     validateRole: validateRole,
     validateValueChain: validateValueChain,
     validateCell: validateCell,

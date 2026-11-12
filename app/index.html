@@ -18,6 +18,10 @@
         <span class="brand-title">Capability <span class="compass-accent">Compass</span></span>
         <span class="brand-sub" id="org-name">—</span>
       </div>
+      <div class="ws-box">
+        <label for="ws-switch">Workspace</label>
+        <select id="ws-switch" title="Each workspace is a separate diagnostic — a group view, a segment, a client"></select>
+      </div>
       <div class="top-actions">
         <button class="btn primary" id="btn-save-version" title="Snapshot the current state for delta and momentum analysis">Save version</button>
         <button class="btn" id="btn-export" title="Download a JSON backup of everything">Export</button>
@@ -26,21 +30,28 @@
         <button class="btn" id="btn-settings">Settings</button>
       </div>
     </div>
-    <nav class="tabs" aria-label="Dashboard views">
-      <span class="tab-group-label">Diagnose</span>
-      <button class="tab active" data-view="matrix">Signal Matrix</button>
-      <button class="tab" data-view="board">Priority Board</button>
-      <button class="tab" data-view="trajectory">Trajectory</button>
-      <button class="tab" data-view="delta">Delta</button>
+    <nav class="tabs" aria-label="Workflow">
+      <button class="tab home active" data-view="journey">Journey</button>
       <span class="tab-divider" aria-hidden="true"></span>
-      <span class="tab-group-label">Ground it</span>
+      <span class="tab-group-label"><b>0</b> Frame</span>
+      <button class="tab" data-view="charter">Charter</button>
+      <span class="tab-divider" aria-hidden="true"></span>
+      <span class="tab-group-label"><b>1</b> Focus</span>
       <button class="tab" data-view="valuechain">Value Chain</button>
       <button class="tab" data-view="roles">Roles</button>
       <button class="tab" data-view="evidence">Evidence</button>
       <button class="tab" data-view="signals">Signals</button>
+      <span class="tab-step" aria-hidden="true" title="then score">›</span>
+      <button class="tab" data-view="matrix">Signal Matrix</button>
+      <button class="tab" data-view="board">Priority Board</button>
+      <button class="tab" data-view="trajectory">Trajectory</button>
+      <span class="tab-step" aria-hidden="true" title="then decide">›</span>
+      <button class="tab" data-view="handoff">Hand-off</button>
       <span class="tab-divider" aria-hidden="true"></span>
-      <span class="tab-group-label">Method</span>
-      <button class="tab" data-view="blueprint">Blueprint</button>
+      <span class="tab-group-label"><b>5</b> Deliver</span>
+      <button class="tab" data-view="delta">Scoreboard</button>
+      <span class="tab-divider" aria-hidden="true"></span>
+      <button class="tab quiet" data-view="blueprint" title="How the method works, and where to be careful">Method</button>
     </nav>
   </header>
 
@@ -76,8 +87,11 @@
   <script src="js/parsers.js"></script>
   <script src="js/presets.js"></script>
   <script src="js/engine.js"></script>
+  <script src="js/handoff.js"></script>
+  <script src="js/workspaces.js"></script>
   <script src="js/llm.js"></script>
   <script src="js/blueprint.js"></script>
+  <script src="js/stages.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

@@ -407,9 +407,62 @@ const DEMO_PRIOR_LEVELS = {
   enabling: { Structure: 4, People: 3, Process: 2, Culture: 3 }
 };
 
+/* ---- Demo workflow layer (fictional) ------------------------------
+   Stage 0 charter, evidence grades, estimated amounts at stake and a
+   pilot shortlist, so every stage of the journey has something to show.
+   All of it is invented for "Meridian Group". */
+const DEMO_STAKES = { lv1: 120, lv2: 160, lv3: 50, lv4: 70, lv5: 60, lv6: 35, lv7: 25 };
+const DEMO_GRADES = {
+  gateway: { Structure: "confirmed", People: "indicated", Process: "confirmed", Culture: "confirmed" },
+  food: { Structure: "confirmed", People: "indicated", Process: "confirmed", Culture: "indicated" },
+  tdx: { Structure: "confirmed", People: "indicated", Process: "indicated", Culture: "hypothesis" },
+  commercial: { Structure: "confirmed", People: "confirmed", Process: "indicated", Culture: "hypothesis" },
+  leadership: { Structure: "confirmed", People: "confirmed", Process: "indicated", Culture: "indicated" },
+  enabling: { Structure: "confirmed", People: "indicated", Process: "indicated", Culture: "hypothesis" }
+};
+const DEMO_PILOTS = {
+  commercial: { decision: "pilot", name: "Bid to contract renewal", kpi: "Win rate on renewals; days from bid request to signed contract", reason: "Largest weak-and-owned exposure; three anchor seats absent." },
+  tdx: { decision: "pilot", name: "Roster to shift cover", kpi: "Overtime and agency hours per 1,000 handled units", reason: "Carries the largest lever; rollout under way, bench thin." },
+  gateway: { decision: "later", reason: "Process already Established; revisit once the safety-culture work reports." },
+  food: { decision: "later", reason: "Culture decline needs diagnosis before a process pilot would hold." },
+  leadership: { decision: "out", reason: "Strong and steady; no process pilot needed this cycle." },
+  enabling: { decision: "out", reason: "Small economic weight; covered by the HRIS programme." }
+};
+function demoCharter() {
+  const ch = defaultCharter();
+  ch.engagementKey = "MERIDIAN";
+  ch.sponsor = "Group Chief Executive (fictional)";
+  ch.scope = "Whole group, six capability clusters";
+  ch.thesis = {
+    serve: "Airlines, freight forwarders and food-service customers who need reliable turnarounds at scale.",
+    outcome: "Aircraft and cargo that leave on time, safely, with nothing left behind.",
+    profit: "Paid per unit handled; margin comes from labour productivity and renewal pricing.",
+    moat: "Licences, network breadth and judgement built over years in safety-critical work.",
+    scale: "Each new station is cheaper to bring up once the operating routines are standard."
+  };
+  ch.principles = [
+    { text: "Decisions are made at the station, by one named role.", refute: "Event records showing a different role deciding in more than one case in five." },
+    { text: "Standard work is written once and run everywhere.", refute: "Three or more routes for the same step across shifts." },
+    { text: "AI takes the rule-based work; people keep the judgement.", refute: "An automated step that still needs a person to correct it most days." },
+    { text: "Capability is built ahead of growth, not after it.", refute: "Anchor seats still absent two cycles after a growth decision." }
+  ];
+  ch.decisions.forEach((d, i) => {
+    d.owner = ["Group Chief Executive", "Divisional CEO", "Pilot steering group", "Pilot steering group", "Group executive committee", "Group executive committee"][i];
+  });
+  ch.decisions[0].status = "decided"; ch.decisions[0].date = "2026-03-15T09:00:00Z";
+  ch.lockedAt = "2026-03-15T09:00:00Z"; ch.lockedBy = "Demo data";
+  return ch;
+}
+
 function buildDemoState() {
   const s = JSON.parse(JSON.stringify(DEMO_STATE));
   s.valueChain = JSON.parse(JSON.stringify(DEMO_VALUE_CHAIN));
+  s.valueChain.value_unit = "m";
+  s.valueChain.levers.forEach(l => { l.value_at_stake = DEMO_STAKES[l.id]; l.validated = false; });
+  s.unit = "capability";
+  s.charter = demoCharter();
+  s.pilots = JSON.parse(JSON.stringify(DEMO_PILOTS));
+  s.clusters.forEach(cl => Object.keys(cl.cells).forEach(lk => { cl.cells[lk].grade = (DEMO_GRADES[cl.id] || {})[lk] || ""; }));
   s.clusters.forEach(cl => { cl.roles = JSON.parse(JSON.stringify(DEMO_ROLES[cl.id] || [])); });
   // Build the prior version snapshot (v1.0, one quarter earlier)
   const prior = JSON.parse(JSON.stringify(s.clusters));

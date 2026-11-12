@@ -77,7 +77,7 @@ const BP_WATCHOUTS = [
   {
     n: "B", at: "Trajectory",
     title: "Momentum rests on a single prior snapshot",
-    body: "History is the latest saved version only, so there is no trend line and no way to separate movement from noise. A level you revised for a scoring reason also reads as movement. <strong>Mitigation:</strong> save a version at every recalibration and treat the first two cycles' momentum as directional only."
+    body: "Direction is read from the latest saved version only. The Scoreboard draws the trend across all versions, but the momentum arrow itself still cannot separate movement from noise. A level you revised for a scoring reason also reads as movement. <strong>Mitigation:</strong> save a version at every recalibration and treat the first two cycles' momentum as directional only."
   },
   {
     n: "C", at: "Trajectory",
@@ -86,8 +86,8 @@ const BP_WATCHOUTS = [
   },
   {
     n: "D", at: "Engine",
-    title: "No forecast-accuracy scoring yet",
-    body: "The rubric asks you to compare last cycle's directional calls against what actually happened; the Delta view compares <em>levels</em>, not calls. <strong>Mitigation:</strong> at each recalibration, read the previous version's arrows before you re-score, and replace indicators that were wrong twice."
+    title: "The forecast check is young",
+    body: "The Scoreboard now checks last cycle's directional calls against what happened, but it judges one cycle at a time: with a single saved version the hit rate rests on one comparison, and a call with no evidence on the day is simply “no call”. <strong>Mitigation:</strong> read the hit rate as a prompt, not a score, until three cycles are saved — and replace any leading indicator that has been wrong twice."
   },
   {
     n: "E", at: "Value Chain",
@@ -289,7 +289,7 @@ function bpDiagram(st) {
     ${bpBox({ x: b5[0].x, y: Y5, w: b5[0].w, h: H5, kind: "read", title: "Signal Matrix", lines: ["Analytical read — level,", "direction, materiality", "and source per cell"] })}
     ${bpBox({ x: b5[1].x, y: Y5, w: b5[1].w, h: H5, kind: "read", title: "Priority Board", lines: ["Action read — ranked by", "money at risk, binding", "constraint named"] })}
     ${bpBox({ x: b5[2].x, y: Y5, w: b5[2].w, h: H5, kind: "read", title: "Trajectory", lines: ["Predictive read — alerts", "ordered by money,", "conditional outlooks"] })}
-    ${bpBox({ x: b5[3].x, y: Y5, w: b5[3].w, h: H5, kind: "read", title: "Delta + export", lines: ["Change read vs a saved", "version · print briefing", st.versions + " snapshot" + (st.versions === 1 ? "" : "s") + " saved"] })}
+    ${bpBox({ x: b5[3].x, y: Y5, w: b5[3].w, h: H5, kind: "read", title: "Scoreboard + hand-off", lines: ["Trend and forecast check ·", "brief for the next app ·", st.versions + " snapshot" + (st.versions === 1 ? "" : "s") + " saved"] })}
 
     ${bpLoop(Y5 + H5 / 2, Y4 + 26, "saved version becomes the momentum baseline", 1216)}
     ${bpLoop(Y2 + H2 - 18, Y3 + 20, "calibration re-shapes the cluster rows", 1180)}

@@ -13,7 +13,10 @@
 const { chromium } = require("playwright");
 const path = require("path");
 
-const CHROMIUM = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+/* No hard-coded browser path: a pinned build number breaks the suite the
+   moment the machine's Chromium is updated. Playwright finds its own
+   browser; CHROMIUM_PATH overrides when a specific one is wanted. */
+const CHROMIUM = process.env.CHROMIUM_PATH || undefined;
 const APP_URL = "file://" + path.resolve(__dirname, "..", "app", "index.html");
 
 /* Build a small but fully valid PDF with a real text layer (exact xref
@@ -45,7 +48,7 @@ function check(name, cond) {
 }
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: CHROMIUM });
+  const browser = await chromium.launch(CHROMIUM ? { executablePath: CHROMIUM } : {});
   const page = await browser.newPage({ viewport: { width: 1440, height: 950 } });
   const jsErrors = [];
   page.on("pageerror", e => jsErrors.push(e.message));
@@ -57,6 +60,10 @@ function check(name, cond) {
   check("wizard opens on first run", await page.locator(".modal-backdrop.open").count() === 1);
   await page.click("[data-demo]");
   await page.waitForTimeout(500);
+  check("a new workspace lands on the Journey, not in the middle of the detail",
+    await page.locator(".jr-card").count() === 6 && await page.locator(".tab.active").getAttribute("data-view") === "journey");
+  await page.click('.tab[data-view="matrix"]');
+  await page.waitForTimeout(300);
   check("matrix renders 24 cells", await page.locator(".cell").count() === 24);
   check("amber action pills on weak cells", await page.locator(".action-pill").count() === 3);
   check("5 KPI chips", await page.locator(".kpi").count() === 5);
@@ -112,7 +119,27 @@ function check(name, cond) {
 
   await page.click('.tab[data-view="delta"]');
   await page.waitForTimeout(300);
-  check("delta renders rows against demo baseline", await page.locator(".delta-table tbody tr").count() > 0);
+  check("delta renders rows against demo baseline", await page.locator(".delta-table:not(.sb-table):not(.fc-table) tbody tr").count() > 0);
+
+  // ---------- Stage 5 scoreboard: trend and forecast check ----------
+  check("scoreboard shows one column per saved version plus now",
+    await page.locator(".sb-table").first().locator("thead th").count() === 4);
+  check("it tracks three headline measures and every cluster",
+    await page.locator(".sb-table").first().locator("tbody tr").count() === 3 &&
+    await page.locator(".sb-table").nth(1).locator("tbody tr").count() === 6);
+  check("each cluster has a trend line with a text description for screen readers",
+    await page.locator(".spark").count() === 6 && (await page.locator(".spark").first().getAttribute("aria-label")).includes("from"));
+  check("movement is stated in words and symbols, never by colour alone",
+    (await page.locator(".sb-table .mv").allTextContents()).every(t => /▲|▼|→/.test(t)));
+  const fcUi = await page.evaluate(() => { const f = forecastCheck(state); return { hits: f.hits, misses: f.misses, pending: f.pending, nocall: f.nocall, rate: f.rate }; });
+  check("forecast check reports how many of last cycle's calls were right",
+    (await page.locator(".sb-big").textContent()) === fcUi.rate + "%" &&
+    (await page.locator(".sb-n").allTextContents()).join() === [fcUi.hits, fcUi.misses, fcUi.pending, fcUi.nocall].join());
+  check("calls that were wrong or are still waiting are on screen; the rest is one click away",
+    await page.locator(".sb-fc > .fc-table tbody tr").count() === fcUi.misses + fcUi.pending &&
+    await page.locator(".fc-rest:not([open])").count() === 1);
+  check("a call with no evidence on the day is shown as 'No call made', not counted as right",
+    fcUi.nocall > 0 && fcUi.hits + fcUi.misses + fcUi.pending + fcUi.nocall === 24);
 
   // ---------- Value Chain: follow the money ----------
   await page.click('.tab[data-view="valuechain"]');
@@ -402,6 +429,142 @@ function check(name, cond) {
     legacyImport.t.locked === 2.5 && legacyImport.a.impact === undefined &&
     legacyImport.route === "critical");
 
+  // ---------- Money at risk in currency (optional, an estimate until validated) ----------
+  await page.click('.tab[data-view="valuechain"]');
+  await page.waitForTimeout(400);
+  check("every lever shows its stable ID", await page.locator(".vc-table .ref-chip").count() === 7 &&
+    (await page.locator(".vc-table .ref-chip").first().textContent()) === "LV-01");
+  const moneyLine = await page.locator(".money-line").textContent();
+  check("money at risk is stated in currency and labelled an estimate",
+    /\$[\d.,]+m at risk/.test(moneyLine) && moneyLine.includes("Estimate — 0 of 7 figures validated"));
+  await page.locator('[data-lv="validated|0"]').check();
+  await page.waitForTimeout(400);
+  check("ticking a lever as finance-validated updates the label",
+    (await page.locator(".money-line").textContent()).includes("1 of 7 figures validated"));
+  const weightsBefore = await page.evaluate(() => state.valueChain.levers.map(l => l.share_pct));
+  page.once("dialog", d => d.accept());
+  await page.click("#vc-derive");
+  await page.waitForTimeout(400);
+  const derived = await page.evaluate(() => {
+    const ls = state.valueChain.levers, tot = ls.reduce((a, l) => a + l.value_at_stake, 0);
+    return ls.every(l => l.share_pct === Math.round(l.value_at_stake / tot * 100));
+  });
+  check("weights can be derived from the amounts at stake in one click", derived);
+  await page.evaluate(w => { state.valueChain.levers.forEach((l, i) => { l.share_pct = w[i]; }); renderAll(); }, weightsBefore);
+  await page.click('.tab[data-view="board"]');
+  await page.waitForTimeout(300);
+  const moneyChips = await page.locator(".b-money").allTextContents();
+  check("board cards show money at risk, marked as an estimate until validated",
+    moneyChips.length === 6 && moneyChips.filter(t => t.includes("(est.)")).length === 5);
+  check("the cluster whose only lever is validated drops the estimate label",
+    moneyChips.filter(t => !t.includes("(est.)")).length === 1);
+  await page.click('.tab[data-view="matrix"]');
+  await page.waitForTimeout(300);
+  check("matrix rows carry the same money figure", (await page.locator(".mat-chip").first().textContent()).includes("at risk"));
+  await page.click('.tab[data-view="valuechain"]');
+  await page.waitForTimeout(300);
+  await page.locator('[data-lv="value_at_stake|6"]').fill("");
+  await page.locator('[data-lv="value_at_stake|6"]').dispatchEvent("change");
+  await page.waitForTimeout(300);
+  check("clearing an amount removes the money figure for that cluster rather than showing zero",
+    await page.evaluate(() => clusterMoney(state, state.clusters.find(c => c.id === "enabling")).hasValue === false));
+  await page.evaluate(() => { state.valueChain.levers[6].value_at_stake = 25; renderAll(); });
+
+  // ---------- Evidence grade: the assessor's judgement, with the evidence in view ----------
+  await page.click('.tab[data-view="matrix"]');
+  await page.waitForTimeout(300);
+  await page.click('.cell[data-cluster="tdx"][data-lens="Culture"]');
+  await page.waitForTimeout(400);
+  check("the drawer offers the three grades and says what the grade rests on",
+    await page.locator("#d-grade option").count() === 4 &&
+    (await page.locator(".grade-basis").textContent()).includes("it does not decide the grade"));
+  check("the demo's own grade is shown, not recomputed", (await page.locator("#d-grade").inputValue()) === "hypothesis");
+  await page.selectOption("#d-grade", "indicated");
+  await page.click("#ev-add");
+  await page.waitForTimeout(200);
+  await page.locator("[data-ev-label]").last().fill("Process Map Studio reality view");
+  await page.locator("[data-ev-note]").last().fill("Decision made by a different role in 22% of cases");
+  await page.locator("[data-ev-ref]").last().fill("X5");
+  await page.click("#d-save");
+  await page.waitForTimeout(400);
+  const graded = await page.evaluate(() => {
+    const c = state.clusters.find(x => x.id === "tdx").cells.Culture;
+    return { grade: c.grade, ref: c.evidence[c.evidence.length - 1].ref, n: c.evidence.length };
+  });
+  check("the chosen grade is saved exactly as chosen", graded.grade === "indicated");
+  check("an evidence item can cite another app's finding by its ID", graded.ref === "X5");
+  check("the matrix cell shows the grade beside the source count",
+    (await page.locator('.cell[data-cluster="tdx"][data-lens="Culture"] .conf-dot').textContent()).includes("Indicated"));
+  check("OWNER DECISION: adding sources never changes a grade by itself",
+    await page.evaluate(() => {
+      const c = state.clusters.find(x => x.id === "tdx").cells.Culture;
+      c.evidence.push({ label: "A", note: "" }, { label: "B", note: "" }); renderAll();
+      return state.clusters.find(x => x.id === "tdx").cells.Culture.grade === "indicated";
+    }));
+
+  // ---------- Stage 1 gate, pilot shortlist and hand-off ----------
+  await page.click('.tab[data-view="handoff"]');
+  await page.waitForTimeout(400);
+  check("Stage 1 gate lists eleven checks, four of them must-haves",
+    await page.locator("#ho-gate .gate-list li").count() === 11 && await page.locator("#ho-gate .gate-list .gate-tag.must").count() === 4);
+  check("the demo is ready to hand off", (await page.locator("#ho-verdict").textContent()).startsWith("Ready"));
+  check("pilot shortlist ranks every cluster and shows the two pilots with VS IDs",
+    await page.locator(".ho-table tbody tr").count() === 6 && await page.locator(".ho-table tr.is-pilot").count() === 2 &&
+    (await page.locator(".ho-table tr.is-pilot .pl-pilot .ref-chip").allTextContents()).every(t => /^VS-\d+$/.test(t)));
+  check("the shortlist follows the Priority Board order",
+    (await page.locator(".ho-table tbody tr strong").first().textContent()) ===
+    await page.evaluate(() => orderClustersForBoard(state, state.boardSort || "auto").clusters[0].name));
+
+  await page.locator('[data-pl="enabling|reason"]').fill("");
+  await page.locator('[data-pl="enabling|reason"]').dispatchEvent("change");
+  await page.waitForTimeout(300);
+  check("NOTHING SILENTLY DROPPED: removing an exclusion's reason closes the gate",
+    (await page.locator("#ho-verdict").textContent()).startsWith("Not ready"));
+  await page.locator('[data-pl="enabling|reason"]').fill("Small economic weight; covered elsewhere.");
+  await page.locator('[data-pl="enabling|reason"]').dispatchEvent("change");
+  await page.waitForTimeout(300);
+  check("restating the reason reopens it, without redrawing the table",
+    (await page.locator("#ho-verdict").textContent()).startsWith("Ready") &&
+    (await page.locator('[data-pl="enabling|reason"]').inputValue()).startsWith("Small economic"));
+
+  await page.selectOption('[data-pl-decision="gateway"]', "pilot");
+  await page.waitForTimeout(400);
+  check("choosing a third pilot mints the next value-stream ID and asks for its name and KPI",
+    await page.evaluate(() => state.pilots.gateway.ref === "VS-03") &&
+    (await page.locator("#ho-verdict").textContent()).startsWith("Not ready"));
+  await page.fill('[data-pl="gateway|name"]', "Export cargo acceptance");
+  await page.locator('[data-pl="gateway|name"]').dispatchEvent("change");
+  await page.fill('[data-pl="gateway|kpi"]', "Acceptance to ready-for-carriage, minutes");
+  await page.locator('[data-pl="gateway|kpi"]').dispatchEvent("change");
+  await page.waitForTimeout(300);
+  check("naming the pilot and its KPI completes the gate again",
+    (await page.locator("#ho-verdict").textContent()).startsWith("Ready"));
+  check("the Process Map Studio brief picks the new pilot up immediately",
+    (await page.locator("#ho-pre-process_map_studio").textContent()).includes("MERIDIAN VS-03 Export cargo acceptance"));
+
+  const briefDl = page.waitForEvent("download", { timeout: 5000 });
+  await page.click('[data-ho-dl="org_modeling"]');
+  const briefFile = await briefDl.catch(() => null);
+  const briefText = briefFile ? require("fs").readFileSync(await briefFile.path(), "utf8") : "";
+  check("the Org Modeling brief downloads with the engagement key in its name",
+    !!briefFile && briefFile.suggestedFilename() === "meridian_brief_org_modeling.txt");
+  check("it carries the strategy text and the six weighted criteria, ready to paste",
+    briefText.includes("STRATEGY (paste into the strategy box)") && briefText.includes("weights total 100") &&
+    (briefText.match(/DC-\d/g) || []).length === 6);
+  check("the shared ID vocabulary is shown for all four apps",
+    await page.locator(".ho-preview .delta-table tbody tr").count() === await page.evaluate(() => ID_PREFIXES.length));
+  await page.selectOption('[data-pl-decision="gateway"]', "later");
+  await page.waitForTimeout(300);
+  await page.fill('[data-pl="gateway|reason"]', "Revisit after the safety-culture work reports.");
+  await page.locator('[data-pl="gateway|reason"]').dispatchEvent("change");
+  await page.waitForTimeout(300);
+  await page.click('.tab[data-view="journey"]');
+  await page.waitForTimeout(300);
+  await page.locator(".jr-card").nth(2).locator("[data-goto]").click();
+  await page.waitForTimeout(300);
+  check("'Get the brief' on a stage run by another app opens the Hand-off view",
+    await page.locator("#ho-gate").count() === 1);
+
   // ---------- v4 rubric: drawer confidence, evidence mix, watch signals ----------
   await page.click('.tab[data-view="matrix"]');
   await page.waitForTimeout(300);
@@ -456,6 +619,12 @@ function check(name, cond) {
   await page.click("#sig-scan");
   await page.waitForTimeout(1200);
   check("scan produces a briefing with 3 signals", await page.locator(".sig-card").count() === 3);
+  check("each signal gets a stable ID", (await page.locator(".sig-card .ref-chip").allTextContents()).join() === "SG-001,SG-002,SG-003");
+  await page.locator(".sig-grade").first().selectOption("hypothesis");
+  await page.waitForTimeout(200);
+  check("a signal is graded by hand as Metric, Trace or Claim",
+    (await page.locator(".sig-grade option").nth(3).textContent()).includes("Claim") &&
+    await page.evaluate(() => state.briefings[state.briefings.length - 1].signals[0].grade === "hypothesis"));
   check("direction badges are text-labelled (no colour-only)",
     (await page.locator(".sig-dir").allTextContents()).every(t => /Tailwind|Headwind|Neutral/.test(t)));
 
@@ -692,6 +861,27 @@ function check(name, cond) {
   }, exported);
   check("export → import round-trip passes contract validation", importOk);
 
+  // The hand-off packet: complete, valid, and free of the key and of document text
+  await page.click('.tab[data-view="handoff"]');
+  await page.waitForTimeout(400);
+  const pkDl = page.waitForEvent("download", { timeout: 5000 });
+  await page.click("#ho-packet");
+  const pkFile = await pkDl.catch(() => null);
+  const pkRaw = pkFile ? require("fs").readFileSync(await pkFile.path(), "utf8") : "{}";
+  const pk = JSON.parse(pkRaw);
+  check("the hand-off packet downloads as <engagement key>_compass_handoff.json",
+    !!pkFile && pkFile.suggestedFilename() === "meridian_compass_handoff.json");
+  check("the downloaded packet passes its contract", await page.evaluate(p => validateHandoffPacket(p).length === 0, pk));
+  check("PRIVACY: the packet holds no API key although one is set in this browser",
+    !/apiKey|api_key|sk-ant/.test(pkRaw) && await page.evaluate(() => getApiConfig().apiKey === "mock"));
+  check("PRIVACY: the packet holds no uploaded document text although eight documents are loaded",
+    !pkRaw.includes("CRM deployed to 8 of 12 sites") && !pkRaw.includes("scale hub-of-the-future globally") &&
+    await page.evaluate(() => state.documents.length === 8));
+  check("the packet carries the cross-app finding cited on a cell (X5) and the graded signal",
+    pkRaw.includes('"ref": "X5"') && pk.signals.some(sg => sg.grade === "hypothesis" && /^SG-\d+$/.test(sg.ref)));
+  check("the packet's frontend view and its data agree (same pilots as on screen)",
+    pk.pilots.length === await page.locator(".ho-table tr.is-pilot").count());
+
   // Trajectory reflects the applied signal (regression: engine still in range)
   await page.click('.tab[data-view="trajectory"]');
   await page.waitForTimeout(300);
@@ -716,6 +906,8 @@ function check(name, cond) {
   await page.waitForTimeout(300);
   await page.click("#wiz-go");
   await page.waitForTimeout(500);
+  await page.click('.tab[data-view="matrix"]');
+  await page.waitForTimeout(300);
   check("fresh diagnostic renders 24 cells", await page.locator(".cell").count() === 24);
   check("fresh cells show '? Unknown' trajectory — never a guessed arrow",
     await page.locator(".momo-unknown").count() === 24);
@@ -758,6 +950,174 @@ function check(name, cond) {
   await page.waitForTimeout(500);
   check("REGRESSION FIX: upload works on a fresh wizard-created diagnostic (no 'push of undefined')",
     await page.locator(".doc-row").count() === 1);
+
+  // ---------- Stage 0: the Charter (on the fresh workspace) ----------
+  await page.click('.tab[data-view="journey"]');
+  await page.waitForTimeout(300);
+  check("a fresh workspace's journey starts at Stage 0 with nothing marked done",
+    (await page.locator(".jr-next strong").textContent()).includes("Stage 0") && await page.locator(".jr-card.st-done").count() === 0);
+  await page.click(".jr-next [data-goto]");
+  await page.waitForTimeout(400);
+  check("'Continue' on the journey opens the Charter", await page.locator("#ch-gate").count() === 1);
+  check("Stage 0 gate lists six checks; the defaults already satisfy three",
+    await page.locator("#ch-gate .gate-list li").count() === 6 && await page.locator("#ch-gate .gate-list li.ok").count() === 3);
+  check("only the sections that need the owner's words start open",
+    (await page.locator(".ch-sec[open]").evaluateAll(els => els.map(e => e.dataset.sec).join())) === "thesis,principles,decisions");
+  for (const k of ["serve", "outcome", "profit", "moat", "scale"]) {
+    await page.fill(`[data-ch="thesis.${k}"]`, "Test " + k + " statement.");
+    await page.locator(`[data-ch="thesis.${k}"]`).dispatchEvent("change");
+  }
+  await page.waitForTimeout(200);
+  check("the gate updates as the thesis is written, without redrawing the page",
+    (await page.locator("#ch-gate .gate-list li").first().getAttribute("class")).includes("ok") &&
+    (await page.locator('[data-ch="thesis.scale"]').inputValue()) === "Test scale statement.");
+  for (let i = 0; i < 3; i++) {
+    await page.click('[data-ch-add="principles"]');
+    await page.waitForTimeout(150);
+    await page.fill(`[data-ch="principles.${i}.text"]`, "Principle " + (i + 1));
+    await page.locator(`[data-ch="principles.${i}.text"]`).dispatchEvent("change");
+    await page.fill(`[data-ch="principles.${i}.refute"]`, "Refuted by evidence " + (i + 1));
+    await page.locator(`[data-ch="principles.${i}.refute"]`).dispatchEvent("change");
+  }
+  check("principles are numbered P1 to P3 and each carries what would refute it",
+    await page.evaluate(() => state.charter.principles.map(p => p.ref).join() === "P1,P2,P3" && state.charter.principles.every(p => p.refute)));
+  await page.fill('[data-ch="sponsor"]', "Group sponsor");
+  await page.locator('[data-ch="sponsor"]').dispatchEvent("change");
+  for (let i = 0; i < 6; i++) {
+    await page.fill(`[data-ch="decisions.${i}.owner"]`, "Owner " + i);
+    await page.locator(`[data-ch="decisions.${i}.owner"]`).dispatchEvent("change");
+  }
+  await page.waitForTimeout(200);
+  check("with thesis, principles and owners in, every Stage 0 check is met",
+    await page.locator("#ch-gate .gate-list li.ok").count() === 6);
+
+  await page.locator('.ch-sec[data-sec="criteria"] > summary').click();
+  await page.fill('[data-ch="criteria.0.weight"]', "30");
+  await page.locator('[data-ch="criteria.0.weight"]').dispatchEvent("change");
+  await page.waitForTimeout(200);
+  check("criteria that no longer total 100 fail the gate and say so",
+    (await page.locator("#ch-total").textContent()) === "105" && await page.locator("#ch-gate .gate-list li.ok").count() === 5);
+  await page.fill('[data-ch="criteria.0.weight"]', "25");
+  await page.locator('[data-ch="criteria.0.weight"]').dispatchEvent("change");
+  await page.waitForTimeout(200);
+
+  await page.click("#ch-lock");
+  await page.waitForTimeout(400);
+  const locked = await page.evaluate(() => ({
+    at: !!state.charter.lockedAt, dec0: state.charter.decisions[0].status,
+    disabled: document.querySelector('[data-ch="thesis.serve"]').disabled,
+    ownerEditable: !document.querySelector('[data-ch="decisions.1.owner"]').disabled
+  }));
+  check("locking the charter freezes the rules and records the Stage 0 decision",
+    locked.at && locked.dec0 === "decided" && locked.disabled && await page.locator(".gate-panel.locked").count() === 1);
+  check("the decision log stays writable after the lock", locked.ownerEditable);
+  page.once("dialog", d => d.accept("Sponsor changed the weighting after the offsite"));
+  await page.click("#ch-amend");
+  await page.waitForTimeout(400);
+  const amended = await page.evaluate(() => ({
+    open: state.charter.lockedAt === null, n: state.charter.amendments.length,
+    logged: state.charter.decisions.some(d => /Charter reopened: Sponsor changed/.test(d.decision) && /^DEC-\d+$/.test(d.ref))
+  }));
+  check("reopening a locked charter needs a reason, and the reason lands in the decision log",
+    amended.open && amended.n === 1 && amended.logged);
+  await page.fill('[data-ch="sponsor"]', "");
+  await page.locator('[data-ch="sponsor"]').dispatchEvent("change");
+  let lockDialog = "";
+  page.once("dialog", d => { lockDialog = d.message(); d.accept(); });
+  await page.click("#ch-lock");
+  await page.waitForTimeout(400);
+  check("FLEXIBLE BUT VISIBLE: locking with an item open is allowed, warned, and recorded",
+    lockDialog.includes("still open") &&
+    await page.evaluate(() => !!state.charter.lockedAt && state.charter.decisions.some(d => /locked with 1 item\(s\) open/.test(d.decision))));
+  check("the charter passes the data contract",
+    await page.evaluate(() => validateState(JSON.parse(localStorage.getItem("capability_compass_state_v1"))).length === 0));
+  await page.click('.tab[data-view="journey"]');
+  await page.waitForTimeout(300);
+  check("the journey now shows Stage 0 done and moves the next step to Stage 1",
+    (await page.locator(".jr-card").first().getAttribute("class")).includes("st-done") &&
+    (await page.locator(".jr-next strong").textContent()).includes("Stage 1"));
+
+  // ---------- Workspaces: several named diagnostics, never overwriting each other ----------
+  const wsCount = async () => page.evaluate(() => [...document.querySelectorAll("#ws-switch option")].filter(o => !o.disabled && !o.value.startsWith("__")).length);
+  check("starting a new diagnostic kept the demo as its own workspace", await wsCount() === 2);
+  const demoWsId = await page.evaluate(() => wsReadIndex().list.find(w => /demo/i.test(w.name)).id);
+  await page.selectOption("#ws-switch", demoWsId);
+  await page.waitForTimeout(500);
+  const backInDemo = await page.evaluate(() => ({
+    org: state.orgName, docs: state.documents.length, roles: state.clusters.reduce((a, c) => a + c.roles.length, 0),
+    parkedSelf: localStorage.getItem("capability_compass_ws_" + state.workspaceId)
+  }));
+  check("switching workspace restores the other diagnostic intact (documents, roles, scores)",
+    backInDemo.org.includes("Meridian") && backInDemo.docs === 8 && backInDemo.roles >= 19);
+  check("the active workspace is stored once, not duplicated", backInDemo.parkedSelf === null);
+
+  await page.selectOption("#ws-switch", "__new__");
+  await page.waitForTimeout(400);
+  await page.click('[data-preset="aviation-logistics"]');
+  await page.waitForTimeout(300);
+  await page.fill("#wiz-org", "Meridian Group");
+  await page.fill("#wiz-ws", "Gateway segment");
+  await page.check('[name="wiz-unit"][value="value-stream"]');
+  await page.fill("#wiz-streams", "Export cargo handling\nImport cargo and delivery\nGround turn operations");
+  await page.click("#wiz-go");
+  await page.waitForTimeout(600);
+  await page.click('.tab[data-view="matrix"]');
+  await page.waitForTimeout(300);
+  const vsWs = await page.evaluate(() => ({
+    unit: state.unit, n: state.clusters.length, refs: state.clusters.map(c => c.ref).join(), levers: state.valueChain.levers.length,
+    name: state.workspaceName, head: document.querySelector(".mh.corner").textContent
+  }));
+  check("a value-stream workspace scores the streams the owner named", vsWs.unit === "value-stream" && vsWs.n === 3 && await page.locator(".cell").count() === 12);
+  check("its rows carry value-stream IDs and the matrix says 'Value stream'", vsWs.refs === "VS-01,VS-02,VS-03" && vsWs.head.includes("Value stream"));
+  check("it starts with no orphan levers pointing at clusters it does not have", vsWs.levers === 0);
+  // Regression: typing in a field and clicking a button straight away must not lose the click
+  await page.click('.tab[data-view="valuechain"]');
+  await page.waitForTimeout(300);
+  await page.click("#vc-add");
+  await page.waitForTimeout(300);
+  await page.fill('[data-lv="name|0"]', "Yield per tonne");      // no blur, no change event yet
+  await page.click("#vc-add");                                   // the blur and the click arrive together
+  await page.waitForTimeout(400);
+  check("REGRESSION FIX: a button clicked straight after typing still works (redraw waits for the click)",
+    await page.evaluate(() => state.valueChain.levers.length === 2 && state.valueChain.levers[0].name === "Yield per tonne"));
+  check("levers added by hand get stable IDs too",
+    await page.evaluate(() => state.valueChain.levers.map(l => l.ref).join() === "LV-01,LV-02"));
+  await page.evaluate(() => { state.valueChain.levers[1].name = "Cost per tonne"; renderAll(); });
+
+  check("three workspaces now listed, the new one active", await wsCount() === 3 && vsWs.name === "Gateway segment");
+  check("every workspace passes the contract",
+    await page.evaluate(() => wsReadIndex().list.every(w => {
+      const raw = w.id === state.workspaceId ? localStorage.getItem("capability_compass_state_v1") : localStorage.getItem("capability_compass_ws_" + w.id);
+      return raw && validateState(migrateState(JSON.parse(raw))).length === 0;
+    })));
+  check("no workspace store contains the API key",
+    await page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith("capability_compass_ws_") || k === "capability_compass_workspaces_v1" || k === "capability_compass_state_v1")
+      .every(k => !/apiKey|sk-ant/.test(localStorage.getItem(k)))));
+
+  await page.selectOption("#ws-switch", "__manage__");
+  await page.waitForTimeout(300);
+  await page.fill("#wsm-name", "Gateway Services");
+  await page.click("#wsm-save");
+  await page.waitForTimeout(300);
+  check("a workspace can be renamed", (await page.locator("#ws-switch option:checked").textContent()) === "Gateway Services");
+  await page.reload();
+  await page.waitForTimeout(600);
+  check("the active workspace survives a reload", await page.evaluate(() => state.workspaceName === "Gateway Services" && state.unit === "value-stream"));
+
+  // An imported file becomes its own workspace — it never overwrites the one on screen
+  const exportedWs = await page.evaluate(() => JSON.stringify(Object.assign(JSON.parse(localStorage.getItem("capability_compass_state_v1")), { workspaceName: "Imported copy" })));
+  await page.setInputFiles("#file-import", { name: "backup.json", mimeType: "application/json", buffer: Buffer.from(exportedWs) });
+  await page.waitForTimeout(600);
+  check("importing a backup adds a workspace instead of replacing the current one",
+    await wsCount() === 4 && await page.evaluate(() => state.workspaceName === "Imported copy"));
+
+  await page.selectOption("#ws-switch", "__manage__");
+  await page.waitForTimeout(300);
+  page.once("dialog", d => d.accept());
+  await page.click("#wsm-delete");
+  await page.waitForTimeout(600);
+  check("deleting a workspace removes only that one and lands in another",
+    await wsCount() === 3 && await page.evaluate(() => !!state && state.workspaceName !== "Imported copy"));
 
   const realErrors = jsErrors.filter(e => !e.includes("ERR_TUNNEL") && !e.includes("Failed to load resource"));
   check("no JavaScript errors during the whole run", realErrors.length === 0);

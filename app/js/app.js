@@ -6,7 +6,7 @@
 
 const STORE_KEY = "capability_compass_state_v1";
 let state = null;
-let activeView = "matrix";
+let activeView = "journey";
 let drawerCtx = null; // { clusterId, lensKey, pendingLevel }
 
 /* ---------- Utilities ---------- */
@@ -26,8 +26,74 @@ function toast(msg) {
 }
 
 function saveState() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); wsRegister(state); }
   catch (e) { toast("Warning: could not save locally (" + e.message + ")"); }
+}
+
+/* ---------- Workspaces: several named diagnostics in one browser ---------- */
+/* A new diagnostic never overwrites the one on screen: the current one
+   is parked first and stays one click away in the workspace list. */
+function adoptNewState(fresh, name) {
+  if (state) { saveState(); wsPark(state); }
+  fresh.workspaceId = wsNewId();
+  fresh.workspaceName = (name || fresh.orgName || "Workspace").trim();
+  state = fresh;
+}
+
+function switchWorkspace(id) {
+  if (!state || id === state.workspaceId) return;
+  try {
+    saveState(); wsPark(state);
+    const next = wsTakeParked(id);
+    if (!next) { wsTakeParked(state.workspaceId); toast("That workspace could not be found."); renderAll(); return; }
+    state = migrateState(next);
+    closeDrawer(); activeView = "journey"; renderAll();
+    toast("Switched to “" + state.workspaceName + "”.");
+  } catch (e) { toast(e.message); }
+}
+
+function renderWorkspaceSwitch() {
+  const sel = $("ws-switch");
+  if (!sel || !state) return;
+  const ix = wsReadIndex();
+  const rows = ix.list.length ? ix.list : [{ id: state.workspaceId, name: state.workspaceName }];
+  sel.innerHTML = rows.map(w => `<option value="${esc(w.id)}" ${w.id === state.workspaceId ? "selected" : ""}>${esc(w.name)}</option>`).join("") +
+    `<option disabled>──────────</option>
+     <option value="__new__">＋ New workspace…</option>
+     <option value="__manage__">Rename or delete this one…</option>`;
+}
+
+function openWorkspaceManager() {
+  const others = wsReadIndex().list.filter(w => w.id !== state.workspaceId);
+  openModal(`
+    <button class="m-close" id="m-close">✕</button>
+    <h2>This workspace</h2>
+    <p class="m-sub">A workspace is one complete diagnostic. Keep one for the group and one per segment or client; they never mix. ${others.length ? "You also have: " + others.map(w => esc(w.name)).join(", ") + "." : "This is your only workspace."}</p>
+    <div class="m-field"><label>Workspace name</label><input type="text" id="wsm-name" value="${esc(state.workspaceName)}"></div>
+    <div class="m-row">
+      <button class="btn-plain danger" id="wsm-delete">Delete this workspace</button>
+      <span class="grow"></span>
+      <button class="btn-navy" id="wsm-save">Save name</button>
+    </div>`);
+  $("m-close").addEventListener("click", () => { closeModal(); renderWorkspaceSwitch(); });
+  $("wsm-save").addEventListener("click", () => {
+    state.workspaceName = $("wsm-name").value.trim() || state.workspaceName;
+    closeModal(); renderAll(); toast("Workspace renamed.");
+  });
+  $("wsm-delete").addEventListener("click", () => {
+    if (!confirm(`Delete the workspace “${state.workspaceName}” and everything in it?\n\nExport a JSON backup first if you may want it back. Your other workspaces are not affected.`)) return;
+    const gone = state.workspaceId;
+    const next = wsReadIndex().list.filter(w => w.id !== gone)[0];
+    wsForget(gone);
+    localStorage.removeItem(STORE_KEY);
+    state = null; closeModal(); closeDrawer();
+    if (next) {
+      state = migrateState(wsTakeParked(next.id));
+      activeView = "journey"; renderAll(); toast("Workspace deleted. Now in “" + state.workspaceName + "”.");
+    } else {
+      $("view").innerHTML = ""; $("kpis").innerHTML = ""; openWizard(false);
+    }
+  });
 }
 function loadState() {
   try {
@@ -81,6 +147,17 @@ function migrateState(s) {
   }
   if (!s.boardSort) s.boardSort = "auto";
   if (!Array.isArray(s.calibrations)) s.calibrations = [];
+  /* v5 workflow layer: Stage 0 charter, pilot shortlist, the unit being
+     scored, and a stable ID on everything that leaves this app. */
+  if (!s.unit) s.unit = "capability";
+  if (!s.charter || typeof s.charter !== "object") s.charter = defaultCharter();
+  else {
+    const d = defaultCharter();
+    Object.keys(d).forEach(k => { if (s.charter[k] === undefined) s.charter[k] = d[k]; });
+  }
+  if (!s.pilots || typeof s.pilots !== "object" || Array.isArray(s.pilots)) s.pilots = {};
+  Object.keys(s.pilots).forEach(cid => { if (!(s.clusters || []).some(c => c.id === cid)) delete s.pilots[cid]; });
+  ensureRefs(s);
   return s;
 }
 
@@ -96,8 +173,14 @@ const DEFAULT_VC_STAGES = [
 const docBlobs = {};
 
 /* ---------- Blank diagnostic from a preset ---------- */
-function stateFromPreset(preset, orgName) {
-  const clusters = preset.clusters.map(c => {
+function stateFromPreset(preset, orgName, streams) {
+  /* A value-stream workspace scores a business segment end to end: the
+     rows are the streams the owner names, not the preset's functions. */
+  const useStreams = Array.isArray(streams) && streams.length > 0;
+  const rows = useStreams
+    ? streams.map((n, i) => ({ id: "vs_" + (i + 1) + "_" + n.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 24), no: i + 1, name: n, desc: "", priority_move: "Score this value stream from evidence, then name the one move that matters." }))
+    : preset.clusters;
+  const clusters = rows.map(c => {
     const cells = {};
     DEFAULT_LENSES.forEach(l => {
       cells[l.key] = {
@@ -124,10 +207,13 @@ function stateFromPreset(preset, orgName) {
     /* The industry preset seeds the STRUCTURE of the money map, never
        the numbers. Weights start at 0 so nothing is fabricated — the
        board keeps saying "weakest-first" until real weights arrive. */
+    unit: useStreams ? "value-stream" : "capability",
     valueChain: {
       currency: "$", revenue: "", as_of: "",
       stages: DEFAULT_VC_STAGES.map(x => ({ ...x })),
-      levers: JSON.parse(JSON.stringify(preset.value_levers || []))
+      /* The preset's starter levers point at the preset's clusters, so a
+         value-stream workspace starts with none rather than orphans. */
+      levers: useStreams ? [] : JSON.parse(JSON.stringify(preset.value_levers || []))
     },
     vc_seeded: true,
     boardSort: "auto",
@@ -138,7 +224,33 @@ function stateFromPreset(preset, orgName) {
 /* ============================================================
    RENDERING
    ============================================================ */
+/* A field's "change" fires as it loses focus — which is usually the
+   mouse-down of the very button the user is about to click. Redrawing
+   at that instant replaces the button under the pointer and the click
+   is lost. So a redraw requested while the mouse is down waits until
+   the click has landed. Drop-downs are exempt (their mouse-up is not
+   reliably reported), and a timer guarantees the redraw always happens. */
+let pointerDownAt = 0, renderPending = false;
+function pointerIsDown() { return pointerDownAt > 0 && Date.now() - pointerDownAt < 700; }
+const afterPointerQueue = [];
+function flushRender() {
+  if (pointerIsDown() || !state) return;
+  if (renderPending) { renderPending = false; afterPointerQueue.length = 0; renderAll(); return; }
+  while (afterPointerQueue.length) afterPointerQueue.shift()();
+}
+/* Run a partial screen refresh now, or — if a click is in progress —
+   as soon as it has landed. Same reason as the deferred redraw. */
+function afterPointer(fn) { if (pointerIsDown()) afterPointerQueue.push(fn); else fn(); }
+document.addEventListener("mousedown", e => {
+  pointerDownAt = /^(SELECT|OPTION)$/.test(e.target.tagName) ? 0 : Date.now();
+  setTimeout(flushRender, 800);
+}, true);
+document.addEventListener("mouseup", () => { pointerDownAt = 0; setTimeout(flushRender, 0); }, true);
+
 function renderAll() {
+  if (pointerIsDown()) { renderPending = true; return; }
+  renderPending = false;
+  ensureRefs(state);
   document.documentElement.style.setProperty("--lens-count", state.lenses.length);
   $("org-name").textContent = state.orgName + " · " + state.industry_name;
   const fv = $("footer-version");
@@ -148,6 +260,7 @@ function renderAll() {
   renderKpis();
   renderView();
   saveState();
+  renderWorkspaceSwitch();   // after the save, which is what lists a new workspace
 }
 
 function renderKpis() {
@@ -185,7 +298,10 @@ function renderView() {
   else if (activeView === "valuechain") el.innerHTML = viewValueChain();
   else if (activeView === "roles") el.innerHTML = viewRoles();
   else if (activeView === "blueprint") el.innerHTML = viewBlueprint();
-  else el.innerHTML = viewDelta();
+  else if (activeView === "charter") el.innerHTML = viewCharter();
+  else if (activeView === "handoff") el.innerHTML = viewHandoff();
+  else if (activeView === "delta") el.innerHTML = viewDelta();
+  else el.innerHTML = viewJourney();
   bindViewEvents();
 }
 
@@ -211,7 +327,7 @@ function cellHtml(cluster, lens) {
     </span>
     <span class="meta">
       <span class="momo ${t.known ? "" : "momo-unknown"}" title="${esc(trajTitle)}"><span class="sym">${ml.sym}</span>${ml.word}</span>
-      ${conf.grounded ? `<span class="conf-dot">◈ ${esc(conf.label)}</span>` : '<span class="unsupported">Unsupported</span>'}
+      ${conf.grounded ? `<span class="conf-dot" ${cell.grade ? `title="Evidence grade: ${gradeMeta(cell.grade).label}"` : ""}>◈ ${esc(conf.label)}${cell.grade ? " · " + gradeMeta(cell.grade).label : ""}</span>` : '<span class="unsupported">Unsupported</span>'}
     </span>
   </button>`;
 }
@@ -225,21 +341,21 @@ function viewMatrix() {
   const cal = calibrationSummary(state);
   const ordered = orderClustersForBoard(state, state.boardSort || "auto");
   const head = `<div class="matrix-head">
-      <div class="mh corner">Capability cluster<span class="sub">Weight · priority move always visible</span></div>
+      <div class="mh corner">${state.unit === "value-stream" ? "Value stream" : "Capability cluster"}<span class="sub">Weight · priority move always visible</span></div>
       ${state.lenses.map(l => `<div class="mh">${esc(l.name)}<span class="sub">${esc(l.sub)}</span></div>`).join("")}
     </div>`;
   const rows = ordered.clusters.map(cl => {
     const mat = clusterMateriality(state, cl);
     const matChip = mat.mapped
       ? (mat.weight
-        ? `<span class="mat-chip" title="${esc(mat.levers.map(l => l.name).join('; '))}">◧ ${mat.weight}% of P&L weight · ${mat.share}% of the mapped money</span>`
+        ? `<span class="mat-chip" title="${esc(mat.levers.map(l => l.name).join('; '))}">◧ ${mat.weight}% of P&L weight${(() => { const m = clusterMoney(state, cl); return m.hasValue ? " · ≈ " + fmtMoney(state, m.atRisk) + " at risk" + (m.validated ? "" : " (est.)") : " · " + mat.share + "% of the mapped money"; })()}</span>`
         : `<span class="mat-chip none" title="No P&L lever maps to this cluster">◧ no economic weight mapped</span>`)
       : "";
     return `
     <div class="matrix-row">
       <div class="cluster-head">
         <button class="c-edit" data-editcluster="${esc(cl.id)}" title="Edit cluster">Edit</button>
-        <span class="c-no">CLUSTER ${cl.no}</span>
+        <span class="c-no" title="Stable ID — quote it in the other apps">${esc(cl.ref || ("CLUSTER " + cl.no))}</span>
         <span class="c-name">${esc(cl.name)}</span>
         <span class="c-desc">${esc(cl.desc)}</span>
         ${matChip}
@@ -297,6 +413,7 @@ function viewBoard() {
         ${weak ? `<span class="b-flagpill">⚑ ${weak} ${weak > 1 ? "lenses need" : "lens needs"} action</span>` : ""}
         <span class="b-velocity">${ct.known ? `${ml.sym} ${ml.word} (${fmtSigned(ct.m)})` : "? direction unknown"}</span>
         ${exp.weight ? `<span class="b-exposure" title="Economic weight ${exp.weight}% × capability gap">◧ Exposure ${Math.round(exp.exposure)}</span>` : ""}
+        ${(() => { const m = clusterMoney(state, cl); return m.hasValue ? `<span class="b-money" title="Amount at stake ${fmtMoney(state, m.stake)} × capability gap. ${m.validated ? "Validated by finance." : "An estimate until finance validates it."}">≈ ${fmtMoney(state, m.atRisk)} at risk${m.validated ? "" : " (est.)"}</span>` : ""; })()}
         ${cov.gaps.length ? `<span class="b-flagpill" title="${esc(cov.gaps.map(r => r.title).join('; '))}">⚑ ${cov.gaps.length} anchor seat${cov.gaps.length > 1 ? "s" : ""} ${cov.gaps.every(r => r.status === "absent") ? "absent" : "at risk"}</span>` : ""}
       </div>
       <div class="pm-banner"><span class="arrow">➜</span><span>${esc(cl.priority_move)}</span></div>
@@ -414,7 +531,11 @@ function viewSignals() {
       return `<div class="sig-card">
         <div class="sig-head">
           <span class="sig-dir ${d.cls}">${d.sym} ${d.word}</span>
-          <h3>${esc(sig.headline)}</h3>
+          <h3>${sig.ref ? `<span class="ref-chip">${esc(sig.ref)}</span> ` : ""}${esc(sig.headline)}</h3>
+          <select class="sig-grade" data-sig-grade="${esc(b.id)}|${si}" title="Your judgement of how solid this signal is">
+            <option value="">Grade…</option>
+            ${EVIDENCE_GRADES.map(g => `<option value="${g.key}" ${sig.grade === g.key ? "selected" : ""}>${g.signal} (${g.label})</option>`).join("")}
+          </select>
         </div>
         <p class="sig-summary">${esc(sig.summary)}</p>
         <p class="sig-meta">Source: ${esc(sig.source || "—")}${sig.source_quality ? ` <span class="src-q q${sig.source_quality}" title="Source quality 1–5: 5 = primary (filings, regulator, the organisation itself), 4 = reputable secondary, 3 = trade aggregate, 2 = SEO farm, 1 = content mill">Q${sig.source_quality}</span>` : ""}${sig.calibration_note ? ` · <em>${esc(sig.calibration_note)}</em>` : ""}</p>
@@ -450,6 +571,13 @@ function bindSignalEvents() {
   document.querySelectorAll("[data-apply-sig]").forEach(b => b.addEventListener("click", () => {
     const [bid, si, cid] = b.dataset.applySig.split("|");
     applySignal(bid, parseInt(si, 10), cid);
+  }));
+  document.querySelectorAll("[data-sig-grade]").forEach(sel => sel.addEventListener("change", () => {
+    const [bid, si] = sel.dataset.sigGrade.split("|");
+    const br = state.briefings.find(x => x.id === bid);
+    if (!br) return;
+    br.signals[parseInt(si, 10)].grade = sel.value;
+    saveState();
   }));
   document.querySelectorAll("[data-del-brief]").forEach(b => b.addEventListener("click", () => {
     state.briefings = state.briefings.filter(x => x.id !== b.dataset.delBrief);
@@ -550,8 +678,10 @@ function viewValueChain() {
     const cl = state.clusters.find(c => c.id === l.cluster_id);
     const gap = cl ? clusterValueExposure(state, cl, state.lenses) : null;
     return `<tr>
-      <td><input type="text" class="vc-in" data-lv="name|${i}" value="${esc(l.name)}" placeholder="P&L lever"></td>
+      <td><div class="lv-name"><span class="ref-chip">${esc(l.ref || "")}</span><input type="text" class="vc-in" data-lv="name|${i}" value="${esc(l.name)}" placeholder="P&L lever"></div></td>
       <td><input type="text" class="vc-in narrow" data-lv="figure|${i}" value="${esc(l.figure || "")}" placeholder="figure"></td>
+      <td><div class="lv-stake"><input type="number" class="vc-in tiny" data-lv="value_at_stake|${i}" value="${typeof l.value_at_stake === "number" ? l.value_at_stake : ""}" min="0" step="any" placeholder="—">
+        <label title="Tick once finance has validated this figure"><input type="checkbox" data-lv="validated|${i}" ${l.validated ? "checked" : ""}> validated</label></div></td>
       <td><input type="number" class="vc-in tiny" data-lv="share_pct|${i}" value="${l.share_pct}" min="0" max="100" step="1"></td>
       <td><input type="text" class="vc-in" data-lv="capability|${i}" value="${esc(l.capability || "")}" placeholder="capability that moves it"></td>
       <td><select data-lv="cluster_id|${i}">
@@ -571,6 +701,7 @@ function viewValueChain() {
           <div><label>Currency</label><input type="text" id="vc-currency" value="${esc(vc.currency || "")}" style="width:70px"></div>
           <div><label>Revenue</label><input type="text" id="vc-revenue" value="${esc(vc.revenue || "")}" placeholder="e.g. 6.35B"></div>
           <div><label>As of</label><input type="text" id="vc-asof" value="${esc(vc.as_of || "")}" placeholder="e.g. FY2026"></div>
+          <div><label title="The unit your amounts at stake are in, e.g. m or bn">Amounts in</label><input type="text" id="vc-unit" value="${esc(vc.value_unit || "")}" placeholder="e.g. m" style="width:60px"></div>
         </div>
         <div class="vc-flow">${stages}</div>
       </div>
@@ -580,10 +711,19 @@ function viewValueChain() {
           <h2>From P&amp;L lever to critical capability</h2>
           <span class="sig-meta">${vc.levers.length} levers · ${mapped}% of weight mapped to clusters${total !== 100 && total > 0 ? ` · weights total ${total}% (they need not sum to 100)` : ""}</span>
           <button class="mini-btn" id="vc-add">＋ Add lever</button>
+          ${vc.levers.some(l => l.value_at_stake > 0) ? `<button class="mini-btn ghost" id="vc-derive" title="Set each weight to the lever's share of the total amount at stake">Weights from amounts</button>` : ""}
         </div>
+        ${(() => {
+          const valued = vc.levers.filter(l => l.value_at_stake > 0);
+          if (!valued.length) return `<p class="money-line">Optional: put an estimated amount at stake on each lever and the app shows money at risk in currency. Weights alone are enough to rank.</p>`;
+          const atRisk = state.clusters.reduce((a, c) => a + clusterMoney(state, c).atRisk, 0);
+          const stake = valued.reduce((a, l) => a + l.value_at_stake, 0);
+          const ok = valued.filter(l => l.validated).length;
+          return `<p class="money-line"><strong>${fmtMoney(state, atRisk)} at risk</strong> of ${fmtMoney(state, stake)} at stake — amount at stake × capability gap. <span class="est-tag">${ok === valued.length ? "Finance-validated" : "Estimate — " + ok + " of " + valued.length + " figures validated"}</span></p>`;
+        })()}
         <table class="vc-table">
-          <thead><tr><th>P&amp;L lever</th><th>Figure</th><th title="Share of economic weight">Weight %</th><th>Capability that moves it</th><th>Cluster that owns it</th><th title="Economic weight × capability gap">Exposure</th><th></th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="7" style="text-align:center;color:var(--muted)">No levers yet — add the handful of drivers that actually move your P&L.</td></tr>'}</tbody>
+          <thead><tr><th>P&amp;L lever</th><th>Figure</th><th title="Optional: your estimate of the amount this lever puts at stake, in ${esc((vc.currency || "") + (vc.value_unit || ""))}. An estimate until finance validates it.">At stake (est.)</th><th title="Share of economic weight">Weight %</th><th>Capability that moves it</th><th>Cluster that owns it</th><th title="Economic weight × capability gap">Exposure</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="8" style="text-align:center;color:var(--muted)">No levers yet — add the handful of drivers that actually move your P&L.</td></tr>'}</tbody>
         </table>
         ${unmapped.length ? `<p class="sig-meta" style="margin-top:8px">⚑ ${unmapped.length} lever${unmapped.length > 1 ? "s" : ""} not yet mapped to a cluster — that money has no capability owner in this diagnostic.</p>` : ""}
       </div>
@@ -724,6 +864,7 @@ function mergeCluster(fromId, intoId) {
   state.valueChain.levers.forEach(l => { if (l.cluster_id === fromId) l.cluster_id = intoId; });
   into.roles = (into.roles || []).concat(from.roles || []);
   state.clusters = state.clusters.filter(c => c.id !== fromId);
+  if (state.pilots) delete state.pilots[fromId];
   renumberClusters();
   return true;
 }
@@ -735,6 +876,7 @@ function removeCluster(id) {
   if (!confirm(`Remove “${cl.name}” from the diagnostic?\n\nIts ratings, evidence and roles go with it. Any P&L lever mapped to it becomes unmapped, and saved version snapshots keep the history.`)) return false;
   state.valueChain.levers.forEach(l => { if (l.cluster_id === id) l.cluster_id = ""; });
   state.clusters = state.clusters.filter(c => c.id !== id);
+  if (state.pilots) delete state.pilots[id];
   renumberClusters();
   return true;
 }
@@ -805,6 +947,15 @@ function bindValueChainEvents() {
   cur.addEventListener("change", () => { state.valueChain.currency = cur.value.trim(); save(); });
   $("vc-revenue").addEventListener("change", () => { state.valueChain.revenue = $("vc-revenue").value.trim(); save(); });
   $("vc-asof").addEventListener("change", () => { state.valueChain.as_of = $("vc-asof").value.trim(); save(); });
+  $("vc-unit").addEventListener("change", () => { state.valueChain.value_unit = $("vc-unit").value.trim(); renderAll(); });
+  const derive = $("vc-derive");
+  if (derive) derive.addEventListener("click", () => {
+    const tot = state.valueChain.levers.reduce((a, l) => a + (l.value_at_stake > 0 ? l.value_at_stake : 0), 0);
+    if (!tot) return;
+    if (state.valueChain.levers.some(l => l.share_pct > 0) && !confirm("Replace the current weights with each lever's share of the total amount at stake?")) return;
+    state.valueChain.levers.forEach(l => { l.share_pct = l.value_at_stake > 0 ? Math.round((l.value_at_stake / tot) * 100) : 0; });
+    renderAll(); toast("Weights set from the amounts at stake.");
+  });
   document.querySelectorAll("[data-vc-stage]").forEach(inp => inp.addEventListener("change", () => {
     state.valueChain.stages[parseInt(inp.dataset.vcStage, 10)].note = inp.value.trim(); save();
   }));
@@ -815,7 +966,12 @@ function bindValueChainEvents() {
   document.querySelectorAll("[data-lv]").forEach(el => el.addEventListener("change", () => {
     const [field, idx] = el.dataset.lv.split("|");
     const lever = state.valueChain.levers[parseInt(idx, 10)];
-    lever[field] = field === "share_pct" ? Math.max(0, Math.min(100, parseFloat(el.value) || 0)) : el.value.trim();
+    if (field === "share_pct") lever[field] = Math.max(0, Math.min(100, parseFloat(el.value) || 0));
+    else if (field === "validated") lever.validated = el.checked;
+    else if (field === "value_at_stake") {
+      const v = parseFloat(el.value);
+      if (isNaN(v) || v <= 0) { delete lever.value_at_stake; lever.validated = false; } else lever.value_at_stake = v;
+    } else lever[field] = el.value.trim();
     renderAll();
   }));
   document.querySelectorAll("[data-lv-del]").forEach(b => b.addEventListener("click", () => {
@@ -954,7 +1110,7 @@ function viewRoles() {
   const roleRows = (cluster.roles || []).map(r => {
     const s = roleSummary(r);
     return `<tr>
-      <td><input type="text" class="vc-in" data-role="title|${esc(r.id)}" value="${esc(r.title)}"></td>
+      <td><div class="lv-name"><span class="ref-chip">${esc(r.ref || "")}</span><input type="text" class="vc-in" data-role="title|${esc(r.id)}" value="${esc(r.title)}"></div></td>
       <td><select data-role="status|${esc(r.id)}">
         ${Object.keys(STATUS_META).map(k => `<option value="${k}" ${r.status === k ? "selected" : ""}>${STATUS_META[k].label}</option>`).join("")}
       </select></td>
@@ -1346,7 +1502,7 @@ function applyFinding(analysisId, findingIndex) {
 function viewDelta() {
   if (!state.versions.length) {
     return `<div class="delta-empty"><strong>No saved versions yet.</strong><br>
-      Click “Save version” in the top bar to snapshot the current diagnostic. Future changes can then be compared here — and momentum in the Trajectory view will use the snapshot as its baseline.</div>`;
+      Click “Save version” in the top bar to snapshot the current diagnostic. That snapshot is the baseline the scoreboard measures every later cycle against — and what the Trajectory view reads direction from.</div>`;
   }
   const opts = state.versions.map((v, i) =>
     `<option value="${i}" ${i === state.versions.length - 1 ? "selected" : ""}>${esc(v.version)} — ${esc(v.label)} (${new Date(v.savedAt).toLocaleDateString()})</option>`).join("");
@@ -1364,7 +1520,9 @@ function viewDelta() {
       <td>${esc(r.cell.rationale || "—")}</td>
     </tr>`).join("")
     : `<tr><td colspan="4" style="text-align:center;color:var(--muted)">No differences between ${esc(base.version)} and the current working state.</td></tr>`;
-  return `<div class="view-note">Recalibration read — what changed since a saved baseline, and why. Level moves are sorted declines-first.</div>
+  return `<div class="view-note"><strong>Stage 5 — Deliver.</strong> The scoreboard: the trend across every saved version, whether last cycle's directional calls were right, and exactly what changed since a baseline you choose.</div>
+    <section class="print-section">${scoreboardHtml()}</section>
+    <div class="sig-brief-head" style="margin:18px 22px 6px 22px"><h2>What changed, and why</h2><span class="sig-meta">declines first, each with its logged rationale</span></div>
     <div class="delta-controls"><label class="head" style="font-weight:800;font-size:12px">Compare current state against:</label>
       <select id="delta-base">${opts}</select></div>
     <section class="print-section"><table class="delta-table">
@@ -1387,6 +1545,8 @@ function bindViewEvents() {
   document.querySelectorAll("[data-goto]").forEach(el => el.addEventListener("click", () => {
     activeView = el.dataset.goto; renderView();
   }));
+  bindCharterEvents();
+  bindHandoffEvents();
   bindSignalEvents();
   bindEvidenceEvents();
   bindValueChainEvents();
@@ -1591,6 +1751,7 @@ function renderDrawer() {
     <div class="ev-row">
       <input type="text" value="${esc(ev.label)}" data-ev-label="${i}" placeholder="Source (e.g. Engagement Survey 2026)">
       <input type="text" value="${esc(ev.note || "")}" data-ev-note="${i}" placeholder="What it evidences">
+      <input type="text" class="ev-ref" value="${esc(ev.ref || "")}" data-ev-ref="${i}" placeholder="ID" title="Optional: the ID of a finding from another app — a discrepancy (X5), a step (S-03), a hypothesis (H2)">
       <button class="mini-btn danger" data-ev-del="${i}">✕</button>
     </div>`).join("");
 
@@ -1607,6 +1768,7 @@ function renderDrawer() {
         <span>${ml.sym} ${ml.word}${t.known ? ` (${fmtSigned(t.m)}) · ${t.confidence} confidence` : ""}</span>
         <span>${esc(cls)}${t.known && proj !== cell.level ? ` · toward L${proj} within 2 cycles IF indicators hold` : ""}</span>
         ${conf.grounded ? "" : '<span class="unsupported">Unsupported — add evidence</span>'}
+        ${cell.grade ? `<span class="grade-pill g-${esc(cell.grade)}">${gradeMeta(cell.grade).label}</span>` : ""}
       </div>
       <div class="d-meta" style="margin-top:5px">
         <span class="mix-badge ${mixMeta.cls}">${esc(mixMeta.label)}</span>
@@ -1646,6 +1808,14 @@ function renderDrawer() {
       </div>
       <div class="d-section">
         <h4>Evidence sources (grounding guardrail)</h4>
+        <div class="grade-row">
+          <label for="d-grade">Evidence grade — your judgement</label>
+          <select id="d-grade">
+            <option value="">Not graded yet</option>
+            ${EVIDENCE_GRADES.map(g => `<option value="${g.key}" ${cell.grade === g.key ? "selected" : ""}>${g.label} — ${esc(g.means)}</option>`).join("")}
+          </select>
+          <span class="grade-basis">Rests on ${(cell.evidence || []).length} source${(cell.evidence || []).length === 1 ? "" : "s"}, ${(cell.leading || []).length} leading indicator${(cell.leading || []).length === 1 ? "" : "s"}${(cell.evidence || []).some(e => e.ref) ? ", " + (cell.evidence || []).filter(e => e.ref).length + " cross-app finding(s)" : ""}. The app shows this; it does not decide the grade.</span>
+        </div>
         <div id="ev-list">${evRows || '<p style="font-size:12px;color:var(--muted);margin:0">No sources yet — this rating is flagged as unsupported until you cite at least one.</p>'}</div>
         <button class="mini-btn" id="ev-add" style="margin-top:6px">＋ Add evidence source</button>
       </div>
@@ -1713,6 +1883,11 @@ function persistDrawerFields(cluster, cell, includeLevel) {
   document.querySelectorAll("[data-li-sig]").forEach(sel => { cell.leading[parseInt(sel.dataset.liSig, 10)].signal = sel.value; });
   document.querySelectorAll("[data-ev-label]").forEach(inp => { cell.evidence[parseInt(inp.dataset.evLabel, 10)].label = inp.value.trim(); });
   document.querySelectorAll("[data-ev-note]").forEach(inp => { cell.evidence[parseInt(inp.dataset.evNote, 10)].note = inp.value.trim(); });
+  document.querySelectorAll("[data-ev-ref]").forEach(inp => {
+    const v = inp.value.trim();
+    if (v) cell.evidence[parseInt(inp.dataset.evRef, 10)].ref = v; else delete cell.evidence[parseInt(inp.dataset.evRef, 10)].ref;
+  });
+  if ($("d-grade")) cell.grade = $("d-grade").value;
   cell.watch = cell.watch || [];
   document.querySelectorAll("[data-w]").forEach(inp => { cell.watch[parseInt(inp.dataset.w, 10)] = inp.value.trim(); });
   cell.evidence = cell.evidence.filter(e => e.label || e.note);
@@ -1771,7 +1946,7 @@ function openWizard(allowCancel) {
     </div>`);
   if (allowCancel) $("m-close").addEventListener("click", closeModal);
   document.querySelectorAll("[data-demo]").forEach(b => b.addEventListener("click", () => {
-    state = migrateState(buildDemoState()); closeModal(); activeView = "matrix"; renderAll();
+    adoptNewState(migrateState(buildDemoState()), "Meridian Group (demo)"); closeModal(); activeView = "journey"; renderAll();
     toast("Demo loaded — fictional data. Use the menu to start fresh anytime.");
   }));
   document.querySelectorAll("[data-preset]").forEach(b => b.addEventListener("click", () => wizardPreview(b.dataset.preset)));
@@ -1784,6 +1959,12 @@ function wizardPreview(presetId) {
     <p class="m-sub">${esc(p.description)} Review the scaffold, name your organisation, then generate. Every cluster, move, and rating is editable later.</p>
     <div class="m-field"><label>Organisation name</label>
       <input type="text" id="wiz-org" value="My Organisation"></div>
+    <div class="m-field"><label>Workspace name — what this diagnostic covers (for example “Group” or a segment)</label>
+      <input type="text" id="wiz-ws" placeholder="Defaults to the organisation name"></div>
+    <div class="m-field"><label>What are you scoring?</label>
+      <label class="wiz-radio"><input type="radio" name="wiz-unit" value="capability" checked> <span><strong>Capability clusters</strong> — the ${p.clusters.length} listed below. Best for a whole-enterprise view.</span></label>
+      <label class="wiz-radio"><input type="radio" name="wiz-unit" value="value-stream"> <span><strong>Value streams</strong> — one business segment, end to end. You name the streams; each becomes a row.</span></label>
+      <textarea id="wiz-streams" style="display:none" placeholder="One value stream per line, for example:&#10;Export cargo handling&#10;Import cargo and delivery&#10;Ground turn operations"></textarea></div>
     <div class="wiz-preview">
       <h4>Capability clusters (${p.clusters.length})</h4>
       <ul>${p.clusters.map(c => `<li><strong>${esc(c.name)}</strong> — ${esc(c.desc)}<br><em style="color:var(--accent)">➜ ${esc(c.priority_move)}</em></li>`).join("")}</ul>
@@ -1798,10 +1979,21 @@ function wizardPreview(presetId) {
       <button class="btn-navy" id="wiz-go">Generate diagnostic</button>
     </div>`);
   $("wiz-back").addEventListener("click", () => openWizard(!!state));
+  document.querySelectorAll('[name="wiz-unit"]').forEach(r => r.addEventListener("change", () => {
+    $("wiz-streams").style.display = r.value === "value-stream" && r.checked ? "block" : "none";
+    document.querySelector(".wiz-preview").style.display = r.value === "value-stream" && r.checked ? "none" : "block";
+  }));
   $("wiz-go").addEventListener("click", () => {
-    state = migrateState(stateFromPreset(p, $("wiz-org").value.trim()));
-    closeModal(); activeView = "matrix"; renderAll();
-    toast("Diagnostic scaffold created. Click any cell to start rating with evidence.");
+    const unit = document.querySelector('[name="wiz-unit"]:checked').value;
+    let streams = null;
+    if (unit === "value-stream") {
+      streams = [...new Set($("wiz-streams").value.split("\n").map(x => x.trim()).filter(Boolean))].slice(0, 12);
+      if (streams.length < 2) { toast("Name at least two value streams, one per line."); return; }
+    }
+    const org = $("wiz-org").value.trim();
+    adoptNewState(migrateState(stateFromPreset(p, org, streams)), $("wiz-ws").value.trim() || org);
+    closeModal(); activeView = "journey"; renderAll();
+    toast("Workspace created. Start with the Charter, then ground and score.");
   });
 }
 
@@ -1879,8 +2071,8 @@ function openSettings() {
     <h2 style="font-size:15px;margin-top:18px">Priority Board hero patterns</h2>
     ${heroes}
     <div class="m-row">
-      <button class="btn-plain" id="set-wizard">Change industry / start fresh…</button>
-      <button class="btn-plain" id="set-reset" style="color:var(--amber-deep)">Erase all local data</button>
+      <button class="btn-plain" id="set-wizard">New workspace…</button>
+      <button class="btn-plain" id="set-reset" style="color:var(--amber-deep)">Erase all workspaces</button>
       <span class="grow"></span>
       <button class="btn-navy" id="set-save">Save settings</button>
     </div>`);
@@ -1920,8 +2112,8 @@ function openSettings() {
   });
   $("set-wizard").addEventListener("click", () => openWizard(true));
   $("set-reset").addEventListener("click", () => {
-    if (confirm("Erase ALL locally stored diagnostic data? Export a JSON backup first if you want to keep it.")) {
-      localStorage.removeItem(STORE_KEY);
+    if (confirm("Erase ALL workspaces stored in this browser? Export a JSON backup of each one you want to keep first.")) {
+      wsEraseAll(STORE_KEY);
       state = null; closeModal(); openWizard(false);
     }
   });
@@ -1967,9 +2159,12 @@ function importJson(file) {
       const parsed = migrateState(JSON.parse(reader.result));
       const errs = validateState(parsed);
       if (errs.length) throw new Error(errs[0]);
-      state = parsed;
+      /* An imported file arrives as its own workspace, so it can never
+         overwrite the diagnostic that happens to be on screen. */
+      adoptNewState(parsed, parsed.workspaceName || parsed.orgName);
+      activeView = "journey";
       renderAll();
-      toast("Import successful — file passed contract validation.");
+      toast("Imported as a new workspace — the file passed contract validation.");
     } catch (e) { toast("Import failed: " + e.message); }
   };
   reader.readAsText(file);
@@ -1988,6 +2183,12 @@ document.addEventListener("DOMContentLoaded", () => {
   $("file-roles").addEventListener("change", e => { if (e.target.files[0]) importRolesCsv(e.target.files[0]); e.target.value = ""; });
   $("btn-report").addEventListener("click", () => window.print());
   $("btn-settings").addEventListener("click", openSettings);
+  $("ws-switch").addEventListener("change", e => {
+    const v = e.target.value;
+    if (v === "__new__") { renderWorkspaceSwitch(); openWizard(true); }
+    else if (v === "__manage__") { renderWorkspaceSwitch(); openWorkspaceManager(); }
+    else switchWorkspace(v);
+  });
   $("drawer-backdrop").addEventListener("click", closeDrawer);
   document.addEventListener("keydown", e => { if (e.key === "Escape") { closeDrawer(); closeModal(); } });
 
