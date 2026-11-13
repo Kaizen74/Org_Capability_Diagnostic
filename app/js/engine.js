@@ -373,9 +373,12 @@ const STATUS_META = {
   absent: { label: "Absent", cls: "warn" }
 };
 
+/* Carried over from another country's workspace; nobody here has said yet. */
+const STATUS_TO_CONFIRM = { label: "To confirm", cls: "warn" };
+
 function roleSummary(role) {
   const idx = criticalityIndex(role), tki = tkiScore(role), route = routeRole(role);
-  return { idx, tki, route, meta: ROUTE_META[route], status: STATUS_META[role.status] || STATUS_META.exists };
+  return { idx, tki, route, meta: ROUTE_META[route], status: role.unconfirmed ? STATUS_TO_CONFIRM : (STATUS_META[role.status] || STATUS_META.exists) };
 }
 
 /* Anchor-seat coverage for a cluster: of the roles that route to
@@ -383,11 +386,14 @@ function roleSummary(role) {
    structural findings, not opinions. */
 function roleCoverage(cluster) {
   const roles = cluster.roles || [];
-  const anchors = roles.filter(r => ["critical", "dual"].indexOf(routeRole(r)) !== -1);
+  /* A role carried over from another country is "to confirm": it is
+     neither counted as filled nor reported as a gap until someone says. */
+  const allAnchors = roles.filter(r => ["critical", "dual"].indexOf(routeRole(r)) !== -1);
+  const anchors = allAnchors.filter(r => !r.unconfirmed);
   const exists = anchors.filter(r => r.status === "exists").length;
   const gaps = anchors.filter(r => r.status !== "exists");
   return {
-    total: roles.length, anchors: anchors.length, exists, gaps,
+    total: roles.length, anchors: anchors.length, exists, gaps, unconfirmed: allAnchors.length - anchors.length,
     pct: anchors.length ? Math.round((exists / anchors.length) * 100) : null
   };
 }

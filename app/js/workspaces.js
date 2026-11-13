@@ -39,6 +39,8 @@ function wsRegister(st) {
   if (!row) { row = { id: st.workspaceId }; ix.list.push(row); }
   row.name = st.workspaceName;
   row.unit = st.unit || "capability";
+  row.country = st.country || "";
+  row.frameId = st.frameId || "";
   row.updatedAt = new Date().toISOString();
   ix.active = st.workspaceId;
   wsWriteIndex(ix);
@@ -56,6 +58,26 @@ function wsTakeParked(id) {
   localStorage.removeItem(WS_PREFIX + id);
   return JSON.parse(raw);
 }
+/* Read a parked workspace without touching it — used to compare
+   countries side by side while only one is open. */
+function wsPeek(id) {
+  try { var raw = localStorage.getItem(WS_PREFIX + id); return raw ? JSON.parse(raw) : null; }
+  catch (e) { return null; }
+}
+/* Workspaces built from one frame (one per country) share a single
+   comparison: why each difference exists, the verdict, the ask. It is
+   kept once, here, so it reads the same whichever country is open. */
+var WS_FRAME_PREFIX = "capability_compass_frame_";
+function wsNewFrameId() { return "fr_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function wsSharedRead(frameId) {
+  if (!frameId) return null;
+  try { var raw = localStorage.getItem(WS_FRAME_PREFIX + frameId); return raw ? JSON.parse(raw) : null; }
+  catch (e) { return null; }
+}
+function wsSharedWrite(frameId, obj) {
+  if (!frameId || !obj) return;
+  try { localStorage.setItem(WS_FRAME_PREFIX + frameId, JSON.stringify(obj)); } catch (e) { /* storage unavailable */ }
+}
 function wsForget(id) {
   localStorage.removeItem(WS_PREFIX + id);
   var ix = wsReadIndex();
@@ -64,7 +86,10 @@ function wsForget(id) {
   wsWriteIndex(ix);
 }
 function wsEraseAll(storeKey) {
-  wsReadIndex().list.forEach(function (w) { localStorage.removeItem(WS_PREFIX + w.id); });
+  wsReadIndex().list.forEach(function (w) {
+    localStorage.removeItem(WS_PREFIX + w.id);
+    if (w.frameId) localStorage.removeItem(WS_FRAME_PREFIX + w.frameId);
+  });
   localStorage.removeItem(WS_INDEX_KEY);
   localStorage.removeItem(storeKey);
 }

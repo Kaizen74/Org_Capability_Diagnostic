@@ -1119,6 +1119,56 @@ function check(name, cond) {
   check("deleting a workspace removes only that one and lands in another",
     await wsCount() === 3 && await page.evaluate(() => !!state && state.workspaceName !== "Imported copy"));
 
+  // ---------- Countries: one frame, one workspace per country ----------
+  if (await page.evaluate(id => state.workspaceId !== id, demoWsId)) { await page.selectOption("#ws-switch", demoWsId); await page.waitForTimeout(500); }
+  const beforeCopy = await page.evaluate(() => ({ n: wsReadIndex().list.length, snap: JSON.stringify(state.clusters), key: state.charter.engagementKey, refs: state.clusters.map(c => c.ref).join() }));
+  await page.selectOption("#ws-switch", "__manage__");
+  await page.waitForTimeout(300);
+  check("the workspace box asks which country the workspace covers and offers to add another",
+    await page.locator("#wsm-country").count() === 1 && await page.locator("#wsm-copy-go").count() === 1);
+  await page.fill("#wsm-new-country", "Thailand");
+  await page.fill("#wsm-new-code", "th");
+  await page.click("#wsm-copy-go");
+  await page.waitForTimeout(300);
+  check("a country cannot be added until this workspace says which country it is",
+    await page.evaluate(() => wsReadIndex().list.length) === beforeCopy.n && (await page.locator("#toast").textContent()).includes("which country"));
+  await page.fill("#wsm-country", "Singapore");
+  await page.click("#wsm-copy-go");
+  await page.waitForTimeout(600);
+  const inTh = await page.evaluate(() => ({
+    n: wsReadIndex().list.length, country: state.country, name: state.workspaceName, key: state.charter.engagementKey,
+    refs: state.clusters.map(c => c.ref).join(), frame: state.frameId,
+    blank: state.clusters.every(c => Object.values(c.cells).every(x => x.status === "Not yet assessed")),
+    toConfirm: state.clusters.flatMap(c => c.roles).every(r => r.unconfirmed === true),
+    errs: validateState(state)
+  }));
+  check("adding a country creates a new workspace and opens it", inTh.n === beforeCopy.n + 1 && inTh.country === "Thailand" && /Thailand/.test(inTh.name));
+  check("the new country has the same IDs, its own engagement key, and blank scores",
+    inTh.refs === beforeCopy.refs && inTh.key !== beforeCopy.key && /TH$/.test(inTh.key) && inTh.blank && !!inTh.frame);
+  check("the new country's workspace passes the shared contract", inTh.errs.length === 0);
+  await page.click('.tab[data-view="roles"]');
+  await page.waitForTimeout(300);
+  check("roles carried over show as 'To confirm', not as existing",
+    inTh.toConfirm && await page.locator("select.to-confirm").count() > 0 &&
+    (await page.locator("select.to-confirm").first().locator("option:checked").textContent()) === "To confirm");
+  await page.locator("select.to-confirm").first().selectOption("absent");
+  await page.waitForTimeout(400);
+  check("choosing a status confirms the role",
+    await page.evaluate(() => { const r = state.clusters.find(c => c.id === (rolesCluster || state.clusters[0].id)).roles[0]; return r.status === "absent" && r.unconfirmed === undefined; }));
+  const sgId = await page.evaluate(() => wsReadIndex().list.find(w => w.country === "Singapore").id);
+  await page.selectOption("#ws-switch", sgId);
+  await page.waitForTimeout(500);
+  check("the workspace it was copied from is untouched",
+    await page.evaluate(snap => JSON.stringify(state.clusters) === snap && state.country === "Singapore", beforeCopy.snap));
+  await page.selectOption("#ws-switch", "__manage__");
+  await page.waitForTimeout(300);
+  await page.fill("#wsm-new-country", "thailand");
+  await page.fill("#wsm-new-code", "TH");
+  await page.click("#wsm-copy-go");
+  await page.waitForTimeout(300);
+  check("the same country cannot be added twice", await page.evaluate(() => wsReadIndex().list.length) === beforeCopy.n + 1);
+  await page.click("#m-close");
+
   const realErrors = jsErrors.filter(e => !e.includes("ERR_TUNNEL") && !e.includes("Failed to load resource"));
   check("no JavaScript errors during the whole run", realErrors.length === 0);
   if (realErrors.length) console.log("  JS errors:", realErrors);

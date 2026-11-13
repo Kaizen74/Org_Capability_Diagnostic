@@ -1,14 +1,14 @@
 {
   "app/js/app.js": {
-    "mtime": 1794437628.5628786,
-    "seen": 1794438169.853155,
-    "ast_hash": "0c1f5efee79dcb88987087af920141c2",
+    "mtime": 1794530627.4192588,
+    "seen": 1794530810.01421,
+    "ast_hash": "c0dff89b03aacf566e566a143707b433",
     "semantic_hash": ""
   },
   "app/js/engine.js": {
-    "mtime": 1794396957.6241918,
-    "seen": 1794438169.853159,
-    "ast_hash": "8e94bc4c184ed9fed125f43175ca12d2",
+    "mtime": 1794530582.4665387,
+    "seen": 1794530810.0142195,
+    "ast_hash": "b96f8eaedf3b1dda645f9fd9a2048b4e",
     "semantic_hash": ""
   },
   "app/js/llm.js": {
@@ -30,9 +30,9 @@
     "semantic_hash": ""
   },
   "app/js/schema.js": {
-    "mtime": 1794402596.0333552,
-    "seen": 1794438169.8531663,
-    "ast_hash": "051bcfc8095cfba9cd8f8aaf9dfffab9",
+    "mtime": 1794530582.4674802,
+    "seen": 1794530810.0142322,
+    "ast_hash": "da2fcfc43dbcbe827f6d281012485cb5",
     "semantic_hash": ""
   },
   "run_checks.sh": {
@@ -42,15 +42,15 @@
     "semantic_hash": "bd1e53be41f71afd352144d5014c7980"
   },
   "tests/contract_test.js": {
-    "mtime": 1794402684.6770968,
-    "seen": 1794438169.8531709,
-    "ast_hash": "6a0ab3c8bfab5ec7cc7708da9741d65e",
+    "mtime": 1794530635.6022794,
+    "seen": 1794530810.0142424,
+    "ast_hash": "6ca2442cdec52f51a2770c52238926f7",
     "semantic_hash": ""
   },
   "tests/e2e_mock_test.js": {
-    "mtime": 1794437714.1236925,
-    "seen": 1794438169.8531723,
-    "ast_hash": "8d4e7cae0824e5bba6da59e33abf2643",
+    "mtime": 1794530654.618554,
+    "seen": 1794530810.014244,
+    "ast_hash": "3f55678bb5ffe872c754f8d23235685b",
     "semantic_hash": ""
   },
   ".claude/CLAUDE.md": {
@@ -78,9 +78,9 @@
     "semantic_hash": ""
   },
   "PROJECT_STATE.md": {
-    "mtime": 1794437974.3625848,
-    "seen": 1794438169.8531778,
-    "ast_hash": "e9c1af6f1ac97b77908fff5ac33a050a",
+    "mtime": 1794530791.7271533,
+    "seen": 1794530810.0142546,
+    "ast_hash": "f96562f232e470c8e56cb5076e2bed0e",
     "semantic_hash": ""
   },
   "README.md": {
@@ -90,9 +90,9 @@
     "semantic_hash": ""
   },
   "app/index.html": {
-    "mtime": 1794403180.4109445,
-    "seen": 1794438169.8531797,
-    "ast_hash": "8f951180a7103c3f999f7004a88f3a7f",
+    "mtime": 1794530513.8505774,
+    "seen": 1794530810.0142584,
+    "ast_hash": "cc92678657b058da102871dd2210d576",
     "semantic_hash": ""
   },
   "docs/Capability_Compass_PRD_v3.md": {
@@ -132,9 +132,9 @@
     "semantic_hash": ""
   },
   "app/js/handoff.js": {
-    "mtime": 1794402691.8850248,
-    "seen": 1794438169.8531601,
-    "ast_hash": "e091ac88fefa169964d7ed823ef99624",
+    "mtime": 1794530582.4658804,
+    "seen": 1794530810.0142217,
+    "ast_hash": "83b34018bdd66b28db4e715461e3bece",
     "semantic_hash": ""
   },
   "app/js/stages.js": {
@@ -144,15 +144,45 @@
     "semantic_hash": ""
   },
   "app/js/workspaces.js": {
-    "mtime": 1794402808.8059464,
-    "seen": 1794438169.8531687,
-    "ast_hash": "300305b2923a624764b785f08be5fae8",
+    "mtime": 1794530582.466899,
+    "seen": 1794530810.0142362,
+    "ast_hash": "ed4d382341a8930ac478152c0543617c",
     "semantic_hash": ""
   },
   "docs/HANDOFF_FORMAT.md": {
     "mtime": 1794437514.801711,
     "seen": 1794438169.8531833,
     "ast_hash": "d1b02897d3a78756bde1a8405337182a",
+    "semantic_hash": ""
+  },
+  "app/js/compare.js": {
+    "mtime": 1794530548.0420823,
+    "seen": 1794530810.0142164,
+    "ast_hash": "e42e3186c11fbde1b43c9b122334c02b",
+    "semantic_hash": ""
+  },
+  "docs/samples/meridian_compass_handoff.json": {
+    "mtime": 1794447070.7047856,
+    "seen": 1794530810.014238,
+    "ast_hash": "37cb2ec249701b8832fdf3594b39b866",
+    "semantic_hash": ""
+  },
+  "docs/sibling_prds/PRD_org_modeling.md": {
+    "mtime": 1794447070.7462692,
+    "seen": 1794530810.0142705,
+    "ast_hash": "bc5997cc769137fb15cbf298f70c47bc",
+    "semantic_hash": ""
+  },
+  "docs/sibling_prds/PRD_process_map_studio.md": {
+    "mtime": 1794447070.7465703,
+    "seen": 1794530810.0142722,
+    "ast_hash": "f21660d42f338df4fbdac17df61795b4",
+    "semantic_hash": ""
+  },
+  "docs/sibling_prds/PRD_workbench.md": {
+    "mtime": 1794447070.7466152,
+    "seen": 1794530810.014274,
+    "ast_hash": "9f7d598b7344ab089f9e8814881e40db",
     "semantic_hash": ""
   }
 }

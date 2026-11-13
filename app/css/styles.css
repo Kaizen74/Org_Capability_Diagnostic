@@ -1022,3 +1022,13 @@ footer { max-width: 1560px; margin: 0 auto; padding: 8px 22px 34px 22px; font-si
 .fc-pill.fc-hit { background: var(--l4); color: #fff; }
 .fc-pill.fc-miss { background: var(--amber-bg); color: var(--amber-deep); border: 1px solid #EBD9BE; }
 .fc-pill.fc-pending { background: var(--l2); color: var(--l2-text); }
+
+/* ---------- Countries: add another country from the workspace box ---------- */
+.m-opt { font-weight: 400; text-transform: none; letter-spacing: 0; }
+.wsm-copy { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); }
+.wsm-copy h3 { font-size: 14px; margin: 0 0 4px 0; }
+.wsm-copy .m-sub { margin-bottom: 12px; }
+.wsm-copy-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.wsm-copy-row .m-field { flex: 1 1 180px; margin-bottom: 0; }
+.wsm-copy-row .m-field.short { flex: 0 0 96px; }
+select.to-confirm { border-color: var(--amber); background: var(--amber-bg); color: var(--amber-deep); font-weight: 700; }

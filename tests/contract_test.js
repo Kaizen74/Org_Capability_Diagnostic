@@ -22,7 +22,7 @@ const schema = require(path.join(__dirname, "..", "app", "js", "schema.js"));
 // Load the browser-global scripts (presets, engine, llm) into one sandbox.
 const sandbox = { module: undefined, console };
 vm.createContext(sandbox);
-for (const f of ["presets.js", "engine.js", "handoff.js", "llm.js"]) {
+for (const f of ["presets.js", "engine.js", "handoff.js", "compare.js", "llm.js"]) {
   const code = fs.readFileSync(path.join(__dirname, "..", "app", "js", f), "utf8");
   vm.runInContext(code, sandbox, { filename: f });
 }
@@ -841,6 +841,111 @@ checkOk("stage status follows the gates (demo: Frame and Focus done)",
   journey[0].status === "done" && journey[1].status === "done");
 checkOk("a new workspace starts with nothing marked done",
   run("journeyStages(__bw)").every(j => j.status !== "done"));
+
+// ============================================================
+//  CURRENT STATE ACROSS COUNTRIES
+// ============================================================
+
+// ---- 38. Copying a frame to another country ----
+const home = wfDemo(); home.country = "Singapore"; home.frameId = "fr_test"; home.returns = [];
+home.comparison = run("defaultComparison()"); home.workspaceId = "ws_home";
+put("__home", home);
+const th = run('ensureRefs(frameCopy(__home, "Thailand", "th"))');
+check("a country copy conforms to the shared contract", schema.validateState(th));
+checkOk("the copy keeps every ID, so CAP-03 means the same thing in each country",
+  th.clusters.map(c => c.ref).join() === home.clusters.map(c => c.ref).join() &&
+  th.clusters.flatMap(c => c.roles.map(r => r.ref)).join() === home.clusters.flatMap(c => c.roles.map(r => r.ref)).join() &&
+  th.valueChain.levers.map(l => l.ref).join() === home.valueChain.levers.map(l => l.ref).join());
+checkOk("the copy keeps the ID counters, so a new item can never reuse a number",
+  JSON.stringify(th.idSeq) === JSON.stringify(home.idSeq));
+checkOk("every score in the copy is blank: not yet assessed, no evidence, no grade",
+  th.clusters.every(c => Object.values(c.cells).every(x => x.status === "Not yet assessed" && x.level === 1 && !x.evidence.length && !x.grade && !x.rationale)));
+checkOk("weights, amounts and validation do not travel to another country",
+  th.valueChain.levers.every(l => l.share_pct === 0 && l.value_at_stake === undefined && l.validated === false) && th.valueChain.revenue === "");
+checkOk("versions, documents, pilots and imported findings do not travel",
+  th.versions.length === 0 && th.documents.length === 0 && Object.keys(th.pilots).length === 0 && th.returns.length === 0 && th.changeLog.length === 0);
+checkOk("every role in the copy is marked 'to confirm', never assumed to exist",
+  th.clusters.flatMap(c => c.roles).length > 0 && th.clusters.flatMap(c => c.roles).every(r => r.unconfirmed === true) &&
+  run("unconfirmedRoles")(th) === th.clusters.flatMap(c => c.roles).length);
+checkOk("the copy has its own engagement key ending in the country code",
+  th.charter.engagementKey !== home.charter.engagementKey && /TH$/.test(th.charter.engagementKey) && th.charter.engagementKey.length <= 10);
+checkOk("the copy stays in the same family and is its own workspace",
+  th.frameId === "fr_test" && th.country === "Thailand" && th.workspaceId === undefined && /Thailand/.test(th.workspaceName));
+checkOk("copying does not change the workspace it was copied from", JSON.stringify(run("__home")) === JSON.stringify(home));
+put("__th", th);
+checkOk("roles still to confirm are neither counted as filled nor reported as gaps",
+  run("roleCoverage(__th.clusters[0])").anchors === 0 && run("roleCoverage(__th.clusters[0])").gaps.length === 0 &&
+  run("roleCoverage(__th.clusters[0])").unconfirmed > 0 && run("roleSummary(__th.clusters[0].roles[0])").status.label === "To confirm");
+checkOk("the Stage 1 gate says roles are still to confirm",
+  /still to confirm/.test(run('stage1Readiness(__th).checks.find(c => c.key === "roles")').detail) &&
+  run('stage1Readiness(__th).checks.find(c => c.key === "roles")').ok === false);
+checkOk("the hand-off says which role statuses are confirmed",
+  run("buildHandoffPacket(__th)").roles.every(r => r.status_confirmed === false) &&
+  run("buildHandoffPacket(__home)").roles.every(r => r.status_confirmed === true) &&
+  run("buildHandoffPacket(__home)").engagement.country === "Singapore");
+check("the hand-off from a country copy still conforms", schema.validateHandoffPacket(run("buildHandoffPacket(__th)")));
+
+// ---- 39. Comparing countries ----
+// Thailand scores two clusters; a third is left unscored on purpose.
+const th2 = JSON.parse(JSON.stringify(th)); th2.workspaceId = "ws_th";
+const score = (cl, lens, level) => Object.assign(cl.cells[lens], { level, status: "Assessed", grade: "indicated", evidence: [{ label: "Site visit" }] });
+const homeLv = k => home.clusters[0].cells[k].level;
+// Singapore: Structure 4, People 3, Process 4, Culture 2.
+score(th2.clusters[0], "Structure", homeLv("Structure"));
+score(th2.clusters[0], "Process", homeLv("Process") - 2);
+score(th2.clusters[0], "People", homeLv("People") + 1);
+score(th2.clusters[0], "Culture", homeLv("Culture"));
+th2.clusters[0].roles[0].status = "absent"; delete th2.clusters[0].roles[0].unconfirmed;
+put("__th2", th2);
+put("__frames", null);
+run('__frames = [{ id: "ws_home", label: "Singapore", state: __home }, { id: "ws_th", label: "Thailand", state: __th2 }]');
+const cmp = run("compareFrames(__frames)");
+checkOk("the comparison has one row per cluster, matched by ID across countries",
+  cmp.rows.length === home.clusters.length && cmp.rows.every(r => r.present === 2) && cmp.frames.map(f => f.label).join() === "Singapore,Thailand");
+checkOk("a cluster nobody has scored in a country is 'not scored', never read as weak",
+  cmp.rows[1].cells.ws_th.avg === null && cmp.rows[1].cells.ws_th.scored === 0 && cmp.rows[1].spread === null && cmp.rows[1].scoredIn === 1);
+checkOk("a country's average counts assessed cells only",
+  Math.abs(cmp.rows[0].cells.ws_th.avg - ["Structure", "Process", "People", "Culture"].reduce((a, k) => a + th2.clusters[0].cells[k].level, 0) / 4) < 1e-9);
+checkOk("the spread is the gap between the strongest and weakest scored country",
+  Math.abs(cmp.rows[0].spread - Math.abs(cmp.rows[0].cells.ws_home.avg - cmp.rows[0].cells.ws_th.avg)) < 1e-9);
+checkOk("money at risk is withheld for a cluster that is not fully scored",
+  cmp.rows[1].cells.ws_th.atRisk === null);
+const diffs = run("compareDifferences(compareFrames(__frames))");
+checkOk("differences list only cells scored in both countries at different levels",
+  diffs.length === 2 && diffs.every(d => d.key.indexOf(home.clusters[0].id + "|") === 0) && diffs.map(d => d.lens).sort().join() === "People,Process");
+checkOk("the largest gap comes first and a gap of two levels is marked material",
+  diffs[0].lens === "Process" && diffs[0].gap === 2 && diffs[0].material === true && diffs[1].material === false);
+checkOk("each difference names who is higher and who is lower, with the cell ID",
+  diffs[0].high.length === 1 && diffs[0].low.length === 1 && diffs[0].high[0] !== diffs[0].low[0] && diffs[0].ref === home.clusters[0].ref + ".Process");
+const cr = run("compareRoles(__frames)");
+const r0 = cr.find(r => r.ref === home.clusters[0].roles[0].ref);
+checkOk("roles line up across countries by ID",
+  cr.length === home.clusters.flatMap(c => c.roles).length && r0.cells.ws_home === "exists" && r0.cells.ws_th === "absent");
+checkOk("a role that exists in one country and not another is flagged, and listed first",
+  r0.differs === true && r0.gapIn.join() === "Thailand" && cr[0].differs === true);
+checkOk("a role still to confirm is not counted as a difference",
+  cr.filter(r => r.cells.ws_th === "unconfirmed").every(r => r.differs === false));
+// A cluster renamed in one country, with a different internal id, still lines up by name.
+const th3 = JSON.parse(JSON.stringify(th2)); th3.clusters[2].id = "local_id_x";
+th3.valueChain.levers.forEach(l => { if (l.cluster_id === home.clusters[2].id) l.cluster_id = "local_id_x"; });
+put("__th3", th3);
+checkOk("a row with a different internal id still matches by name",
+  run('compareFrames([{ id: "a", label: "A", state: __home }, { id: "b", label: "B", state: __th3 }])').rows.length === home.clusters.length);
+// A cluster that exists in only one country shows as absent in the other.
+const th4 = JSON.parse(JSON.stringify(th2)); th4.clusters.pop(); put("__th4", th4);
+const cmp4 = run('compareFrames([{ id: "a", label: "A", state: __home }, { id: "b", label: "B", state: __th4 }])');
+checkOk("a cluster missing from one country is shown as missing there, not dropped",
+  cmp4.rows.length === home.clusters.length && cmp4.rows[cmp4.rows.length - 1].present === 1 && cmp4.rows[cmp4.rows.length - 1].cells.b === undefined);
+
+// ---- 40. Contract for the comparison settings ----
+check("the default comparison settings conform", schema.validateComparison(run("defaultComparison()")));
+checkOk("a difference can only be classed Required, Chosen or Inherited",
+  schema.validateComparison({ with: [], skip: [], classes: { "a|Process": { cls: "inherited", note: "Acquired 2019" } }, verdict: "", asks: "" }).length === 0 &&
+  schema.validateComparison({ with: [], skip: [], classes: { "a|Process": { cls: "bad" } }, verdict: "", asks: "" }).length === 1);
+checkOk("the three classes each carry what to do about them",
+  run("DIFF_CLASSES").map(c => c.key).join() === schema.DIFF_CLASS_KEYS.join() && run("DIFF_CLASSES").every(c => c.means && c.ask));
+checkOk("a role's 'to confirm' flag must be true or false",
+  schema.validateRole(Object.assign({}, home.clusters[0].roles[0], { unconfirmed: "yes" }), "r").length === 1);
 
 console.log(failures ? `\n${failures} CONTRACT FAILURE(S)` : "\nAll contract checks passed.");
 process.exit(failures ? 1 : 0);

@@ -61,7 +61,7 @@ Owner decisions (2026-11-13): the comparison unit is **country** · start with t
 Context checked today: all three sibling apps now read the `compass-handoff` file and write `compass-return` v1.0 (ref, kind, title, detail, grade, figure, relates_to, source_note).
 
 Increments (each ends green and committed):
-- [ ] K1 — Country on a workspace; copy a workspace's frame to another country (same IDs, blank scores); comparison logic and contract (`app/js/compare.js`)
+- [x] K1 — Country on a workspace; copy a workspace's frame to another country (same IDs, blank scores); comparison logic and contract (`app/js/compare.js`)
 - [ ] K2 — Import the other apps' return files; findings register; cite a finding on a cell
 - [ ] K3 — Compare view: variation map, roles by country, differences classed Required / Chosen / Inherited
 - [ ] K4 — EXCO readout: six printable pages assembled from the above
