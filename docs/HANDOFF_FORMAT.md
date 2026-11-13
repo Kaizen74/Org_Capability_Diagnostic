@@ -13,9 +13,10 @@ The Capability Compass is the first of four apps in the leapfrog workflow. This 
 
 ## What is true today, and what is not
 
-- The Compass **writes** the packet and a copy-ready brief for each app. This is built and tested.
-- The other three apps **do not read the packet yet**. Until they do, the brief is pasted into the fields named below. Making them import it is a change in those three repositories.
-- The Compass **does not import** a file from the other apps. Findings come back as documents uploaded in Evidence, and an evidence item can cite the other app's ID (for example `X5`).
+- The Compass **writes** the packet and a copy-ready brief for each app. Built and tested.
+- All three other apps **read the packet** and **write a return file** (`compass-return` v1.0). This was confirmed by reading their code on 2026-11-13.
+- The Compass **imports the return file** under Current State → Findings. Importing never changes a score. Built and tested.
+- Nothing compares two published process maps yet. Process Map Studio rules that out today; the owner has agreed to reverse that rule in a later change to that app.
 
 ## 1. One ID scheme
 
@@ -120,13 +121,53 @@ Not in the packet: the org file. Upload it in Org Modeling.
 | `engagement_name` | Engagement Hub |
 | `roles[]` (the pilots' roles and every critical or dual-critical seat) | The roles to run Task Intelligence on first |
 
-## 5. Coming back
+## 5. Coming back: the return file
 
-After Stage 3, findings return to the Compass:
+Each of the other three apps exports what it found as one small file:
 
-1. Upload the discrepancy register, disposition cards or gap assessment in **Evidence**.
-2. On the cells they bear on, add an evidence source and put the finding's ID in the **ID** box (`X5`, `S-03`, `H2`).
-3. Re-score, set the grade, and **Save version**. The Scoreboard then shows what moved and whether last cycle's directional calls were right.
+```json
+{
+  "format": "compass-return",
+  "format_version": "1.0",
+  "generated_at": "2026-07-02T09:00:00Z",
+  "source_app": "process-map-studio",
+  "engagement_key": "MERIDIANBE",
+  "findings": [
+    {
+      "ref": "X1",
+      "kind": "discrepancy",
+      "title": "Load plans are signed off by the shift supervisor, not the certified load controller",
+      "detail": "Types: Different role, Skipped check. Impact: safety exposure. Verdict: Risky drift.",
+      "grade": "confirmed",
+      "figure": "3 of 10 turns observed",
+      "relates_to": ["CAP-01", "CAP-01.Process"],
+      "source_note": "Rests on 1 document, 4 interviews."
+    }
+  ]
+}
+```
+
+| Field | Rule |
+|---|---|
+| `source_app` | `process-map-studio`, `org-modeling` or `ai-org-advisory-workbench` |
+| `engagement_key` | The key of the workspace the findings describe. The Compass flags a file whose key differs from the open workspace; it does not block it. |
+| `ref` | The finding's own ID in the app that found it (`X1`, `S-03`, `I1`, `H2`, `DC-1`, `RL-011`, `T-014`) |
+| `kind` | Process Map Studio: `step`, `discrepancy`, `intent`, `knowledge_risk`, `hypothesis_verdict`. Org Modeling: `work_activity`, `structural_baseline`, `hypothesis`, `option_score`. Workbench: `task_disposition`, `role_impact`, `capacity`. |
+| `grade` | `confirmed`, `indicated`, `hypothesis`, or empty. Anything else is dropped on import, never trusted. |
+| `relates_to` | Compass IDs. A cell ID such as `CAP-01.Process` lets the finding be cited on that cell in one click. |
+
+What the Compass does with it:
+
+1. Keeps **only** the fields above. Anything else in the file is discarded.
+2. Lists the findings under Current State → Findings, strongest grade first.
+3. **Never changes a level or a grade.** "Cite on CAP-01.Process" adds the finding to that cell as evidence, with its ID and its grade at source in the note. The assessor then decides.
+4. Uses the findings on pages 3 to 5 of the EXCO readout. A finding whose words concern who decides, approves or holds authority goes to "Who really decides"; structure, role and knowledge-risk findings go to "Which roles exist where"; the rest go to "How work really runs".
+
+A sample is in `docs/samples/belmar_return_process_map_studio.json` (fictional).
+
+## 5a. Countries
+
+One workspace per country, all copied from one frame, so that every ID means the same thing in each. The country's engagement key is the frame's key plus a two- or three-letter code (`MERIDIAN` → `MERIDIANBE`), at most ten characters. The packet's `engagement.country` carries the country name, and each role carries `status_confirmed` (false while a role copied from another country is still "to confirm").
 
 ## 6. Changing this format
 

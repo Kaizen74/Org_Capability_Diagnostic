@@ -38,6 +38,10 @@ var PILOT_DECISION_KEYS = ["", "pilot", "later", "out"];
 var CRITERION_KINDS = ["measured", "judged"];
 var REF_PATTERN = /^[A-Z]{1,4}-?\d{1,4}$/;
 var CONFIDENCE_LEVELS = ["high", "medium", "low"];
+/* Current state across countries (v6): findings the other three apps send
+   back, and why each difference between countries exists. */
+var RETURN_FORMAT_NAME = "compass-return";
+var DIFF_CLASS_KEYS = ["required", "chosen", "inherited"];
 
 function _isStr(v) { return typeof v === "string"; }
 function _isArr(v) { return Array.isArray(v); }
@@ -131,6 +135,13 @@ function validateState(s) {
       if (PILOT_DECISION_KEYS.indexOf(p.decision || "") === -1) errs.push("pilots." + cid + ": decision must be pilot, later, out or empty");
     });
   }
+  if (s.country !== undefined && !_isStr(s.country)) errs.push("country must be a string");
+  if (s.frameId !== undefined && !_isStr(s.frameId)) errs.push("frameId must be a string");
+  if (s.comparison !== undefined && s.comparison !== null) errs = errs.concat(validateComparison(s.comparison));
+  if (s.returns !== undefined && !_isArr(s.returns)) errs.push("returns must be an array");
+  (_isArr(s.returns) ? s.returns : []).forEach(function (r, i) {
+    errs = errs.concat(validateReturn(r).map(function (e) { return "returns[" + i + "]: " + e; }));
+  });
   /* A stable ID that two things share is not an ID. */
   var seenRefs = {};
   var checkRef = function (o, where, sharedOk) {
@@ -191,6 +202,9 @@ function validateRole(r, where) {
   else TKI_KEYS.forEach(function (k) {
     if (!_score1to5(r.tki[k])) errs.push(where + ".tki." + k + " must be a number 1-5");
   });
+  /* A role copied into another country's workspace is "to confirm" until
+     someone there says whether it exists. */
+  if (r.unconfirmed !== undefined && typeof r.unconfirmed !== "boolean") errs.push(where + ": unconfirmed must be true or false");
   return errs;
 }
 
@@ -368,6 +382,50 @@ function validateHandoffPacket(p) {
   return errs;
 }
 
+/* Validate a findings file sent back by one of the other three apps, as
+   this app stores it. See docs/HANDOFF_FORMAT.md. */
+function validateReturn(r) {
+  var errs = [];
+  if (!_isObj(r)) return ["return file is not an object"];
+  if (r.format !== RETURN_FORMAT_NAME) errs.push("format must be " + RETURN_FORMAT_NAME);
+  if (!_isStr(r.format_version)) errs.push("format_version must be a string");
+  if (!_isStr(r.source_app)) errs.push("source_app must be a string");
+  if (!_isStr(r.engagement_key)) errs.push("engagement_key must be a string");
+  if (!_isArr(r.findings) || !r.findings.length) { errs.push("findings must be a non-empty array"); return errs; }
+  r.findings.forEach(function (f, i) {
+    var w = "findings[" + i + "]";
+    if (!_isObj(f)) { errs.push(w + ": must be an object"); return; }
+    if (!_isStr(f.title) || !f.title.trim()) errs.push(w + ": title required");
+    ["ref", "kind", "detail", "figure", "source_note"].forEach(function (k) {
+      if (f[k] !== undefined && !_isStr(f[k])) errs.push(w + "." + k + " must be a string");
+    });
+    if (f.grade !== undefined && f.grade !== "" && EVIDENCE_GRADE_KEYS.indexOf(f.grade) === -1)
+      errs.push(w + ": grade must be empty or one of " + EVIDENCE_GRADE_KEYS.join("/"));
+    if (f.relates_to !== undefined && (!_isArr(f.relates_to) || f.relates_to.some(function (x) { return !_isStr(x); })))
+      errs.push(w + ": relates_to must be a list of IDs");
+  });
+  if (/"apiKey"|"api_key"|sk-ant-/.test(JSON.stringify(r))) errs.push("return file must not contain an API key");
+  return errs;
+}
+
+/* Validate the cross-country comparison settings kept in a workspace. */
+function validateComparison(c) {
+  var errs = [];
+  if (!_isObj(c)) return ["comparison is not an object"];
+  if (!_isArr(c.with) || c.with.some(function (x) { return !_isStr(x); })) errs.push("comparison.with must be a list of workspace ids");
+  if (c.skip !== undefined && (!_isArr(c.skip) || c.skip.some(function (x) { return !_isStr(x); }))) errs.push("comparison.skip must be a list of workspace ids");
+  if (!_isObj(c.classes)) errs.push("comparison.classes must be an object");
+  else Object.keys(c.classes).forEach(function (k) {
+    var v = c.classes[k];
+    if (!_isObj(v)) { errs.push("comparison.classes." + k + ": must be an object"); return; }
+    if (v.cls !== undefined && v.cls !== "" && DIFF_CLASS_KEYS.indexOf(v.cls) === -1)
+      errs.push("comparison.classes." + k + ": cls must be empty or one of " + DIFF_CLASS_KEYS.join("/"));
+    if (v.note !== undefined && !_isStr(v.note)) errs.push("comparison.classes." + k + ": note must be a string");
+  });
+  ["verdict", "asks"].forEach(function (k) { if (c[k] !== undefined && !_isStr(c[k])) errs.push("comparison." + k + " must be a string"); });
+  return errs;
+}
+
 /* Map a signal direction to a leading-indicator signal. */
 function directionToLeading(direction) {
   if (direction === "tailwind") return "improving";
@@ -396,6 +454,9 @@ if (typeof module !== "undefined" && module.exports) {
     EVIDENCE_GRADE_KEYS: EVIDENCE_GRADE_KEYS,
     UNIT_KINDS: UNIT_KINDS,
     validateCharter: validateCharter,
+    DIFF_CLASS_KEYS: DIFF_CLASS_KEYS,
+    validateReturn: validateReturn,
+    validateComparison: validateComparison,
     validateHandoffPacket: validateHandoffPacket,
     validateRole: validateRole,
     validateValueChain: validateValueChain,

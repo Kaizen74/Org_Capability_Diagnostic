@@ -283,6 +283,7 @@ function stage1Readiness(state) {
     cells++; if (cellAssessed(c)) assessed++; if (c.grade) graded++;
   }));
   const withRoles = state.clusters.filter(c => (c.roles || []).length > 0).length;
+  const toConfirm = state.clusters.reduce((n, c) => n + (c.roles || []).filter(r => r.unconfirmed).length, 0);
   const decided = state.clusters.filter(c => (pilots[c.id] || {}).decision).length;
   const unreasoned = state.clusters.filter(c => {
     const p = pilots[c.id] || {};
@@ -303,7 +304,7 @@ function stage1Readiness(state) {
     { key: "evidence", level: "should", view: "matrix", label: "Every score cites a source", ok: k.groundedPct === 100, detail: k.groundedPct + "% of scores cite at least one source" },
     { key: "graded", level: "should", view: "matrix", label: "Every score carries an evidence grade", ok: cells > 0 && graded === cells, detail: graded + " of " + cells + " cells graded" },
     { key: "direction", level: "should", view: "trajectory", label: "Direction known for most cells", ok: k.unknownPct <= 25, detail: k.unknownPct + "% of directions unknown" },
-    { key: "roles", level: "should", view: "roles", label: "Anchor roles listed for every " + unitWord(state), ok: withRoles === state.clusters.length, detail: withRoles + " of " + state.clusters.length + " have roles scored" },
+    { key: "roles", level: "should", view: "roles", label: "Anchor roles listed for every " + unitWord(state), ok: withRoles === state.clusters.length && toConfirm === 0, detail: withRoles + " of " + state.clusters.length + " have roles scored" + (toConfirm ? "; " + toConfirm + " role(s) copied from another country still to confirm" : "") },
     { key: "baseline", level: "must", view: "delta", label: "Baseline version saved", ok: (state.versions || []).length > 0, detail: (state.versions || []).length ? (state.versions.length + " version(s) saved") : "Use “Save version” to freeze the baseline the scoreboard measures against" },
     { key: "decisions", level: "must", view: "handoff", label: "A pilot decision for every " + unitWord(state) + ", with a reason for each exclusion", ok: decided === state.clusters.length && unreasoned === 0, detail: decided + " of " + state.clusters.length + " decided" + (unreasoned ? "; " + unreasoned + " exclusion(s) have no reason" : "") },
     { key: "pilot", level: "must", view: "handoff", label: "At least one pilot named, with its process KPI", ok: chosen.length > 0 && chosenReady === chosen.length, detail: chosen.length ? chosenReady + " of " + chosen.length + " pilot(s) have a name and KPI" : "No pilot chosen yet" }
@@ -433,7 +434,7 @@ function buildHandoffPacket(state) {
   state.clusters.forEach(cl => (cl.roles || []).forEach(r => {
     const s = roleSummary(r);
     roles.push({
-      ref: r.ref, title: r.title, status: r.status, cluster_ref: cl.ref,
+      ref: r.ref, title: r.title, status: r.status, status_confirmed: !r.unconfirmed, cluster_ref: cl.ref,
       criticality_index: Math.round(s.idx * 10) / 10, tacit_intensity: Math.round(s.tki * 10) / 10,
       route: s.route, note: r.note || ""
     });
@@ -484,6 +485,7 @@ function buildHandoffPacket(state) {
     engagement: {
       key: key, name: state.workspaceName || state.orgName, organisation: state.orgName,
       industry: state.industry_name || "", unit: state.unit || "capability", scope: ch.scope || "",
+      country: state.country || "",
       currency: vc.currency || "", value_unit: vc.value_unit || "",
       baseline_version: latest ? latest.version : null, working_version: state.currentVersion || ""
     },
@@ -588,10 +590,12 @@ function journeyStages(state) {
       q: "How does work really run, and does it support the model?",
       status: pilots ? "elsewhere" : "todo",
       detail: pilots ? "Take the Process Map Studio brief for " + pilots + " pilot(s)" : "Waits for a pilot from Stage 1" },
-    { n: 3, name: "Dial", here: false, view: "evidence", app: "Process Map Studio + Workbench, then back here",
+    { n: 3, name: "Dial", here: false, view: "current", app: "Process Map Studio + Workbench, then back here",
       q: "What to standardise, and how much should AI do?",
       status: "elsewhere",
-      detail: "When findings come back, upload them in Evidence, cite their IDs, re-score, and save a new version" },
+      detail: (state.returns || []).length
+        ? (state.returns || []).reduce((n, r) => n + r.findings.length, 0) + " finding(s) back from the other apps. Cite them on the cells, re-score, and save a new version"
+        : "When findings come back, import the file under Current State, cite them on the cells, re-score, and save a new version" },
     { n: 4, name: "Design", here: false, view: "handoff", app: "Org Modeling + Workbench",
       q: "Which operating model and system do we install together?",
       status: "elsewhere",

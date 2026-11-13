@@ -157,7 +157,14 @@ Each cell's **momentum** blends two signals 50/50: how its level moved since you
 
 ### Working with the other three apps
 
-Open **Hand-off**. The checklist tells you whether Stage 1 is complete; the pilot shortlist records where you will pilot and why each other cluster is not chosen; and each receiving app has a **Copy the brief** button. The other apps do not read the packet file yet, so paste the brief into the fields it names. Everything keeps one ID in every app (`CAP-03`, `VS-01`, `LV-02`, `RL-014`), and each score can carry an evidence grade (Confirmed, Indicated, Hypothesis) that you choose.
+Open **Hand-off**. The checklist tells you whether Stage 1 is complete; the pilot shortlist records where you will pilot and why each other cluster is not chosen; and each receiving app has a **Copy the brief** button. All three other apps can import the packet file; the brief says the same thing in words. Everything keeps one ID in every app (`CAP-03`, `VS-01`, `LV-02`, `RL-014`), and each score can carry an evidence grade (Confirmed, Indicated, Hypothesis) that you choose.
+
+### Current state across countries, and the EXCO readout
+
+Before any design work: which roles exist, who really decides, how work really runs, and how that differs by country. Make one workspace per country from the same frame (**Workspace → Rename or delete this one… → Add another country**), score each, and open **Current State**. It compares the countries by ID, asks you to class each difference as *Required*, *Chosen* or *Inherited*, imports the findings files the other three apps export, and assembles a six-page readout for EXCO that prints as a PDF. In the demo, **Show me with the demo's three countries** fills it in with fictional data. The GUIDE has the steps.
+
+![Compare countries](docs/screenshots/current-compare.png)
+![EXCO readout](docs/screenshots/current-readout.png)
 
 ![Hand-off](docs/screenshots/handoff.png)
 ![Charter](docs/screenshots/charter.png)
@@ -177,11 +184,13 @@ app/                  ← the application (open app/index.html to run)
   js/presets.js       ← 7 industry presets + fictional demo data (edit freely)
   js/engine.js        ← the transparent predictive engine
   js/handoff.js       ← stable IDs, stage gates, hand-off packet, scoreboard logic
+  js/compare.js       ← countries: frame copy, comparison, findings files, readout model
   js/workspaces.js    ← several named diagnostics in one browser
   js/llm.js           ← Claude API client (external signals) + offline mock mode
   js/parsers.js       ← PDF / Word / PowerPoint / Excel text extraction, on this machine
   js/blueprint.js     ← the Method page (workflow diagram + strengths and limits)
   js/stages.js        ← Journey, Charter, Hand-off and Scoreboard screens
+  js/current.js       ← Current State screen: compare, findings, EXCO readout
   js/app.js           ← the other screens, drawer, wizard, persistence
 tests/
   contract_test.js    ← data-layer ↔ UI-layer alignment checks (node tests/contract_test.js)

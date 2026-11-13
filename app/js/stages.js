@@ -19,7 +19,7 @@ function viewJourney() {
       <p class="jr-q">${esc(s.q)}</p>
       <p class="jr-app">${esc(s.app)}</p>
       <p class="jr-detail">${esc(s.detail)}</p>
-      <button class="mini-btn" data-goto="${esc(s.view)}">${s.here ? "Open" : (s.n === 3 ? "Open Evidence" : "Get the brief")} →</button>
+      <button class="mini-btn" data-goto="${esc(s.view)}">${s.here ? "Open" : (s.n === 3 ? "Open Current State" : "Get the brief")} →</button>
     </div>`).join("");
   return `<div class="view-note"><strong>Six stages, four apps, one thread.</strong> This app does Stage 0, Stage 1 and Stage 5, and writes the hand-off the other three apps start from. Everything keeps the same ID from here to the board paper.</div>
     <section class="print-section">
@@ -280,7 +280,7 @@ function viewHandoff() {
         <div class="sig-brief-head"><h2>Hand off to the next app</h2>
           <span class="sig-meta">one brief per app, shaped to the fields it already has</span>
           <button class="mini-btn" id="ho-packet">Download the full packet (.json)</button></div>
-        <p class="ho-note">The other three apps cannot read the packet file yet, so each brief is written to be pasted straight into that app. The packet is the complete machine-readable record: every ID, score, grade, pilot and exclusion. It never contains your API key or the text of an uploaded document.</p>
+        <p class="ho-note">Each of the other three apps can import the packet file directly; the briefs below say the same thing in words, for pasting or for a reader. What each app finds comes back as a findings file, which you import under <em>Current State</em>. The packet is the complete machine-readable record: every ID, score, grade, pilot and exclusion. It never contains your API key or the text of an uploaded document.</p>
         <div class="ho-grid" id="ho-briefs">${hoBriefs()}</div>
         <details class="ho-preview" style="margin-top:12px"><summary>The shared language — IDs and grades used in all four apps</summary>
           <table class="delta-table"><thead><tr><th>Prefix</th><th>What it names</th><th>Minted by</th><th>Example</th></tr></thead><tbody>

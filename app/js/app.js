@@ -26,7 +26,10 @@ function toast(msg) {
 }
 
 function saveState() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); wsRegister(state); }
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(state)); wsRegister(state);
+    if (state.frameId) wsSharedWrite(state.frameId, state.comparison);
+  }
   catch (e) { toast("Warning: could not save locally (" + e.message + ")"); }
 }
 
@@ -40,13 +43,28 @@ function adoptNewState(fresh, name) {
   state = fresh;
 }
 
+/* One more country, built from the frame on screen: same IDs, blank
+   judgements. The workspace on screen is parked, not changed. */
+function addCountryWorkspace(here, country, code) {
+  const taken = wsReadIndex().list.some(w => w.frameId && w.frameId === state.frameId && (w.country || "").toLowerCase() === country.toLowerCase());
+  if (taken || country.toLowerCase() === here.toLowerCase()) throw new Error("There is already a workspace for " + country + ".");
+  state.country = here;
+  if (!state.frameId) state.frameId = wsNewFrameId();
+  const from = state.workspaceName;
+  const fresh = migrateState(frameCopy(state, country, code));
+  adoptNewState(fresh, fresh.workspaceName);
+  state.changeLog.push({ at: nowIso(), cluster: "Workspace", lens: "—", from: 0, to: 0, rationale: "Created for " + country + " from the frame of “" + from + "”: same IDs, scores blank.", by: state.actor || "You" });
+  closeDrawer(); activeView = "journey"; renderAll();
+  toast(country + " created with the same IDs and blank scores. Confirm its roles, then score.");
+}
+
 function switchWorkspace(id) {
   if (!state || id === state.workspaceId) return;
   try {
     saveState(); wsPark(state);
     const next = wsTakeParked(id);
     if (!next) { wsTakeParked(state.workspaceId); toast("That workspace could not be found."); renderAll(); return; }
-    state = migrateState(next);
+    state = adoptSharedComparison(migrateState(next));
     closeDrawer(); activeView = "journey"; renderAll();
     toast("Switched to “" + state.workspaceName + "”.");
   } catch (e) { toast(e.message); }
@@ -70,15 +88,37 @@ function openWorkspaceManager() {
     <h2>This workspace</h2>
     <p class="m-sub">A workspace is one complete diagnostic. Keep one for the group and one per segment or client; they never mix. ${others.length ? "You also have: " + others.map(w => esc(w.name)).join(", ") + "." : "This is your only workspace."}</p>
     <div class="m-field"><label>Workspace name</label><input type="text" id="wsm-name" value="${esc(state.workspaceName)}"></div>
+    <div class="m-field"><label>Country this workspace covers <span class="m-opt">— leave blank for a group-wide diagnostic</span></label>
+      <input type="text" id="wsm-country" value="${esc(state.country || "")}" placeholder="For example: Singapore"></div>
     <div class="m-row">
       <button class="btn-plain danger" id="wsm-delete">Delete this workspace</button>
       <span class="grow"></span>
-      <button class="btn-navy" id="wsm-save">Save name</button>
+      <button class="btn-navy" id="wsm-save">Save</button>
+    </div>
+    <div class="wsm-copy">
+      <h3>Add another country</h3>
+      <p class="m-sub">Creates a new workspace with the <strong>same ${esc(unitWord(state, true))}, lenses, levers, roles, charter and IDs</strong>, and every score, piece of evidence, weight and amount left blank for that country to fill in. Because the IDs match, the countries can be compared line by line under <em>Current State</em>.</p>
+      <div class="wsm-copy-row">
+        <div class="m-field"><label>Country</label><input type="text" id="wsm-new-country" placeholder="For example: Thailand"></div>
+        <div class="m-field short"><label>Short code</label><input type="text" id="wsm-new-code" maxlength="3" placeholder="TH"></div>
+        <button class="btn-navy" id="wsm-copy-go">Create it</button>
+      </div>
     </div>`);
   $("m-close").addEventListener("click", () => { closeModal(); renderWorkspaceSwitch(); });
   $("wsm-save").addEventListener("click", () => {
     state.workspaceName = $("wsm-name").value.trim() || state.workspaceName;
-    closeModal(); renderAll(); toast("Workspace renamed.");
+    state.country = $("wsm-country").value.trim();
+    closeModal(); renderAll(); toast("Workspace saved.");
+  });
+  $("wsm-copy-go").addEventListener("click", () => {
+    const here = $("wsm-country").value.trim();
+    const country = $("wsm-new-country").value.trim();
+    const code = $("wsm-new-code").value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!here) { toast("First say which country this workspace covers (the box above)."); $("wsm-country").focus(); return; }
+    if (!country) { toast("Name the country to add."); $("wsm-new-country").focus(); return; }
+    if (code.length < 2) { toast("Give the country a short code of 2 or 3 letters, for example TH."); $("wsm-new-code").focus(); return; }
+    try { addCountryWorkspace(here, country, code); closeModal(); }
+    catch (e) { toast(e.message); }
   });
   $("wsm-delete").addEventListener("click", () => {
     if (!confirm(`Delete the workspace “${state.workspaceName}” and everything in it?\n\nExport a JSON backup first if you may want it back. Your other workspaces are not affected.`)) return;
@@ -88,7 +128,7 @@ function openWorkspaceManager() {
     localStorage.removeItem(STORE_KEY);
     state = null; closeModal(); closeDrawer();
     if (next) {
-      state = migrateState(wsTakeParked(next.id));
+      state = adoptSharedComparison(migrateState(wsTakeParked(next.id)));
       activeView = "journey"; renderAll(); toast("Workspace deleted. Now in “" + state.workspaceName + "”.");
     } else {
       $("view").innerHTML = ""; $("kpis").innerHTML = ""; openWizard(false);
@@ -98,9 +138,17 @@ function openWorkspaceManager() {
 function loadState() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (raw) return migrateState(JSON.parse(raw));
+    if (raw) return adoptSharedComparison(migrateState(JSON.parse(raw)));
   } catch (e) { /* corrupted state — fall through to wizard */ }
   return null;
+}
+
+/* Countries built from one frame share one comparison. Whatever was
+   decided while another country was open is picked up here. */
+function adoptSharedComparison(s) {
+  const shared = s && s.frameId ? wsSharedRead(s.frameId) : null;
+  if (shared && typeof shared === "object") s.comparison = Object.assign(defaultComparison(), shared);
+  return s;
 }
 
 /* Backfill fields added after a state was first saved. */
@@ -157,6 +205,15 @@ function migrateState(s) {
   }
   if (!s.pilots || typeof s.pilots !== "object" || Array.isArray(s.pilots)) s.pilots = {};
   Object.keys(s.pilots).forEach(cid => { if (!(s.clusters || []).some(c => c.id === cid)) delete s.pilots[cid]; });
+  /* v6 current state across countries: which country this workspace
+     covers, findings sent back by the other apps, and the comparison. */
+  if (typeof s.country !== "string") s.country = "";
+  if (!Array.isArray(s.returns)) s.returns = [];
+  if (!s.comparison || typeof s.comparison !== "object" || Array.isArray(s.comparison)) s.comparison = defaultComparison();
+  else {
+    const dc = defaultComparison();
+    Object.keys(dc).forEach(k => { if (s.comparison[k] === undefined) s.comparison[k] = dc[k]; });
+  }
   ensureRefs(s);
   return s;
 }
@@ -300,6 +357,7 @@ function renderView() {
   else if (activeView === "blueprint") el.innerHTML = viewBlueprint();
   else if (activeView === "charter") el.innerHTML = viewCharter();
   else if (activeView === "handoff") el.innerHTML = viewHandoff();
+  else if (activeView === "current") el.innerHTML = viewCurrent();
   else if (activeView === "delta") el.innerHTML = viewDelta();
   else el.innerHTML = viewJourney();
   bindViewEvents();
@@ -1111,8 +1169,9 @@ function viewRoles() {
     const s = roleSummary(r);
     return `<tr>
       <td><div class="lv-name"><span class="ref-chip">${esc(r.ref || "")}</span><input type="text" class="vc-in" data-role="title|${esc(r.id)}" value="${esc(r.title)}"></div></td>
-      <td><select data-role="status|${esc(r.id)}">
-        ${Object.keys(STATUS_META).map(k => `<option value="${k}" ${r.status === k ? "selected" : ""}>${STATUS_META[k].label}</option>`).join("")}
+      <td><select data-role="status|${esc(r.id)}" ${r.unconfirmed ? 'class="to-confirm" title="Carried over from another country. Choose what is true here."' : ""}>
+        ${r.unconfirmed ? '<option value="" selected>To confirm</option>' : ""}
+        ${Object.keys(STATUS_META).map(k => `<option value="${k}" ${!r.unconfirmed && r.status === k ? "selected" : ""}>${STATUS_META[k].label}</option>`).join("")}
       </select></td>
       ${AXIS_A_WEIGHTS.map(w => `<td><input type="number" class="vc-in tiny" data-role="axisA.${w.key}|${esc(r.id)}" value="${r.axisA[w.key]}" min="1" max="5" step="0.5" title="${esc(w.label)} (${Math.round(w.wt * 100)}%)"></td>`).join("")}
       <td class="rt-calc">${fmt1(s.idx)}</td>
@@ -1219,7 +1278,7 @@ function bindRolesEvents() {
       const [axis, key] = field.split(".");
       role[axis][key] = Math.max(1, Math.min(5, parseFloat(el.value) || 1));
     } else if (field === "status") {
-      role.status = el.value;
+      if (el.value) { role.status = el.value; delete role.unconfirmed; }
     } else {
       role.title = el.value.trim() || role.title;
     }
@@ -1547,6 +1606,7 @@ function bindViewEvents() {
   }));
   bindCharterEvents();
   bindHandoffEvents();
+  bindCurrentEvents();
   bindSignalEvents();
   bindEvidenceEvents();
   bindValueChainEvents();
@@ -2156,7 +2216,7 @@ function importJson(file) {
   const reader = new FileReader();
   reader.onload = () => {
     try {
-      const parsed = migrateState(JSON.parse(reader.result));
+      const parsed = adoptSharedComparison(migrateState(JSON.parse(reader.result)));
       const errs = validateState(parsed);
       if (errs.length) throw new Error(errs[0]);
       /* An imported file arrives as its own workspace, so it can never

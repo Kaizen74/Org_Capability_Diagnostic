@@ -1,17 +1,17 @@
-# Graph Report - Org_Capability_Diagnostic  (2026-11-11)
+# Graph Report - Org_Capability_Diagnostic  (2026-11-13)
 
 ## Corpus Check
-- 25 files · ~76,322 words
+- 32 files · ~99,982 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 3 file(s) not represented in the graph (top: (none) 2, .css 1)
 
 ## Summary
-- 493 nodes · 832 edges · 24 communities (19 shown, 5 thin omitted)
-- Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 50 edges (avg confidence: 0.75)
+- 608 nodes · 990 edges · 29 communities (24 shown, 5 thin omitted)
+- Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 57 edges (avg confidence: 0.76)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `abfb3149`
+- Built from commit: `4dea092e`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -36,22 +36,27 @@
 - Project State — Capability Compass
 - workspaces.js
 - run
+- compare.js
+- PRD — Org Modeling: shared language and hand-off with the other three apps
+- PRD — Process Map Studio: shared language and hand-off with the other three apps
+- PRD — AI Org Advisory Workbench: shared language and hand-off with the other three apps
 - CLAUDE.md
 - .claude/CLAUDE.md
+- current.js
 - DECISIONS.md
 - blueprint.js
 
 ## God Nodes (most connected - your core abstractions)
-1. `renderAll()` - 33 edges
-2. `toast()` - 26 edges
+1. `renderAll()` - 34 edges
+2. `toast()` - 27 edges
 3. `esc()` - 23 edges
 4. `renderView()` - 14 edges
 5. `Capability Compass — Product Requirements Document v3.0` - 14 edges
-6. `validateState()` - 12 edges
-7. `Capability Compass — Plain-Language Guide` - 12 edges
-8. `Capability Diagnostic Rubric — v4.4 (Industry-Agnostic, Predictive, Value-Calibrated)` - 12 edges
-9. `bindEvidenceEvents()` - 11 edges
-10. `openWizard()` - 11 edges
+6. `validateState()` - 14 edges
+7. `openWorkspaceManager()` - 13 edges
+8. `Capability Compass — Plain-Language Guide` - 13 edges
+9. `_isObj()` - 13 edges
+10. `_isStr()` - 13 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `How to resume` --references--> `renderAll()`  [INFERRED]
@@ -68,43 +73,43 @@
 ## Import Cycles
 - None detected.
 
-## Communities (24 total, 5 thin omitted)
+## Communities (29 total, 5 thin omitted)
 
 ### Community 0 - "contract_test.js"
 Cohesion: 0.02
-Nodes (98): afterDelete, allIdx, allRefs, allTki, anaPrompt, anaPrompt2, appSrc, axA (+90 more)
+Nodes (116): afterDelete, allIdx, allRefs, allTki, anaPrompt, anaPrompt2, appSrc, axA (+108 more)
 
 ### Community 1 - "engine.js"
 Cohesion: 0.08
-Nodes (44): AXIS_A_WEIGHTS, bindingConstraint(), calibrateClusters(), calibrationSummary(), cellConfidence(), cellMomentum(), cellTrajectory(), clamp() (+36 more)
+Nodes (45): AXIS_A_WEIGHTS, bindingConstraint(), calibrateClusters(), calibrationSummary(), cellConfidence(), cellMomentum(), cellTrajectory(), clamp() (+37 more)
 
 ### Community 2 - "app.js"
 Cohesion: 0.09
-Nodes (76): addCluster(), addEvidenceFiles(), adoptNewState(), afterPointer(), afterPointerQueue, applyCalibrationProposal(), applyExtractedRole(), applyFinding() (+68 more)
+Nodes (78): addCluster(), addCountryWorkspace(), addEvidenceFiles(), adoptNewState(), adoptSharedComparison(), afterPointer(), afterPointerQueue, applyCalibrationProposal() (+70 more)
 
 ### Community 3 - "llm.js"
-Cohesion: 0.18
-Nodes (21): analyzeEvidence(), anthropicRequest(), bufferToBase64(), buildAnalysisContent(), buildAnalysisPrompt(), buildCalibrationPrompt(), buildScanPrompt(), docKindFor() (+13 more)
+Cohesion: 0.17
+Nodes (22): analyzeEvidence(), anthropicRequest(), bufferToBase64(), buildAnalysisContent(), buildAnalysisPrompt(), buildCalibrationPrompt(), buildScanPrompt(), docKindFor() (+14 more)
 
 ### Community 4 - "presets.js"
-Cohesion: 0.12
-Nodes (13): buildDemoState(), DEFAULT_LENSES, DEFAULT_PATTERNS, DEFAULT_RUBRIC, DEMO_GRADES, DEMO_PILOTS, DEMO_PRIOR_LEVELS, DEMO_ROLES (+5 more)
+Cohesion: 0.09
+Nodes (18): buildDemoCountry(), buildDemoState(), DEFAULT_LENSES, DEFAULT_PATTERNS, DEFAULT_RUBRIC, DEMO_COUNTRIES, DEMO_GRADES, DEMO_LEVEL_WORD (+10 more)
 
 ### Community 5 - "schema.js"
-Cohesion: 0.44
-Nodes (14): _isArr(), _isObj(), _isStr(), _score1to5(), validateAnalysis(), validateBriefing(), validateCalibration(), validateCell() (+6 more)
+Cohesion: 0.41
+Nodes (16): _isArr(), _isObj(), _isStr(), _score1to5(), validateAnalysis(), validateBriefing(), validateCalibration(), validateCell() (+8 more)
 
 ### Community 6 - "handoff.js"
 Cohesion: 0.13
 Nodes (22): buildHandoffPacket(), cellAssessed(), cellRef(), clusterMoney(), criteriaWeightTotal(), defaultCharter(), ensureRefs(), EVIDENCE_GRADES (+14 more)
 
 ### Community 7 - "Capability Compass — Organizational Capability Diagnostic"
-Cohesion: 0.07
-Nodes (28): 1. One ID scheme, 2. One evidence grammar, 3. The packet, 4. What each app takes, and where it goes, 5. Coming back, 6. Changing this format, Hand-off language and format — v1.0, What is true today, and what is not (+20 more)
+Cohesion: 0.06
+Nodes (30): 1. One ID scheme, 2. One evidence grammar, 3. The packet, 4. What each app takes, and where it goes, 5. Coming back: the return file, 5a. Countries, 6. Changing this format, Hand-off language and format — v1.0 (+22 more)
 
 ### Community 8 - "Capability Compass — Product Requirements Document v3.0"
 Cohesion: 0.12
-Nodes (16): 0. What changed from v2 and why (revision log), 10. Success metrics, 11. Risks & mitigations (Local Edition deltas), 12. Recalibration rules (carried from Rubric v4), 1. Vision, 2. Target users, 3. Product principles (v3 — eleven gates), 4.1 Local Edition (this repository — ships now) (+8 more)
+Nodes (15): 0. What changed from v2 and why (revision log), 10. Success metrics, 11. Risks & mitigations (Local Edition deltas), 12. Recalibration rules (carried from Rubric v4), 1. Vision, 2. Target users, 3. Product principles (v3 — eleven gates), 4.1 Local Edition (this repository — ships now) (+7 more)
 
 ### Community 9 - "parsers.js"
 Cohesion: 0.36
@@ -127,20 +132,40 @@ Cohesion: 0.22
 Nodes (8): Capability Dashboard Data-Viz Skill — v2, Chart-type selection, Interaction patterns, Layout, Palette, The quadruple encoding rule (unchanged, non-negotiable), Trajectory grammar (new), What changed from v1
 
 ### Community 16 - "Capability Compass — Plain-Language Guide"
-Cohesion: 0.15
-Nodes (12): A first real diagnostic, step by step, Before you present it, Capability Compass — Plain-Language Guide, Handing off to the other three apps, Ideas worth understanding, If something goes wrong, Opening it, The screens, in the order you use them (+4 more)
+Cohesion: 0.14
+Nodes (13): A first real diagnostic, step by step, Before you present it, Capability Compass — Plain-Language Guide, Current state across countries, Handing off to the other three apps, Ideas worth understanding, If something goes wrong, Opening it (+5 more)
 
 ### Community 17 - "Project State — Capability Compass"
-Cohesion: 0.22
-Nodes (8): Done in this session (2026-11-11), How to resume, Not done, and why, Project State — Capability Compass, Status: working and fully tested, Suggested next session, This session (2026-11-11) — make the Compass the first app of the four-app leapfrog workflow, What the app does today
+Cohesion: 0.18
+Nodes (10): Done in the earlier session (2026-11-11), Done in this session (2026-11-13), How to resume, Not done, and why, Project State — Capability Compass, Status: working and fully tested, Suggested next session, This session (2026-11-11) — make the Compass the first app of the four-app leapfrog workflow (+2 more)
 
 ### Community 18 - "workspaces.js"
-Cohesion: 0.39
+Cohesion: 0.23
 Nodes (6): wsEraseAll(), wsForget(), wsNewId(), wsReadIndex(), wsRegister(), wsWriteIndex()
 
 ### Community 19 - "run"
-Cohesion: 0.67
-Nodes (3): put(), run(), wfDemo()
+Cohesion: 0.50
+Nodes (4): bad(), put(), run(), wfDemo()
+
+### Community 20 - "compare.js"
+Cohesion: 0.13
+Nodes (13): allFindings(), compareDifferences(), compareFindings(), compareFrames(), compareRoles(), DIFF_CLASSES, FINDING_KINDS, GRADE_ORDER (+5 more)
+
+### Community 21 - "PRD — Org Modeling: shared language and hand-off with the other three apps"
+Cohesion: 0.18
+Nodes (10): 1. Why this change, 2.1 IDs, 2.2 Evidence grades, 2.3 The file this app reads: `compass-handoff` v1.0, 2.4 The file this app writes: `compass-return` v1.0, 2. The shared language (fixed; do not redesign), 3. What this means for Org Modeling, 4. How to build it (+2 more)
+
+### Community 22 - "PRD — Process Map Studio: shared language and hand-off with the other three apps"
+Cohesion: 0.18
+Nodes (10): 1. Why this change, 2.1 IDs, 2.2 Evidence grades, 2.3 The file this app reads: `compass-handoff` v1.0, 2.4 The file this app writes: `compass-return` v1.0, 2. The shared language (fixed; do not redesign), 3. What this means for Process Map Studio, 4. How to build it (+2 more)
+
+### Community 23 - "PRD — AI Org Advisory Workbench: shared language and hand-off with the other three apps"
+Cohesion: 0.18
+Nodes (10): 1. Why this change, 2.1 IDs, 2.2 Evidence grades, 2.3 The file this app reads: `compass-handoff` v1.0, 2.4 The file this app writes: `compass-return` v1.0, 2. The shared language (fixed; do not redesign), 3. What this means for the AI Org Advisory Workbench, 4. How to build it (+2 more)
+
+### Community 26 - "current.js"
+Cohesion: 0.22
+Nodes (17): bindCurrentEvents(), CS_TABS, csCompare(), csFindingRow(), csFindings(), csMap(), csReadout(), csRoleTable() (+9 more)
 
 ### Community 28 - "blueprint.js"
 Cohesion: 0.29
@@ -148,23 +173,23 @@ Nodes (14): BP_STAGES, BP_STRENGTHS, BP_WATCHOUTS, bpArrowDown(), bpBadge(), bpB
 
 ## Knowledge Gaps
 - **1 isolated node(s):** `RFC-4180`
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 257 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 334 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
 - **5 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `migrateState()` connect `app.js` to `engine.js`?**
-  _High betweenness centrality (0.034) - this node is a cross-community bridge._
+  _High betweenness centrality (0.036) - this node is a cross-community bridge._
 - **What connects `RFC-4180` to the rest of the system?**
   _1 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `contract_test.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.018867924528301886 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.015873015873015872 - nodes in this community are weakly interconnected._
 - **Why does `migrateRoleScores()` connect `engine.js` to `app.js`?**
-  _High betweenness centrality (0.033) - this node is a cross-community bridge._
+  _High betweenness centrality (0.035) - this node is a cross-community bridge._
 - **Should `engine.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.08156028368794327 - nodes in this community are weakly interconnected._
-- **Why does `7. Functional requirements` connect `Capability Compass — Product Requirements Document v3.0` to `llm.js`, `schema.js`?**
-  _High betweenness centrality (0.018) - this node is a cross-community bridge._
+  _Cohesion score 0.07908163265306123 - nodes in this community are weakly interconnected._
+- **Why does `openWorkspaceManager()` connect `app.js` to `current.js`?**
+  _High betweenness centrality (0.034) - this node is a cross-community bridge._
 - **Should `app.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.08851674641148326 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.08828302499188576 - nodes in this community are weakly interconnected._
