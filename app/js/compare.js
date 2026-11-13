@@ -45,8 +45,30 @@ const FINDING_KINDS = {
   option_score: { label: "Structural option", page: "work" },
   task_disposition: { label: "Task and AI", page: "work" },
   role_impact: { label: "Role impact", page: "roles" },
-  capacity: { label: "Capacity", page: "work" }
+  capacity: { label: "Capacity", page: "work" },
+  role_reason: { label: "Why the role is there", page: "roles" },
+  variation: { label: "Differs between countries", page: "work" }
 };
+/* Optional on any finding (format 1.0, additive). When the sending app
+   says what a finding is about, that decides its readout page; without
+   it the kind decides, and decision wording as a last resort. */
+const FINDING_TOPICS = {
+  decision_right: { label: "Who decides", page: "decisions" },
+  role_presence: { label: "Which roles exist", page: "people" },
+  role_reason: { label: "Why a role is there", page: "people" },
+  way_of_working: { label: "How work runs", page: "work" }
+};
+/* Why something is as it is: the same three words the Compass uses for
+   a difference between countries, plus "not known yet". */
+const REASON_CLASSES = {
+  required: { label: "Required" }, chosen: { label: "Chosen" },
+  inherited: { label: "Inherited" }, unknown: { label: "Reason not known" }
+};
+function findingPage(f) {
+  if (f.topic && FINDING_TOPICS[f.topic]) return FINDING_TOPICS[f.topic].page;
+  if ((FINDING_KINDS[f.kind] || {}).page === "roles") return "people";
+  return isDecisionFinding(f) ? "decisions" : "work";
+}
 const SOURCE_APP_NAMES = {
   "org-modeling": "Org Modeling", "process-map-studio": "Process Map Studio",
   "ai-org-advisory-workbench": "Workbench", "workbench": "Workbench"
@@ -98,6 +120,13 @@ function frameCopy(src, country, code) {
     (s.valueChain.levers || []).forEach(l => { l.share_pct = 0; l.figure = ""; delete l.value_at_stake; l.validated = false; });
   }
   s.versions = []; s.changeLog = []; s.briefings = []; s.documents = []; s.analyses = [];
+  /* The pilot DECISION is each country's; the value stream's ID, name and
+     KPI are frame, so the same value stream is VS-01 everywhere. */
+  s.pilotRefs = Object.assign({}, src.pilotRefs || {});
+  Object.keys(src.pilots || {}).forEach(cid => {
+    const p = src.pilots[cid];
+    if (p && p.decision === "pilot" && p.ref && src.unit !== "value-stream") s.pilotRefs[cid] = { ref: p.ref, name: p.name || "", kpi: p.kpi || "" };
+  });
   s.calibrations = []; s.returns = []; s.pilots = {};
   s.currentVersion = "v0.1 (working)";
   if (s.charter) {
@@ -202,12 +231,11 @@ function allFindings(state) {
 function compareFindings(frames) {
   const per = frames.map(f => {
     const all = allFindings(f.state);
-    const process = all.filter(x => (FINDING_KINDS[x.kind] || {}).page !== "roles");
     return {
       id: f.id, label: f.label, total: all.length,
-      decisions: process.filter(isDecisionFinding),
-      work: process.filter(x => !isDecisionFinding(x)),
-      people: all.filter(x => (FINDING_KINDS[x.kind] || {}).page === "roles")
+      decisions: all.filter(x => findingPage(x) === "decisions"),
+      work: all.filter(x => findingPage(x) === "work"),
+      people: all.filter(x => findingPage(x) === "people")
     };
   });
   return { per, any: per.some(p => p.total > 0) };
@@ -234,6 +262,9 @@ function normaliseReturn(raw) {
     figure: String(f.figure || "").trim().slice(0, 160),
     relates_to: (Array.isArray(f.relates_to) ? f.relates_to : []).map(x => String(x).trim()).filter(Boolean).slice(0, 20),
     source_note: String(f.source_note || "").trim().slice(0, 400),
+    topic: FINDING_TOPICS[f.topic] ? f.topic : "",
+    reason_class: REASON_CLASSES[f.reason_class] ? f.reason_class : "",
+    compared_with: String(f.compared_with || "").trim().slice(0, 60),
     cited: {}
   })).filter(f => f.title);
   if (!findings.length) throw new Error("The file contains no findings.");
@@ -242,6 +273,7 @@ function normaliseReturn(raw) {
     format: RETURN_FORMAT, format_version: String(raw.format_version),
     source_app: String(raw.source_app || "").slice(0, 60),
     engagement_key: String(raw.engagement_key || "").slice(0, 20),
+    country: String(raw.country || "").trim().slice(0, 60),
     generated_at: String(raw.generated_at || ""), imported_at: new Date().toISOString(),
     findings
   };

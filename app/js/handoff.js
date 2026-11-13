@@ -38,7 +38,9 @@ const ID_PREFIXES = [
   { prefix: "S", what: "Process step", owner: "Process Map Studio", example: "S-05" },
   { prefix: "X", what: "Discrepancy (documented vs done)", owner: "Process Map Studio", example: "X5" },
   { prefix: "I", what: "Intent statement", owner: "Process Map Studio", example: "I1" },
-  { prefix: "H", what: "Operating-model hypothesis", owner: "Org Modeling", example: "H3" }
+  { prefix: "H", what: "Operating-model hypothesis", owner: "Org Modeling", example: "H3" },
+  { prefix: "V", what: "Difference between two countries' maps of the same process", owner: "Process Map Studio", example: "V2" },
+  { prefix: "T", what: "Task", owner: "Workbench", example: "T-014" }
 ];
 
 /* ---- 2. One evidence grammar ------------------------------------
@@ -97,9 +99,19 @@ function ensureRefs(state) {
   (((state.valueChain || {}).levers) || []).forEach(l => items.push({ o: l, prefix: "LV", w: 2 }));
   (state.briefings || []).forEach(b => (b.signals || []).forEach(s => items.push({ o: s, prefix: "SG", w: 3 })));
   const pilots = state.pilots || {};
+  /* A value stream keeps its ID: chosen again after being dropped, or
+     chosen in another country's copy of this frame, it is the same VS-nn,
+     so the maps of it in each country can be compared. */
+  if (!state.pilotRefs || typeof state.pilotRefs !== "object" || Array.isArray(state.pilotRefs)) state.pilotRefs = {};
   Object.keys(pilots).forEach(cid => {
     const p = pilots[cid];
-    if (p && p.decision === "pilot") items.push({ o: p, prefix: "VS", w: 2, pilotOf: cid });
+    if (!p || p.decision !== "pilot") return;
+    if (!p.ref && state.pilotRefs[cid] && state.unit !== "value-stream") p.ref = state.pilotRefs[cid].ref;
+    items.push({ o: p, prefix: "VS", w: 2, pilotOf: cid });
+  });
+  if (state.unit !== "value-stream") Object.keys(state.pilotRefs).forEach(cid => {
+    const m = /^VS-(\d+)$/.exec(state.pilotRefs[cid].ref || "");
+    if (m) state.idSeq.VS = Math.max(state.idSeq.VS || 0, parseInt(m[1], 10));
   });
 
   items.forEach(it => {
@@ -117,6 +129,10 @@ function ensureRefs(state) {
     }
     if (!it.o.ref || seen[it.o.ref]) it.o.ref = nextRef(state, it.prefix, it.w);
     seen[it.o.ref] = true;
+    if (it.pilotOf && state.unit !== "value-stream") {
+      const prev = state.pilotRefs[it.pilotOf] || {};
+      state.pilotRefs[it.pilotOf] = { ref: it.o.ref, name: it.o.name || prev.name || "", kpi: it.o.kpi || prev.kpi || "" };
+    }
   });
 
   if (state.charter) {

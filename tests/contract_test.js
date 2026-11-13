@@ -954,7 +954,7 @@ const rawReturn = {
   findings: [
     { ref: "X1", kind: "discrepancy", title: "Pricing is decided by finance, not the commercial lead", detail: "Types: Different role.", grade: "confirmed", figure: "6 days", relates_to: ["VS-01", "CAP-04", "CAP-04.Process"], source_note: "2 documents" },
     { ref: "X2", kind: "discrepancy", title: "Bid packs are rebuilt each time", detail: "Types: Rework.", grade: "made-up-grade", figure: "", relates_to: ["CAP-04.Process", "CAP-99.Process"], source_note: "", apiKey: "sk-ant-should-never-survive", text: "x" },
-    { ref: "DC-1", kind: "structural_baseline", title: "Seven layers in Commercial", detail: "", grade: "confirmed", figure: "7 layers", relates_to: ["CAP-04.Structure"], source_note: "" },
+    { ref: "baseline.layers", kind: "structural_baseline", title: "Seven layers in Commercial", detail: "", grade: "confirmed", figure: "7 layers", relates_to: ["CAP-04.Structure"], source_note: "" },
     { ref: "S-01", kind: "step", title: "", detail: "no title, so it is dropped" }
   ]
 };
@@ -963,7 +963,7 @@ const ret = run("normaliseReturn(__raw)");
 check("an imported findings file conforms to the shared contract", schema.validateReturn(ret));
 checkOk("only the agreed fields are kept: nothing extra rides in on a finding",
   ret.findings.length === 3 && !/sk-ant|apiKey|"text"/.test(JSON.stringify(ret)) &&
-  Object.keys(ret.findings[0]).sort().join() === "cited,detail,figure,grade,kind,ref,relates_to,source_note,title");
+  Object.keys(ret.findings[0]).sort().join() === "cited,compared_with,detail,figure,grade,kind,reason_class,ref,relates_to,source_note,title,topic");
 checkOk("a grade outside the three is dropped, never trusted", ret.findings[1].grade === "" && ret.findings[0].grade === "confirmed");
 const bad = code => { try { run(code); return ""; } catch (e) { return e.message; } };
 checkOk("a file that is not a findings file is refused in plain words",
@@ -989,6 +989,28 @@ checkOk("every kind the three apps send has a plain label and a page",
 checkOk("strongest evidence is listed first",
   run('strongestFirst([{ grade: "hypothesis" }, { grade: "" }, { grade: "confirmed" }, { grade: "indicated" }])').map(f => f.grade).join() === "confirmed,indicated,hypothesis,");
 
+// ---- 41b. Value streams keep their ID ----
+const pr = wfDemo(); put("__pr", pr);
+const vsRef = pr.pilots.commercial.ref;
+checkOk("a pilot dropped and chosen again keeps its ID, name and KPI",
+  run(`(function(){ const s = JSON.parse(JSON.stringify(__pr)); ensureRefs(s); const name = s.pilots.commercial.name;
+    delete s.pilots.commercial; ensureRefs(s);
+    s.pilots.commercial = Object.assign({ reason: "", name: (s.pilotRefs.commercial || {}).name || "", kpi: (s.pilotRefs.commercial || {}).kpi || "" }, { decision: "pilot" });
+    ensureRefs(s); return s.pilots.commercial.ref + "|" + (s.pilots.commercial.name === name); })()`) === vsRef + "|true");
+checkOk("a new pilot elsewhere never takes a value stream's remembered ID",
+  run(`(function(){ const s = JSON.parse(JSON.stringify(__pr)); ensureRefs(s); delete s.pilots.commercial;
+    s.pilots.food = { decision: "pilot", name: "", kpi: "", reason: "" }; ensureRefs(s); return s.pilots.food.ref; })()`) === "VS-03");
+check("remembered value-stream IDs conform to the contract", schema.validateState(run("ensureRefs(JSON.parse(JSON.stringify(__pr)))")));
+checkOk("the contract refuses a remembered value-stream ID that is not VS-nn",
+  schema.validateState(Object.assign({}, pr, { pilotRefs: { commercial: { ref: "CAP-01" } } })).length === 1);
+checkOk("the shared ID list names the variation and task prefixes of the other apps",
+  run("ID_PREFIXES").some(x => x.prefix === "V" && x.owner === "Process Map Studio") && run("ID_PREFIXES").some(x => x.prefix === "T" && x.owner === "Workbench"));
+checkOk("a findings file's topic, reason and country are checked against their lists",
+  schema.validateReturn(Object.assign({}, ret, { findings: [Object.assign({}, ret.findings[0], { topic: "gossip" })] })).length === 1 &&
+  schema.validateReturn(Object.assign({}, ret, { findings: [Object.assign({}, ret.findings[0], { reason_class: "because" })] })).length === 1 &&
+  run('normaliseReturn({ format: "compass-return", format_version: "1.0", country: "Belmar", findings: [{ title: "x", topic: "gossip", reason_class: "because", compared_with: "Arden" }] })').findings[0].topic === "" &&
+  run('normaliseReturn({ format: "compass-return", format_version: "1.0", country: "Belmar", findings: [{ title: "x", reason_class: "chosen" }] })').country === "Belmar");
+
 // ---- 42. The demo as three countries (fictional) ----
 const dHome = wfDemo(); dHome.country = run("DEMO_HOME_COUNTRY"); dHome.frameId = "fr_demo"; dHome.workspaceId = "ws_a";
 dHome.comparison = run("demoComparison()"); dHome.returns = run("demoReturns(DEMO_HOME_COUNTRY)");
@@ -1008,9 +1030,17 @@ run('__frames = [{ id: "ws_a", label: "Arden", state: __dh }, { id: "ws_b", labe
 const fnd = run("compareFindings(__frames)");
 checkOk("findings are sorted into who decides, how work runs, and roles, per country",
   fnd.any && fnd.per.length === 3 && fnd.per.every(p => p.decisions.length + p.work.length + p.people.length === p.total) &&
-  fnd.per[1].decisions.length === 2 && fnd.per[1].decisions.every(f => /Different role/.test(f.detail)));
+  fnd.per[1].decisions.length === 3 && fnd.per[1].decisions.every(f => /Different role/.test(f.detail)));
 checkOk("structure and role findings go to the roles page, not the process page",
-  fnd.per[0].people.every(f => ["structural_baseline", "work_activity", "role_impact", "knowledge_risk"].indexOf(f.kind) !== -1) && fnd.per[0].people.length === 4);
+  fnd.per[0].people.every(f => ["structural_baseline", "work_activity", "role_impact", "knowledge_risk", "role_reason"].indexOf(f.kind) !== -1) && fnd.per[0].people.length === 4);
+checkOk("a finding's stated topic decides its page, ahead of its kind",
+  fnd.per[2].work.some(f => f.kind === "variation" && f.topic === "way_of_working") &&
+  fnd.per[1].decisions.some(f => f.kind === "variation" && f.topic === "decision_right") &&
+  fnd.per[2].people.some(f => f.kind === "structural_baseline" && f.topic === "role_presence"));
+checkOk("why a finding is so, and against which country, is kept from the file",
+  fnd.per[1].people.find(f => f.ref === "RL-004").reason_class === "inherited" &&
+  fnd.per[1].people.find(f => f.ref === "RL-004").compared_with === "Arden" &&
+  dOthers[1].returns.every(r => r.country === "Caldera"));
 
 // ---- 43. The EXCO readout model ----
 const ro = run("readoutModel(__dh, __frames)");
@@ -1034,11 +1064,49 @@ checkOk("the reason given for a difference travels with it", /pre-merger/.test(r
 checkOk("material differences are counted", ro.material === 3 && ro.diffs.filter(d => d.material).every(d => d.gap >= 2));
 checkOk("anchor roles missing somewhere are listed with where",
   ro.roleGaps.length > 0 && ro.roleGaps.every(r => r.anchor && r.gapIn.length > 0));
-checkOk("pilots are reported per country", ro.countries[0].pilots.length === 2 && ro.countries[1].pilots.length === 0);
+checkOk("pilots are reported per country", ro.countries[0].pilots.length === 2 && ro.countries[1].pilots.length === 1 && ro.countries[2].pilots.length === 0);
+checkOk("the same value stream keeps the same ID in every country",
+  ro.countries[1].pilots[0].ref === dHome.pilots.commercial.ref && ro.countries[1].pilots[0].ref === "VS-01" &&
+  ro.countries[1].pilots[0].name === dHome.pilots.commercial.name);
+checkOk("each country's hand-off names the shared value stream by that ID",
+  run("buildHandoffPacket(__d1)").pilots.map(p => p.ref).join() === "VS-01" && run("buildHandoffPacket(__d1)").engagement.country === "Belmar");
 checkOk("a readout of one country still works and compares nothing",
   run('readoutModel(__dh, [{ id: "ws_a", label: "Arden", state: __dh }])').diffs.length === 0);
 checkOk("the journey points returned findings at the next step",
   /finding\(s\) back/.test(run("journeyStages(__dh)")[3].detail) && run("journeyStages(__dh)")[3].view === "current");
+
+// ---- 44. The country samples the other two apps are built against ----
+const sdir = path.join(__dirname, "..", "docs", "samples", "countries");
+const readJson = f => JSON.parse(fs.readFileSync(path.join(sdir, f), "utf8"));
+["arden", "belmar", "caldera"].forEach(c => check("sample packet for " + c + " passes the hand-off contract", schema.validateHandoffPacket(readJson(c + "_compass_handoff.json"))));
+const pk = ["arden", "belmar", "caldera"].map(c => readJson(c + "_compass_handoff.json"));
+checkOk("sample packets: one per country, each with its country and own key, the same cluster and role IDs",
+  pk.map(p => p.engagement.country).join() === "Arden,Belmar,Caldera" && new Set(pk.map(p => p.engagement.key)).size === 3 &&
+  pk.every(p => p.clusters.map(c => c.ref).join() === pk[0].clusters.map(c => c.ref).join() && p.roles.map(r => r.ref).join() === pk[0].roles.map(r => r.ref).join()));
+checkOk("sample packets: the shared pilot is VS-01 in both countries that run it",
+  pk[0].pilots.some(p => p.ref === "VS-01") && pk[1].pilots.map(p => p.ref).join() === "VS-01" &&
+  pk[0].pilots.find(p => p.ref === "VS-01").name === pk[1].pilots[0].name);
+checkOk("sample packets: roles still to confirm are marked as such", pk[2].roles.filter(r => r.status_confirmed === false).length === 2 && pk[0].roles.every(r => r.status_confirmed));
+const csvRows = fs.readFileSync(path.join(sdir, "meridian_org_by_country.csv"), "utf8").trim().split("\n");
+const csvHead = csvRows[0].split(",");
+const holdersIn = (country, title) => csvRows.slice(1).filter(l => l.indexOf("," + title + ",") !== -1 && l.indexOf("," + country + ",") !== -1).length;
+checkOk("sample org file: Org Modeling's required columns plus Country, for all three countries",
+  ["Name", "Job Title", "Grade", "Level", "Line Manager", "Country", "Employee ID", "Line Manager ID"].every(h => csvHead.indexOf(h) !== -1) &&
+  ["Arden", "Belmar", "Caldera"].every(c => csvRows.some(l => l.indexOf("," + c + ",") !== -1)));
+checkOk("sample org file: an absent role has no holder in that country, and a role that exists has one",
+  pk.every(p => p.roles.filter(r => r.status_confirmed && r.title.indexOf(",") === -1).every(r => (holdersIn(p.engagement.country, r.title) === 0) === (r.status === "absent"))));
+const omS = readJson("belmar_return_org_modeling.json"), pmsS = readJson("belmar_return_process_map_studio.json");
+put("__omS", omS); put("__pmsS", pmsS);
+check("sample Org Modeling return imports cleanly", schema.validateReturn(run("normaliseReturn(__omS)")));
+check("sample Process Map Studio return imports cleanly", schema.validateReturn(run("normaliseReturn(__pmsS)")));
+checkOk("sample returns: both are for Belmar, by key and by country", [omS, pmsS].every(f => f.engagement_key === pk[1].engagement.key && f.country === "Belmar"));
+run(`globalThis.__sw = JSON.parse(JSON.stringify(__d1)); __sw.returns = [normaliseReturn(__omS), normaliseReturn(__pmsS)];`);
+const sf = run('compareFindings([{ id: "b", label: "Belmar", state: __sw }]).per[0]');
+checkOk("sample returns land on the right readout pages: who decides, roles, how work runs",
+  sf.decisions.map(f => f.ref).sort().join() === "V1,X1,X3" && sf.people.some(f => f.ref === "RL-011" && f.reason_class === "chosen") &&
+  sf.people.some(f => f.ref === "baseline.layers") && sf.work.some(f => f.ref === "X2"));
+checkOk("sample returns: every cell they point at exists in the Belmar workspace",
+  [omS, pmsS].every(f => f.findings.every(x => (x.relates_to || []).filter(r => /\./.test(r)).every(r => run("findingCells(__sw, " + JSON.stringify({ relates_to: [r] }) + ")").length === 1))));
 
 console.log(failures ? `\n${failures} CONTRACT FAILURE(S)` : "\nAll contract checks passed.");
 process.exit(failures ? 1 : 0);

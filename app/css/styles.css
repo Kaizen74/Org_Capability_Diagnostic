@@ -1186,3 +1186,11 @@ select.to-confirm { border-color: var(--amber); background: var(--amber-bg); col
 .tabs { gap: 2px; }
 .tab-divider { margin: 0 4px 10px 4px; }
 .cs-diffs th:last-child, .cs-diffs td:last-child { min-width: 300px; }
+
+/* Why a finding is so (sent by the other apps): the same three words as the Compare tab */
+.cs-why { display: inline-block; font-family: var(--head); font-weight: 800; font-size: 9.5px; letter-spacing: .05em; text-transform: uppercase; border-radius: 999px; padding: 1px 8px; margin-right: 4px; border: 1px solid var(--line); vertical-align: 1px; }
+.cs-why.why-required { background: #EEF2F9; color: #3F5F92; border-color: var(--l3); }
+.cs-why.why-chosen { background: #EEF2F9; color: var(--navy); border-color: var(--navy); }
+.cs-why.why-inherited { background: var(--amber-bg); color: var(--amber-deep); border-color: var(--amber); }
+.cs-why.why-unknown { background: #fff; color: var(--muted); border-style: dashed; }
+.cs-vs { font-size: 11px; color: var(--muted); font-weight: 600; margin-right: 4px; }

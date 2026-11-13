@@ -496,7 +496,7 @@ function buildDemoState() {
    ============================================================ */
 const DEMO_HOME_COUNTRY = "Arden";
 const DEMO_COUNTRIES = [
-  { country: "Belmar", code: "BE", scale: 0.45,
+  { country: "Belmar", code: "BE", scale: 0.45, pilots: { commercial: "pilot" },
     levels: { gateway: [3, 3, 2, 2], food: [4, 3, 4, 3], tdx: [2, 2, 2, 3], commercial: [3, 3, 3, 3], leadership: [3, 3, 3, 3], enabling: [3, 2, 3, 3] },
     roles: { "r-gw4": "absent", "r-tx1": "absent", "r-tx2": "absent", "r-tx4": "absent", "r-cm1": "exists", "r-cm2": "absent", "r-cm3": "thin", "r-ld3": "absent", "r-en1": "absent", "r-en2": "exists" } },
   { country: "Caldera", code: "CA", scale: 0.3,
@@ -531,6 +531,11 @@ function buildDemoCountry(home, spec) {
     l.share_pct = h.share_pct || 0;
     if (typeof h.value_at_stake === "number") l.value_at_stake = Math.round(h.value_at_stake * spec.scale);
   });
+  /* The same value stream, piloted here too: it keeps the frame's ID. */
+  Object.keys(spec.pilots || {}).forEach(cid => {
+    const known = (s.pilotRefs || {})[cid] || {};
+    s.pilots[cid] = { decision: spec.pilots[cid], reason: "", name: known.name || "", kpi: known.kpi || "" };
+  });
   s.returns = demoReturns(spec.country);
   return s;
 }
@@ -540,9 +545,10 @@ const DEMO_RETURNS = {
   Arden: [
     { source_app: "process-map-studio", findings: [
       { ref: "X1", kind: "discrepancy", grade: "confirmed", figure: "6 days (median delay)", relates_to: ["VS-01", "CAP-04", "CAP-04.Process"],
+        topic: "decision_right",
         title: "Renewal pricing is decided by the regional finance controller, not the commercial lead named in the policy",
         detail: "Types: Different role. Impact: adds about six working days to each renewal. Verdict: Risky drift.", source_note: "Rests on 2 documents, 5 interviews." },
-      { ref: "X2", kind: "discrepancy", grade: "indicated", figure: "11 of 14 bids", relates_to: ["VS-01", "CAP-04", "CAP-04.Process"],
+      { ref: "X2", kind: "discrepancy", topic: "way_of_working", grade: "indicated", figure: "11 of 14 bids", relates_to: ["VS-01", "CAP-04", "CAP-04.Process"],
         title: "Bid packs are rebuilt for each customer instead of reused",
         detail: "Types: Rework. Impact: slower bids, inconsistent terms. Verdict: Unexplained.", source_note: "Rests on 3 interviews." },
       { ref: "I1", kind: "intent", grade: "indicated", figure: "90 days", relates_to: ["VS-01", "CAP-04"],
@@ -553,10 +559,10 @@ const DEMO_RETURNS = {
         title: "Renewals slip because pricing authority sits outside the commercial team", detail: "Supported. Behind it: X1.", source_note: "The owner's verdict, resting on X1." }
     ] },
     { source_app: "org-modeling", findings: [
-      { ref: "DC-1", kind: "structural_baseline", grade: "confirmed", figure: "7 layers", relates_to: ["CAP-04.Structure"],
-        title: "Seven layers from the chief executive to the front line in Commercial", detail: "Design criterion: no more than five. Median span of control is four.", source_note: "Counted from the uploaded organisation data." },
-      { ref: "RL-011", kind: "work_activity", grade: "indicated", figure: "", relates_to: ["CAP-04.People"],
-        title: "Reason this role exists: Head of Pricing was created for the 2024 tender season and never filled", detail: "The seat is on the chart; the work is done by finance.", source_note: "Stated in two interviews." }
+      { ref: "baseline.layers", kind: "structural_baseline", topic: "role_presence", grade: "confirmed", figure: "5 layers", relates_to: ["CAP-05.Structure"],
+        title: "Layers in the reporting chain (Arden)", detail: "Counted from who reports to whom. The design criterion allows five, so Arden is at the limit.", source_note: "Computed from the uploaded org file." },
+      { ref: "RL-011", kind: "role_reason", topic: "role_reason", reason_class: "inherited", grade: "indicated", figure: "0 people", relates_to: ["RL-011", "CAP-04", "CAP-04.People"],
+        title: "Why Head of Pricing / Revenue Management is absent in Arden", detail: "Created for the 2024 tender season and never filled. The seat is on the chart; the work is done by finance.", source_note: "Stated in two interviews; headcount from the uploaded org file." }
     ] },
     { source_app: "ai-org-advisory-workbench", findings: [
       { ref: "RL-013", kind: "role_impact", grade: "indicated", figure: "", relates_to: ["CAP-04.People"],
@@ -567,35 +573,41 @@ const DEMO_RETURNS = {
   ],
   Belmar: [
     { source_app: "process-map-studio", findings: [
-      { ref: "X1", kind: "discrepancy", grade: "confirmed", figure: "3 of 10 turns observed", relates_to: ["CAP-01", "CAP-01.Process"],
+      { ref: "X1", kind: "discrepancy", topic: "decision_right", grade: "confirmed", figure: "3 of 10 turns observed", relates_to: ["CAP-01", "CAP-01.Process"],
         title: "Load plans are signed off by the shift supervisor, not the certified load controller",
         detail: "Types: Different role, Skipped check. Impact: safety exposure on wide-body turns. Verdict: Risky drift.", source_note: "Rests on 1 document, 4 interviews, system records of 10 cases." },
-      { ref: "X2", kind: "discrepancy", grade: "indicated", figure: "2 systems", relates_to: ["CAP-01", "CAP-01.Process"],
+      { ref: "X2", kind: "discrepancy", topic: "way_of_working", grade: "indicated", figure: "2 systems", relates_to: ["CAP-01", "CAP-01.Process"],
         title: "Two load-planning systems have run in parallel since the merger",
         detail: "Types: Duplicate work. Impact: double entry on every departure. Verdict: Obsolete rule.", source_note: "Rests on 3 interviews." },
-      { ref: "X3", kind: "discrepancy", grade: "indicated", figure: "", relates_to: ["CAP-03", "CAP-03.Process"],
+      { ref: "V1", kind: "variation", topic: "decision_right", reason_class: "inherited", compared_with: "Arden", grade: "indicated", figure: "", relates_to: ["VS-01", "CAP-04", "CAP-04.Process"],
+        title: "Renewal pricing: approved by the country manager in Belmar, by the regional finance controller in Arden",
+        detail: "Types: Different role. Step S-07 (Approve the renewal price). Reason: Belmar kept its pre-merger delegation of authority.", source_note: "Compared between the two published maps of VS-01; each side rests on 3 interviews." },
+      { ref: "X3", kind: "discrepancy", topic: "decision_right", grade: "indicated", figure: "", relates_to: ["CAP-03", "CAP-03.Process"],
         title: "Overtime is approved by the station manager without the regional roster owner",
         detail: "Types: Different role. Impact: roster decisions made twice. Verdict: Unexplained.", source_note: "Rests on 2 interviews." }
     ] },
     { source_app: "org-modeling", findings: [
-      { ref: "DC-2", kind: "structural_baseline", grade: "confirmed", figure: "0 roles", relates_to: ["CAP-03.Structure"],
-        title: "Belmar has no analytics team; reporting is bought as a service", detail: "A deliberate decision taken in 2025 on cost grounds.", source_note: "Counted from the uploaded organisation data; reason stated by the country head." },
-      { ref: "RL-004", kind: "work_activity", grade: "indicated", figure: "", relates_to: ["CAP-01.People"],
-        title: "Reason this role is missing: the Hub Duty Controller is covered by rotating supervisors", detail: "Nobody holds disruption judgement as their job.", source_note: "Stated in three interviews." }
+      { ref: "RL-007", kind: "role_reason", topic: "role_reason", reason_class: "chosen", compared_with: "Arden", grade: "confirmed", figure: "0 people", relates_to: ["RL-007", "CAP-03", "CAP-03.Structure"],
+        title: "Why Head, Analytics & AI is absent in Belmar", detail: "Belmar buys analytics as a service rather than staffing a team: a deliberate decision taken in 2025 on cost grounds.", source_note: "Reason stated by the country manager; headcount from the uploaded org file." },
+      { ref: "RL-004", kind: "role_reason", topic: "role_reason", reason_class: "inherited", compared_with: "Arden", grade: "indicated", figure: "0 people", relates_to: ["RL-004", "CAP-01", "CAP-01.People"],
+        title: "Why Hub Duty Controller (disruption) is absent in Belmar", detail: "Covered by rotating shift supervisors since the merger; nobody holds disruption judgement as their job. Arden has one, on a thin bench.", source_note: "Stated in three interviews; headcount from the uploaded org file." }
     ] }
   ],
   Caldera: [
     { source_app: "process-map-studio", findings: [
-      { ref: "X1", kind: "discrepancy", grade: "indicated", figure: "", relates_to: ["CAP-04", "CAP-04.Structure"],
+      { ref: "X1", kind: "discrepancy", topic: "decision_right", grade: "indicated", figure: "", relates_to: ["CAP-04", "CAP-04.Structure"],
         title: "Commercial terms are approved by the operations director",
         detail: "Types: Different role. Impact: price follows capacity, not customer value. Verdict: Unexplained.", source_note: "Rests on 2 interviews." },
-      { ref: "X2", kind: "discrepancy", grade: "confirmed", figure: "Every turn", relates_to: ["CAP-01", "CAP-01.People"],
+      { ref: "V1", kind: "variation", topic: "way_of_working", reason_class: "required", compared_with: "Arden", grade: "confirmed", figure: "+1 sign-off per turn", relates_to: ["CAP-01", "CAP-01.Process"],
+        title: "Load plan sign-off: a nationally certified controller in Caldera, any certified controller in Arden",
+        detail: "Types: Extra step. Reason: the national aviation regulation requires it.", source_note: "Compared between the two published maps; the regulation is quoted in Caldera's sources." },
+      { ref: "X2", kind: "discrepancy", topic: "way_of_working", grade: "confirmed", figure: "Every turn", relates_to: ["CAP-01", "CAP-01.People"],
         title: "A nationally certified load controller must sign every turn",
         detail: "Types: Extra step. Impact: the bench cannot be shared across borders. Verdict: Effective adaptation.", source_note: "Rests on 1 document (the national regulation), 2 interviews." }
     ] },
     { source_app: "org-modeling", findings: [
-      { ref: "DC-1", kind: "structural_baseline", grade: "confirmed", figure: "", relates_to: ["CAP-04.Structure"],
-        title: "Commercial reports into Operations, not to the group commercial lead", detail: "Unchanged since the acquisition.", source_note: "Counted from the uploaded organisation data." }
+      { ref: "baseline.layers", kind: "structural_baseline", topic: "role_presence", reason_class: "inherited", compared_with: "Arden", grade: "confirmed", figure: "6 layers", relates_to: ["CAP-04.Structure"],
+        title: "Commercial reports through an operations director in Caldera", detail: "One more layer than Arden and Belmar: the station and Commercial both report to an operations director. Unchanged since the acquisition.", source_note: "Computed from the uploaded org file." }
     ] }
   ]
 };
@@ -603,7 +615,7 @@ function demoReturns(country) {
   const code = (DEMO_COUNTRIES.find(c => c.country === country) || {}).code || "";
   return (DEMO_RETURNS[country] || []).map((r, i) => Object.assign(normaliseReturn({
     format: "compass-return", format_version: "1.0", generated_at: "2026-07-0" + (i + 2) + "T09:00:00Z",
-    source_app: r.source_app, engagement_key: "MERIDIAN" + code, findings: r.findings
+    source_app: r.source_app, engagement_key: "MERIDIAN" + code, country: country, findings: r.findings
   }), { id: "ret_demo_" + (code || "AR").toLowerCase() + "_" + (i + 1), imported_at: "2026-07-10T09:00:00Z" }));
 }
 /* Why the demo's differences exist — the owner's judgement, pre-filled. */

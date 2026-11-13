@@ -1301,7 +1301,7 @@ function check(name, cond) {
     (await page.locator(".cs-warn").textContent()).includes("Only partly scored: Caldera"));
   check("page 3 lists who really decides, per country, strongest evidence first",
     await page.locator(".ro-page").nth(2).locator(".ro-col").count() === 3 &&
-    (await page.locator(".ro-page").nth(2).locator(".ro-col").nth(1).locator(".grade-pill").allTextContents()).join() === "Confirmed,Indicated");
+    (await page.locator(".ro-page").nth(2).locator(".ro-col").nth(1).locator(".grade-pill").allTextContents()).join() === "Confirmed,Indicated,Indicated");
   check("page 6 sorts the classed differences into harmonise, decide and leave local",
     (await page.locator(".ro-ask h4").allTextContents()).join("|") === "Harmonise|Decide: keep or align|Leave local" &&
     await page.locator(".ro-ask.ask-inherited li").count() === 2 && await page.locator(".ro-ask.ask-required li").count() === 2 &&
@@ -1337,7 +1337,10 @@ function check(name, cond) {
     (await page.locator(".cs-chip.on em").textContent()) === "open now" && (await page.locator(".cs-chip.on").first().textContent()).includes("Belmar"));
   await page.click('[data-cs-tab="findings"]');
   await page.waitForTimeout(300);
-  check("each country keeps its own findings", await page.locator(".cs-file").count() === 2 && await page.locator(".cs-find tbody tr").count() === 5);
+  check("each country keeps its own findings", await page.locator(".cs-file").count() === 2 && await page.locator(".cs-find tbody tr").count() === 6);
+  check("a finding says why it is so, and against which country, in words",
+    (await page.locator(".cs-find tbody tr", { hasText: "V1" }).first().textContent()).includes("Inherited") &&
+    (await page.locator(".cs-find tbody tr", { hasText: "V1" }).first().textContent()).includes("vs Arden"));
   await page.reload();
   await page.waitForTimeout(700);
   await page.click('.tab[data-view="current"]');

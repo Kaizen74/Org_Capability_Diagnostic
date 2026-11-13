@@ -39,8 +39,10 @@ An ID is a prefix and a number. The number is never reused inside a workspace, s
 | `X n` | Discrepancy between documented and done | Process Map Studio |
 | `I n` | Intent statement | Process Map Studio |
 | `H n` | Operating-model hypothesis | Org Modeling |
+| `V n` | Difference between two countries' published maps of the same process | Process Map Studio |
+| `T-nnn` | Task | Workbench |
 
-The last four are reserved so the Compass never mints a clashing prefix. Process Map Studio already gives discrepancies codes that are never reused (`X1`, `X2`…).
+The last six are reserved so the Compass never mints a clashing prefix. Process Map Studio already gives discrepancies codes that are never reused (`X1`, `X2`…).
 
 ## 2. One evidence grammar
 
@@ -155,6 +157,12 @@ Each of the other three apps exports what it found as one small file:
 | `kind` | Process Map Studio: `step`, `discrepancy`, `intent`, `knowledge_risk`, `hypothesis_verdict`. Org Modeling: `work_activity`, `structural_baseline`, `hypothesis`, `option_score`. Workbench: `task_disposition`, `role_impact`, `capacity`. |
 | `grade` | `confirmed`, `indicated`, `hypothesis`, or empty. Anything else is dropped on import, never trusted. |
 | `relates_to` | Compass IDs. A cell ID such as `CAP-01.Process` lets the finding be cited on that cell in one click. |
+| `country` *(optional, header)* | The country the findings describe, as the hand-off packet's `engagement.country` gave it. The Compass flags a file whose country differs from the open workspace. |
+| `topic` *(optional)* | What the finding is about: `decision_right` (who really decides), `role_presence` (which roles exist), `role_reason` (why a role is there or missing), `way_of_working` (how work runs). It decides the readout page; without it, the kind decides. |
+| `reason_class` *(optional)* | Why it is so: `required` (regulation, contract, site), `chosen` (a deliberate local decision), `inherited` (history, acquisition, habit), or `unknown`. The same words as the Compass's Compare tab. |
+| `compared_with` *(optional)* | The other country a difference is measured against, e.g. `Arden`. |
+
+New kinds (added 2026-11-13, still format 1.0 because they are additive): **`role_reason`** from Org Modeling (why an anchor role exists, is thin, or is missing in this country) and **`variation`** from Process Map Studio (a difference between two countries' published maps of the same process, ID `Vn`).
 
 What the Compass does with it:
 
@@ -163,12 +171,16 @@ What the Compass does with it:
 3. **Never changes a level or a grade.** "Cite on CAP-01.Process" adds the finding to that cell as evidence, with its ID and its grade at source in the note. The assessor then decides.
 4. Uses the findings on pages 3 to 5 of the EXCO readout. A finding whose words concern who decides, approves or holds authority goes to "Who really decides"; structure, role and knowledge-risk findings go to "Which roles exist where"; the rest go to "How work really runs".
 
-A sample is in `docs/samples/belmar_return_process_map_studio.json` (fictional).
+Samples, all fictional: `docs/samples/countries/belmar_return_org_modeling.json` and `docs/samples/countries/belmar_return_process_map_studio.json`. They are checked by the Compass's contract test, so they always import.
 
 ## 5a. Countries
 
-One workspace per country, all copied from one frame, so that every ID means the same thing in each. The country's engagement key is the frame's key plus a two- or three-letter code (`MERIDIAN` → `MERIDIANBE`), at most ten characters. The packet's `engagement.country` carries the country name, and each role carries `status_confirmed` (false while a role copied from another country is still "to confirm").
+One workspace per country, all copied from one frame, so that every ID means the same thing in each. A value stream keeps its `VS-nn` in every country: once `VS-01` names "Bid to contract renewal", piloting it in another country's workspace (or dropping it and choosing it again) gives `VS-01` again, never a new number. That is what lets Process Map Studio match two countries' maps of the same process. The country's engagement key is the frame's key plus a two- or three-letter code (`MERIDIAN` → `MERIDIANBE`), at most ten characters. The packet's `engagement.country` carries the country name, and each role carries `status_confirmed` (false while a role copied from another country is still "to confirm").
 
 ## 6. Changing this format
 
 Add fields freely; existing readers ignore what they do not know. Renaming or removing a field, or changing what a grade or prefix means, needs a new `format_version` and an entry in `DECISIONS.md`.
+
+## 7. Country samples
+
+`docs/samples/countries/` holds a fictional three-country set (Arden, Belmar, Caldera) for building and testing the other apps: one hand-off packet per country, an org file with a `Country` column, and the findings file each app should send back for Belmar. `node scripts/make_country_samples.js` rebuilds them from the Compass demo.

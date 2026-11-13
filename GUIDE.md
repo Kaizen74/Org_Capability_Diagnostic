@@ -69,7 +69,9 @@ Different people score different countries, and one may be stricter than another
 **3. Findings from the other apps (part 2).**
 Process Map Studio, Org Modeling and the Workbench can each export a small file called *Findings for the Compass*. Open the country the file describes, then **Import a findings file**. Importing never changes a score. Each finding keeps the ID and grade it was given in the app that found it, and **Cite on …** adds it as evidence to the cell it relates to. You then open the cell and decide whether the score should move.
 
-If a file belongs to a different country, the app flags it rather than mixing it in.
+If a file belongs to a different country, the app flags it rather than mixing it in. Where the other app says **why** something is so (Required, Chosen, Inherited) and **against which country**, the finding shows it in the same words as the Compare tab.
+
+The changes these two apps need are written as PRDs to paste into them: `docs/sibling_prds/PRD_org_modeling_countries.md` and `docs/sibling_prds/PRD_process_map_studio_countries.md`. Each lists the sample files to attach, all in `docs/samples/countries/`.
 
 **4. The EXCO readout (part 3).**
 Six pages, in the order an executive asks the questions:
