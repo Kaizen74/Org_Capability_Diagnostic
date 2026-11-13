@@ -10,8 +10,8 @@
 
 | Check | Command | Current |
 |---|---|---|
-| Data contract (backend ↔ frontend) | `node tests/contract_test.js` | ✅ 250 checks passing |
-| End-to-end browser (mock mode) | `node tests/e2e_mock_test.js` | ✅ 224 checks passing |
+| Data contract (backend ↔ frontend) | `node tests/contract_test.js` | ✅ 315 checks passing |
+| End-to-end browser (mock mode) | `node tests/e2e_mock_test.js` | ✅ 279 checks passing |
 | Both at once | `./run_checks.sh` | ✅ green |
 
 ## What the app does today
@@ -38,6 +38,10 @@
 | Optional amount at stake per lever; money at risk in currency, an estimate until validated | Done |
 | Stage 1 readiness check, pilot shortlist, hand-off packet and per-app briefs | Done |
 | Stage 5 Scoreboard: trend across versions and forecast check | Done |
+| Countries: one workspace per country from one frame (same IDs, blank scores); roles "to confirm" | Done |
+| Current State — compare countries by ID; class each difference Required / Chosen / Inherited | Done |
+| Current State — import the other apps' findings files; cite a finding on a cell | Done |
+| Current State — six-page EXCO readout that prints as a PDF | Done |
 
 ## This session (2026-11-11) — make the Compass the first app of the four-app leapfrog workflow
 
@@ -65,9 +69,18 @@ Increments (each ends green and committed):
 - [x] K2 — Import the other apps' return files; findings register; cite a finding on a cell
 - [x] K3 — Compare view: variation map, roles by country, differences classed Required / Chosen / Inherited
 - [x] K4 — EXCO readout: six printable pages assembled from the above
-- [ ] K5 — Docs and final full mock test
+- [x] K5 — Docs and final full mock test
 
-## Done in this session (2026-11-11)
+## Done in this session (2026-11-13)
+
+1. Countries (`app/js/compare.js`, workspace box): a workspace says which country it covers; "Add another country" copies the frame and every ID with all judgements blank. Roles carried over are "to confirm".
+2. Current State screen (`app/js/current.js`), after Hand-off, in three parts: Compare countries, Findings from the other apps, EXCO readout.
+3. The comparison (classes, verdict, ask) is stored once per family of countries (`capability_compass_frame_<frameId>`), so it is the same whichever country is open, and also travels inside each export.
+4. The demo gained two fictional countries (Belmar, Caldera) and fictional findings files, loaded from Current State.
+5. Hand-off wording corrected: the other apps now read the packet. Journey Stage 3 points at Current State.
+6. Checks: contract 250 → 315, end-to-end 224 → 279. All green. The readout is tested to print on exactly six pages.
+
+## Done in the earlier session (2026-11-11)
 
 1. Read the three sibling apps. None refers to the Compass, so the hand-off language was defined here: `docs/HANDOFF_FORMAT.md`.
 2. Stable IDs that are never reused; one evidence grammar; a hand-off packet with a block shaped for each receiving app (`app/js/handoff.js`).
@@ -80,20 +93,21 @@ Increments (each ends green and committed):
 
 ## Not done, and why
 
-- **The other three apps do not read the hand-off packet.** That is a change in their repositories, which this session could only read. Until then the per-app briefs are pasted by hand.
-- **The Compass does not import a file from the other apps.** Findings come back through Evidence, citing the other app's ID.
+- **"Why this role exists" has no field of its own here.** It arrives as an Org Modeling finding. Org Modeling needs a country column and a reason tag on each role to supply it properly; that is a change in its repository.
+- **Process Map Studio cannot yet compare two published maps** (one per country). The owner has agreed to reverse its "no cross-engagement comparison" rule; that is a change in its repository. Until then, the Compass lines up each country's findings side by side on readout pages 3 and 5.
+- **Scores across countries are not calibrated between raters.** The Compare screen says so. A cross-country calibration step (country leads reviewing each other's evidence for the widest gaps) is a working practice, not a feature.
 - **Operating-model hypotheses H1 to H4** (playbook Stage 1) are written in Org Modeling, not here.
 - **A second rater** was deliberately not added (owner decision).
 
 ## Suggested next session
 
-- Teach Org Modeling to read `for_apps.org_modeling` from the packet (criteria and strategy text), so that step stops being copy and paste. Then the same for Process Map Studio's engagement scope card.
-- A board briefing export that leads with money at risk, the pilot decision and the two role registers.
-- Run a real engagement through Stage 0 and Stage 1 and note where the wording or the defaults fight you.
+- PRDs for the two sibling changes above (Org Modeling: country and reason-for-role; Process Map Studio: compare two published maps).
+- Run a real two-country comparison and note where the wording or the six pages fight you.
+- A group roll-up workspace that reads the country workspaces, if EXCO asks for one number per capability.
 
 ## How to resume
 
 1. `cd` into the repo and run `./run_checks.sh` — both suites must pass before new work. The browser suite needs Playwright (`npm install playwright`); it is skipped with a clear message when absent.
-2. Read `DECISIONS.md` (44 entries) for why things are built the way they are, and `docs/HANDOFF_FORMAT.md` for the shared language.
-3. Where things live: scoring and prediction in `app/js/engine.js`; IDs, gates, packet and scoreboard logic in `app/js/handoff.js`; Journey, Charter, Hand-off and Scoreboard screens in `app/js/stages.js`; workspace storage in `app/js/workspaces.js`; everything else in `app/js/app.js`; the data contract in `app/js/schema.js`.
-4. Watch out for: the active workspace is stored under the original key `capability_compass_state_v1`, other workspaces under `capability_compass_ws_<id>`; a redraw is deliberately delayed while the mouse is down (`renderAll` in `app.js`).
+2. Read `DECISIONS.md` (53 entries) for why things are built the way they are, and `docs/HANDOFF_FORMAT.md` for the shared language.
+3. Where things live: scoring and prediction in `app/js/engine.js`; IDs, gates, packet and scoreboard logic in `app/js/handoff.js`; Journey, Charter, Hand-off and Scoreboard screens in `app/js/stages.js`; workspace storage in `app/js/workspaces.js`; country comparison, findings files and the readout model in `app/js/compare.js`; the Current State screen in `app/js/current.js`; everything else in `app/js/app.js`; the data contract in `app/js/schema.js`.
+4. Watch out for: workspaces copied from one frame share a `frameId`, and their comparison is kept under `capability_compass_frame_<frameId>` and re-read whenever a workspace is opened; the active workspace is stored under the original key `capability_compass_state_v1`, other workspaces under `capability_compass_ws_<id>`; a redraw is deliberately delayed while the mouse is down (`renderAll` in `app.js`).

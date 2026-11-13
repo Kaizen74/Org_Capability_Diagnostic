@@ -124,7 +124,7 @@ function csCompare(ctx) {
         <option value="">Not yet classed</option>
         ${DIFF_CLASSES.map(k => `<option value="${k.key}" ${c.cls === k.key ? "selected" : ""}>${k.label}</option>`).join("")}</select>
         ${meta ? `<span class="cs-ask ask-${meta.key}">→ ${esc(meta.ask)}</span>` : ""}</td>
-      <td><input type="text" class="vc-in" data-cs-note="${esc(d.key)}" value="${esc(c.note || "")}" placeholder="The reason, in a line"></td></tr>`;
+      <td><input type="text" class="vc-in" data-cs-note="${esc(d.key)}" value="${esc(c.note || "")}" title="${esc(c.note || "")}" placeholder="The reason, in a line"></td></tr>`;
   };
   /* Material gaps and anything already classed stay in view; the
      one-level differences nobody has classed are one click away. */

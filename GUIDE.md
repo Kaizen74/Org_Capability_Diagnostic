@@ -17,7 +17,7 @@ The Compass is the first of four apps used to design an operating model and oper
 | **0 Frame** | What business are we building, and how will we judge the design? | **This app** — Charter |
 | **1 Focus** | Where must the model change, and where to pilot? | **This app**, with Org Modeling |
 | **2 Find** | How does work really run? | Process Map Studio |
-| **3 Dial** | What to standardise, how much should AI do? | Process Map Studio and the Workbench — then findings come back here |
+| **3 Dial** | What to standardise, how much should AI do? | Process Map Studio and the Workbench — then findings come back here, under **Current State** |
 | **4 Design** | Which model and system do we install? | Org Modeling and the Workbench |
 | **5 Deliver** | Is it lifting capability, cycle by cycle? | **This app** — Scoreboard |
 
@@ -37,6 +37,7 @@ Every workspace opens on the **Journey**, which shows these six stages, what is 
 | **Priority Board** | What do we do first, and where is the money at risk? |
 | **Trajectory** | Where is this heading, and what would prove me wrong? |
 | **Hand-off** | Is Stage 1 complete, where do we pilot, and what does the next app need? |
+| **Current State** | How do the countries differ, what did the other apps find, and what do we tell EXCO? |
 | **Scoreboard** (Stage 5) | What moved since last cycle, and were our calls right? |
 | **Method** | How does this fit together, and where should I not over-claim? |
 
@@ -45,6 +46,48 @@ Every workspace opens on the **Journey**, which shows these six stages, what is 
 A workspace is one complete diagnostic. Use the **Workspace** box at the top to switch, to start a new one, or to rename or delete the current one. Keep one for the whole group and one per segment or client: they never mix. Starting a new diagnostic, loading the demo, or importing a backup always makes a **new** workspace, so nothing you start can overwrite what is on screen.
 
 When you create one you choose what its rows are: **capability clusters** (the industry preset's list, for an enterprise view) or **value streams** (you type the names, for one business segment end to end).
+
+## Current state across countries
+
+Use this before any design work, to answer four questions: which roles exist, who really decides, how work really runs, and how all of that differs from one country to the next.
+
+**1. One workspace per country, built from one frame.**
+Finish the frame in one country first: the clusters, the money levers and the anchor roles. Then open the **Workspace** box, choose *Rename or delete this one…*, say which country this workspace covers, and use **Add another country**. The new workspace has the same clusters, levers, roles, charter and IDs, with every score, piece of evidence, weight and amount blank. Roles carried over show as **To confirm** until someone in that country says whether the role exists, is thin, or is absent.
+
+Someone in the country can do the scoring: open that country, press **Export**, send them the file, and **Import** what they send back.
+
+**2. Compare (Current State, part 1).**
+- The **map** shows every capability in every country on the same scale. "Not scored" means nobody has assessed it yet; it is never counted as weak, and it is left out of every gap.
+- **Why each difference exists.** For each cell scored differently, choose one of three reasons and write the reason in a line:
+  - **Required** (regulation, a customer contract, the physical site) → leave local.
+  - **Chosen** (a deliberate local decision someone can explain) → decide whether to keep or align.
+  - **Inherited** (history, an acquisition, habit; nobody decided it) → harmonise.
+- **Which roles exist where** lines the roles up by ID.
+
+Different people score different countries, and one may be stricter than another. Before treating a gap as real, have the country leads look at each other's evidence for the widest ones.
+
+**3. Findings from the other apps (part 2).**
+Process Map Studio, Org Modeling and the Workbench can each export a small file called *Findings for the Compass*. Open the country the file describes, then **Import a findings file**. Importing never changes a score. Each finding keeps the ID and grade it was given in the app that found it, and **Cite on …** adds it as evidence to the cell it relates to. You then open the cell and decide whether the score should move.
+
+If a file belongs to a different country, the app flags it rather than mixing it in.
+
+**4. The EXCO readout (part 3).**
+Six pages, in the order an executive asks the questions:
+
+| Page | What it shows | Where it comes from |
+|---|---|---|
+| 1 Where we stand | Your one-line verdict, then each country on one scale | Scores, and money at risk where estimated |
+| 2 Where the countries differ | The map, and how many differences are required, chosen or inherited | Compare |
+| 3 Who really decides | Decisions made by a different role from the one on paper | Process Map Studio findings |
+| 4 Which roles exist where, and why | Anchor roles by country, and the reasons | Roles, plus Org Modeling and Workbench findings |
+| 5 How work really runs | Where practice departs from the documents, and the cost | Process Map Studio findings |
+| 6 What we ask you to decide | Harmonise, decide, or leave local; where to pilot; your ask | Your classifications |
+
+The only words you write are the **verdict** and the **ask**. Everything else is counted or quoted. Above the pages the app lists what would weaken the paper (a country not fully scored, a material difference not yet classed, no findings for a country). **Print or save as PDF** gives six pages.
+
+Money at risk is shown per country and is added up only when every country uses the same currency and unit.
+
+To see all of this filled in, open the demo, go to **Current State**, and press **Show me with the demo's three countries**. The countries (Arden, Belmar, Caldera) and everything in them are fictional.
 
 ## A first real diagnostic, step by step
 
@@ -64,13 +107,15 @@ On the **Hand-off** screen each of the other apps has a card with **Copy the bri
 - **Process Map Studio** gets one engagement per pilot: its name, process KPI, roles in scope and interview prompts.
 - **The Workbench** gets the roles to analyse first.
 
-**Download the full packet** saves everything as one file. The other apps cannot read that file yet, which is why the briefs exist. The packet never contains your API key or the text of your uploaded documents.
+**Download the full packet** saves everything as one file. Each of the other three apps can import that file directly; the briefs say the same thing in words. The packet never contains your API key or the text of your uploaded documents.
 
 Everything carries an ID that stays the same in every app: `CAP-03` is a cluster, `VS-01` a value stream, `LV-02` a lever, `RL-014` a role. Outside the workspace, put the engagement key in front: `MERIDIAN:CAP-03`.
 
 ## When findings come back (after Stage 3)
 
-Upload them in **Evidence**. On the cells they bear on, add an evidence source and type the finding's ID (for example `X5`) in the small **ID** box. Re-score, set the grade, and **Save version**. The **Scoreboard** then shows the trend across every saved version, and checks each of last cycle's direction calls: *Right*, *Wrong*, *Not yet* or *No call made*.
+Open **Current State → Findings from the other apps** and import the file the other app exported. Use **Cite on …** to attach a finding to the cell it relates to, then open the cell, re-score if the evidence warrants, set the grade, and **Save version**. The **Scoreboard** then shows the trend across every saved version, and checks each of last cycle's direction calls: *Right*, *Wrong*, *Not yet* or *No call made*.
+
+(If an app has given you a document rather than a findings file, upload it in **Evidence** as before and type the finding's ID in the small **ID** box on the cell.)
 
 ## Ideas worth understanding
 
