@@ -357,6 +357,7 @@ function renderView() {
   else if (activeView === "blueprint") el.innerHTML = viewBlueprint();
   else if (activeView === "charter") el.innerHTML = viewCharter();
   else if (activeView === "handoff") el.innerHTML = viewHandoff();
+  else if (activeView === "current") el.innerHTML = viewCurrent();
   else if (activeView === "delta") el.innerHTML = viewDelta();
   else el.innerHTML = viewJourney();
   bindViewEvents();
@@ -1605,6 +1606,7 @@ function bindViewEvents() {
   }));
   bindCharterEvents();
   bindHandoffEvents();
+  bindCurrentEvents();
   bindSignalEvents();
   bindEvidenceEvents();
   bindValueChainEvents();

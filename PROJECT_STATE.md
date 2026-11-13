@@ -62,9 +62,9 @@ Context checked today: all three sibling apps now read the `compass-handoff` fil
 
 Increments (each ends green and committed):
 - [x] K1 — Country on a workspace; copy a workspace's frame to another country (same IDs, blank scores); comparison logic and contract (`app/js/compare.js`)
-- [ ] K2 — Import the other apps' return files; findings register; cite a finding on a cell
-- [ ] K3 — Compare view: variation map, roles by country, differences classed Required / Chosen / Inherited
-- [ ] K4 — EXCO readout: six printable pages assembled from the above
+- [x] K2 — Import the other apps' return files; findings register; cite a finding on a cell
+- [x] K3 — Compare view: variation map, roles by country, differences classed Required / Chosen / Inherited
+- [x] K4 — EXCO readout: six printable pages assembled from the above
 - [ ] K5 — Docs and final full mock test
 
 ## Done in this session (2026-11-11)

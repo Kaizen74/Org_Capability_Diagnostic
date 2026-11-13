@@ -590,10 +590,12 @@ function journeyStages(state) {
       q: "How does work really run, and does it support the model?",
       status: pilots ? "elsewhere" : "todo",
       detail: pilots ? "Take the Process Map Studio brief for " + pilots + " pilot(s)" : "Waits for a pilot from Stage 1" },
-    { n: 3, name: "Dial", here: false, view: "evidence", app: "Process Map Studio + Workbench, then back here",
+    { n: 3, name: "Dial", here: false, view: "current", app: "Process Map Studio + Workbench, then back here",
       q: "What to standardise, and how much should AI do?",
       status: "elsewhere",
-      detail: "When findings come back, upload them in Evidence, cite their IDs, re-score, and save a new version" },
+      detail: (state.returns || []).length
+        ? (state.returns || []).reduce((n, r) => n + r.findings.length, 0) + " finding(s) back from the other apps. Cite them on the cells, re-score, and save a new version"
+        : "When findings come back, import the file under Current State, cite them on the cells, re-score, and save a new version" },
     { n: 4, name: "Design", here: false, view: "handoff", app: "Org Modeling + Workbench",
       q: "Which operating model and system do we install together?",
       status: "elsewhere",

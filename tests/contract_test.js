@@ -947,5 +947,98 @@ checkOk("the three classes each carry what to do about them",
 checkOk("a role's 'to confirm' flag must be true or false",
   schema.validateRole(Object.assign({}, home.clusters[0].roles[0], { unconfirmed: "yes" }), "r").length === 1);
 
+// ---- 41. Findings files from the other three apps ----
+const rawReturn = {
+  format: "compass-return", format_version: "1.0", generated_at: "2026-07-02T09:00:00Z",
+  source_app: "process-map-studio", engagement_key: home.charter.engagementKey,
+  findings: [
+    { ref: "X1", kind: "discrepancy", title: "Pricing is decided by finance, not the commercial lead", detail: "Types: Different role.", grade: "confirmed", figure: "6 days", relates_to: ["VS-01", "CAP-04", "CAP-04.Process"], source_note: "2 documents" },
+    { ref: "X2", kind: "discrepancy", title: "Bid packs are rebuilt each time", detail: "Types: Rework.", grade: "made-up-grade", figure: "", relates_to: ["CAP-04.Process", "CAP-99.Process"], source_note: "", apiKey: "sk-ant-should-never-survive", text: "x" },
+    { ref: "DC-1", kind: "structural_baseline", title: "Seven layers in Commercial", detail: "", grade: "confirmed", figure: "7 layers", relates_to: ["CAP-04.Structure"], source_note: "" },
+    { ref: "S-01", kind: "step", title: "", detail: "no title, so it is dropped" }
+  ]
+};
+put("__raw", rawReturn);
+const ret = run("normaliseReturn(__raw)");
+check("an imported findings file conforms to the shared contract", schema.validateReturn(ret));
+checkOk("only the agreed fields are kept: nothing extra rides in on a finding",
+  ret.findings.length === 3 && !/sk-ant|apiKey|"text"/.test(JSON.stringify(ret)) &&
+  Object.keys(ret.findings[0]).sort().join() === "cited,detail,figure,grade,kind,ref,relates_to,source_note,title");
+checkOk("a grade outside the three is dropped, never trusted", ret.findings[1].grade === "" && ret.findings[0].grade === "confirmed");
+const bad = code => { try { run(code); return ""; } catch (e) { return e.message; } };
+checkOk("a file that is not a findings file is refused in plain words",
+  /not a findings file/.test(bad('normaliseReturn({ format: "compass-handoff", findings: [] })')) && /not a findings file/.test(bad("normaliseReturn(null)")));
+checkOk("a newer format version is refused rather than half-read",
+  /version/.test(bad('normaliseReturn({ format: "compass-return", format_version: "2.0", findings: [{ title: "x" }] })')));
+checkOk("an empty findings file is refused", /no findings/.test(bad('normaliseReturn({ format: "compass-return", format_version: "1.0", findings: [] })')));
+checkOk("the contract rejects a stored findings file that carries a key",
+  schema.validateReturn(Object.assign({}, ret, { note: "sk-ant-abc" })).length === 1);
+checkOk("the state contract checks every stored findings file",
+  schema.validateState(Object.assign({}, home, { returns: [ret] })).length === 0 &&
+  schema.validateState(Object.assign({}, home, { returns: [{ format: "other" }] })).length > 0);
+put("__ret", ret);
+const fcells = run("findingCells(__home, __ret.findings[0])");
+checkOk("a finding points at the cells it relates to, by ID",
+  fcells.length === 1 && fcells[0].ref === "CAP-04.Process" && fcells[0].clusterId === "commercial" && fcells[0].lensKey === "Process");
+checkOk("an ID that is not in this workspace is ignored, not guessed", run("findingCells(__home, __ret.findings[1])").length === 1);
+checkOk("each sending app is named in plain words",
+  run('sourceAppName("process-map-studio")') === "Process Map Studio" && run('sourceAppName("org-modeling")') === "Org Modeling" && run('sourceAppName("ai-org-advisory-workbench")') === "Workbench");
+checkOk("every kind the three apps send has a plain label and a page",
+  ["step", "discrepancy", "intent", "knowledge_risk", "hypothesis_verdict", "work_activity", "structural_baseline", "hypothesis", "option_score", "task_disposition", "role_impact", "capacity"]
+    .every(k => run("FINDING_KINDS")[k] && run("FINDING_KINDS")[k].label && run("FINDING_KINDS")[k].page));
+checkOk("strongest evidence is listed first",
+  run('strongestFirst([{ grade: "hypothesis" }, { grade: "" }, { grade: "confirmed" }, { grade: "indicated" }])').map(f => f.grade).join() === "confirmed,indicated,hypothesis,");
+
+// ---- 42. The demo as three countries (fictional) ----
+const dHome = wfDemo(); dHome.country = run("DEMO_HOME_COUNTRY"); dHome.frameId = "fr_demo"; dHome.workspaceId = "ws_a";
+dHome.comparison = run("demoComparison()"); dHome.returns = run("demoReturns(DEMO_HOME_COUNTRY)");
+put("__dh", dHome);
+check("the demo home country conforms with its findings and comparison", schema.validateState(dHome));
+const dOthers = run("DEMO_COUNTRIES.map(spec => ensureRefs(buildDemoCountry(__dh, spec)))");
+dOthers.forEach(d => check("demo country " + d.country + " conforms to the shared contract", schema.validateState(d)));
+checkOk("the demo countries are fictional names with their own engagement keys",
+  dOthers.map(d => d.country).join() === "Belmar,Caldera" && dOthers.map(d => d.charter.engagementKey).join() === "MERIDIANBE,MERIDIANCA");
+checkOk("every demo findings file carries the key of the country it describes",
+  dOthers.every(d => d.returns.length > 0 && d.returns.every(r => r.engagement_key === d.charter.engagementKey)) && dHome.returns.every(r => r.engagement_key === "MERIDIAN"));
+checkOk("the demo is recognised as the demo, and a real workspace is not",
+  run("isDemoState(__dh)") === true && run("isDemoState(__bw)") === false);
+dOthers.forEach((d, i) => { d.workspaceId = "ws_" + "bc"[i]; });
+put("__d1", dOthers[0]); put("__d2", dOthers[1]);
+run('__frames = [{ id: "ws_a", label: "Arden", state: __dh }, { id: "ws_b", label: "Belmar", state: __d1 }, { id: "ws_c", label: "Caldera", state: __d2 }]');
+const fnd = run("compareFindings(__frames)");
+checkOk("findings are sorted into who decides, how work runs, and roles, per country",
+  fnd.any && fnd.per.length === 3 && fnd.per.every(p => p.decisions.length + p.work.length + p.people.length === p.total) &&
+  fnd.per[1].decisions.length === 2 && fnd.per[1].decisions.every(f => /Different role/.test(f.detail)));
+checkOk("structure and role findings go to the roles page, not the process page",
+  fnd.per[0].people.every(f => ["structural_baseline", "work_activity", "role_impact", "knowledge_risk"].indexOf(f.kind) !== -1) && fnd.per[0].people.length === 4);
+
+// ---- 43. The EXCO readout model ----
+const ro = run("readoutModel(__dh, __frames)");
+checkOk("the readout covers every country in the comparison", ro.countries.map(c => c.label).join() === "Arden,Belmar,Caldera");
+checkOk("a partly scored country is named as such, and its unscored cells are left out",
+  ro.partScored.length === 1 && /Caldera \(83% of cells\)/.test(ro.partScored[0]) && ro.unscored.length === 0 &&
+  ro.countries[2].assessed === 20 && ro.countries[2].cells === 24);
+checkOk("each country's average counts assessed cells only",
+  Math.abs(ro.countries[2].avg - dOthers[1].clusters.flatMap(c => Object.values(c.cells)).filter(x => x.status !== "Not yet assessed").reduce((a, x) => a + x.level, 0) / 20) < 1e-9);
+checkOk("money is added across countries only when currency and unit match",
+  ro.moneyComparable === true && ro.countries.every(c => c.money && c.money.atRisk > 0));
+const dEuro = JSON.parse(JSON.stringify(dOthers[0])); dEuro.valueChain.currency = "€"; put("__d1e", dEuro);
+checkOk("with two currencies no total is offered",
+  run('readoutModel(__dh, [{ id: "ws_a", label: "Arden", state: __dh }, { id: "ws_b", label: "Belmar", state: __d1e }])').moneyComparable === false);
+checkOk("money is not counted for a cluster that is not fully scored",
+  Math.abs(ro.countries[2].money.stake - dOthers[1].valueChain.levers.filter(l => l.cluster_id !== "enabling").reduce((a, l) => a + l.value_at_stake, 0)) < 1e-9);
+checkOk("every difference lands in exactly one place: required, chosen, inherited or still to classify",
+  ro.byClass.required.length + ro.byClass.chosen.length + ro.byClass.inherited.length + ro.byClass.unclassified.length === ro.diffs.length &&
+  ro.byClass.inherited.length === 2 && ro.byClass.chosen.length === 1 && ro.byClass.required.length === 1);
+checkOk("the reason given for a difference travels with it", /pre-merger/.test(ro.byClass.inherited.find(d => d.lens === "Process").note));
+checkOk("material differences are counted", ro.material === 3 && ro.diffs.filter(d => d.material).every(d => d.gap >= 2));
+checkOk("anchor roles missing somewhere are listed with where",
+  ro.roleGaps.length > 0 && ro.roleGaps.every(r => r.anchor && r.gapIn.length > 0));
+checkOk("pilots are reported per country", ro.countries[0].pilots.length === 2 && ro.countries[1].pilots.length === 0);
+checkOk("a readout of one country still works and compares nothing",
+  run('readoutModel(__dh, [{ id: "ws_a", label: "Arden", state: __dh }])').diffs.length === 0);
+checkOk("the journey points returned findings at the next step",
+  /finding\(s\) back/.test(run("journeyStages(__dh)")[3].detail) && run("journeyStages(__dh)")[3].view === "current");
+
 console.log(failures ? `\n${failures} CONTRACT FAILURE(S)` : "\nAll contract checks passed.");
 process.exit(failures ? 1 : 0);

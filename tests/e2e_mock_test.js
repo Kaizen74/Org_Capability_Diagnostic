@@ -1169,6 +1169,188 @@ function check(name, cond) {
   check("the same country cannot be added twice", await page.evaluate(() => wsReadIndex().list.length) === beforeCopy.n + 1);
   await page.click("#m-close");
 
+  // ---------- Current State: compare the countries ----------
+  check("Current State sits in the workflow after Hand-off",
+    await page.evaluate(() => { const t = [...document.querySelectorAll(".tab")].map(b => b.dataset.view); return t.indexOf("current") === t.indexOf("handoff") + 1; }));
+  await page.click('.tab[data-view="current"]');
+  await page.waitForTimeout(400);
+  check("it has three parts in working order: compare, findings, readout",
+    (await page.locator(".cs-tab").allTextContents()).map(t => t.replace(/\s+/g, " ").trim()).join("|") === "1 Compare countries|2 Findings from the other apps|3 EXCO readout");
+  check("the two countries built from one frame are compared without any setup",
+    (await page.locator(".cs-map thead th").allTextContents()).join("|") === "Capability|Singapore|Thailand|Gap between countries");
+  check("an unscored country reads 'Not scored' in every row and is named in a warning",
+    await page.locator(".cs-map .cs-unscored").count() === 6 && (await page.locator(".cs-warn").textContent()).includes("Thailand"));
+  check("with one scored country there is no gap and no difference to classify",
+    await page.locator(".cs-map .cs-flag").count() === 0 && await page.locator("[data-cs-class]").count() === 0);
+  const thId = await page.evaluate(() => wsReadIndex().list.find(w => w.country === "Thailand").id);
+  await page.uncheck(`[data-cs-with="${thId}"]`);
+  await page.waitForTimeout(400);
+  check("a country can be left out of the comparison; alone, the screen explains how to start",
+    await page.evaluate(id => state.comparison.skip.indexOf(id) !== -1, thId) && await page.locator(".cs-start").count() === 1);
+  check("the demo offers its three fictional countries", await page.locator("#cs-demo").count() === 1);
+  const nBeforeDemo = await page.evaluate(() => wsReadIndex().list.length);
+  await page.click("#cs-demo");
+  await page.waitForTimeout(700);
+  const demo3 = await page.evaluate(() => ({
+    n: wsReadIndex().list.length, country: state.country, active: wsReadIndex().active === state.workspaceId,
+    parked: wsReadIndex().list.filter(w => w.frameId === state.frameId && w.id !== state.workspaceId).map(w => w.country).sort().join(),
+    errs: validateState(state)
+  }));
+  check("loading them adds two workspaces and keeps the open one open",
+    demo3.n === nBeforeDemo + 2 && demo3.country === "Arden" && demo3.active && demo3.parked === "Belmar,Caldera,Thailand" && demo3.errs.length === 0);
+  check("the map shows the three countries side by side (the one left out stays out)",
+    (await page.locator(".cs-map thead th").allTextContents()).join("|") === "Capability|Arden|Belmar|Caldera|Gap between countries");
+  check("each scored cell shows the average and the four lens levels",
+    await page.locator(".cs-map .cs-cell").count() === 17 && await page.locator(".cs-map .cs-cell").first().locator(".cs-dot").count() === 4);
+  check("the one cluster Caldera has not scored reads 'Not scored', not weak", await page.locator(".cs-map .cs-unscored").count() === 1);
+  check("the widest gap is flagged in words, not by colour alone",
+    await page.locator(".cs-map tr.is-wide").count() >= 1 && (await page.locator(".cs-map tr.is-wide").allTextContents()).every(t => t.includes("⚑ wide")) &&
+    (await page.locator(".cs-map tr.is-wide").allTextContents()).some(t => t.includes("Technology")));
+  check("material differences and classed ones are in view; the small ones are one click away",
+    await page.locator(".cs-diffs").first().locator("tbody tr").count() === 4 && await page.locator(".cs-minor tbody tr").count() === 15 &&
+    await page.locator(".cs-diffs").first().locator(".cs-flag").count() === 3);
+  check("the three reasons a difference exists are defined on the screen, each with what to do",
+    (await page.locator(".cs-classcard strong").allTextContents()).join() === "Required,Chosen,Inherited" &&
+    (await page.locator(".cs-classcard em").allTextContents()).join("|") === "→ Leave local|→ Decide: keep or align|→ Harmonise");
+  await page.selectOption('[data-cs-class="tdx|Structure"]', "required");
+  await page.waitForTimeout(400);
+  check("classing a difference is saved and says what follows",
+    await page.evaluate(() => state.comparison.classes["tdx|Structure"].cls === "required" && /Belmar buys/.test(state.comparison.classes["tdx|Structure"].note)) &&
+    (await page.locator('tr:has([data-cs-class="tdx|Structure"]) .cs-ask').textContent()).includes("Leave local"));
+  await page.locator(".cs-minor summary").click();
+  const minorKey = await page.locator(".cs-minor [data-cs-note]").first().getAttribute("data-cs-note");
+  await page.locator(".cs-minor [data-cs-note]").first().fill("Local shift pattern agreed with the union");
+  await page.locator(".cs-minor [data-cs-note]").first().blur();
+  await page.waitForTimeout(300);
+  check("a reason can be written before the class is chosen, and it is kept",
+    await page.evaluate(k => state.comparison.classes[k].note === "Local shift pattern agreed with the union" && state.comparison.classes[k].cls === "", minorKey));
+  check("the comparison is stored once for the family of countries, outside any one workspace",
+    await page.evaluate(() => { const sh = wsSharedRead(state.frameId); return !!sh && sh.classes["tdx|Structure"].cls === "required"; }));
+  check("roles are compared by ID, differing ones first, with a word and a symbol for each status",
+    await page.locator(".cs-roles").first().locator("tbody tr").count() >= 8 &&
+    await page.locator(".cs-roles").first().locator("tbody tr.is-wide").count() === await page.locator(".cs-roles").first().locator("tbody tr").count() &&
+    (await page.locator(".cs-roles").first().locator("tbody tr").first().locator(".cs-role").allTextContents()).join("|") === "○ Absent|◐ Thin bench|○ Absent");
+  check("a role nobody has confirmed in a country says so", await page.locator(".cs-role.rs-unconfirmed").count() >= 1);
+
+  // ---------- Current State: findings from the other apps ----------
+  await page.click('[data-cs-tab="findings"]');
+  await page.waitForTimeout(300);
+  check("the findings tab says where each app's file comes from", await page.locator(".cs-source").count() === 3);
+  check("the demo's findings are listed by the app that sent them",
+    await page.locator(".cs-file").count() === 3 && await page.locator(".cs-find tbody tr").count() === 9 &&
+    (await page.locator(".cs-body .sig-brief-head h2").allTextContents()).slice(1).join() === "Process Map Studio,Org Modeling,Workbench");
+  const beforeCite = await page.evaluate(() => { const c = state.clusters.find(x => x.id === "commercial").cells.Process; return { level: c.level, grade: c.grade, ev: c.evidence.length }; });
+  await page.locator('[data-cs-cite$="|CAP-04.Process"]').first().click();
+  await page.waitForTimeout(400);
+  const afterCite = await page.evaluate(() => { const c = state.clusters.find(x => x.id === "commercial").cells.Process; return { level: c.level, grade: c.grade, ev: c.evidence.length, last: c.evidence[c.evidence.length - 1] }; });
+  check("citing a finding adds evidence with its ID and source, and changes neither the level nor the grade",
+    afterCite.ev === beforeCite.ev + 1 && afterCite.level === beforeCite.level && afterCite.grade === beforeCite.grade &&
+    afterCite.last.ref === "X1" && /^Process Map Studio: /.test(afterCite.last.label) && /Confirmed at source/.test(afterCite.last.note));
+  check("a cited finding says so and cannot be cited twice on the same cell",
+    (await page.locator(".cs-find tbody tr").first().textContent()).includes("✓ cited on CAP-04.Process") &&
+    await page.locator('[data-cs-cite$="|0|CAP-04.Process"]').count() === 0);
+  const mkReturn = (over, findings) => Buffer.from(JSON.stringify(Object.assign({
+    format: "compass-return", format_version: "1.0", generated_at: "2026-08-01T09:00:00Z", source_app: "org-modeling", engagement_key: "MERIDIAN",
+    findings: findings || [{ ref: "H3", kind: "hypothesis", title: "Two regional layers duplicate approval", detail: "To be tested in Stage 2.", grade: "hypothesis", figure: "", relates_to: ["CAP-05.Structure"], source_note: "", apiKey: "sk-ant-nope" }]
+  }, over)));
+  await page.setInputFiles("#file-return", { name: "orgmodel_return.json", mimeType: "application/json", buffer: mkReturn({}) });
+  await page.waitForTimeout(500);
+  check("a findings file imports, and says no score was changed",
+    await page.locator(".cs-file").count() === 4 && (await page.locator("#toast").textContent()).includes("No score was changed"));
+  check("nothing outside the agreed fields is kept from an imported file",
+    await page.evaluate(() => !/sk-ant|apiKey/.test(JSON.stringify(state.returns)) && validateState(state).length === 0));
+  await page.setInputFiles("#file-return", { name: "orgmodel_return.json", mimeType: "application/json", buffer: mkReturn({}) });
+  await page.waitForTimeout(500);
+  check("importing the same file again replaces it instead of doubling it", await page.locator(".cs-file").count() === 4);
+  await page.setInputFiles("#file-return", { name: "wrong.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ format: "compass-handoff", clusters: [] })) });
+  await page.waitForTimeout(500);
+  check("a file that is not a findings file is refused in plain words",
+    await page.locator(".cs-file").count() === 4 && /Not imported: wrong\.json/.test(await page.locator("#toast").textContent()) && /not a findings file/.test(await page.locator("#toast").textContent()));
+  await page.setInputFiles("#file-return", { name: "notjson.json", mimeType: "application/json", buffer: Buffer.from("hello") });
+  await page.waitForTimeout(500);
+  check("a file that is not JSON is refused without an error", /not a JSON file/.test(await page.locator("#toast").textContent()));
+  await page.setInputFiles("#file-return", { name: "belmar.json", mimeType: "application/json", buffer: mkReturn({ engagement_key: "MERIDIANBE", source_app: "ai-org-advisory-workbench", generated_at: "2026-08-02T09:00:00Z" }) });
+  await page.waitForTimeout(500);
+  check("a file meant for another country is flagged, not silently mixed in",
+    await page.locator(".cs-file.off").count() === 1 && (await page.locator(".cs-file.off").textContent()).includes("MERIDIANBE"));
+  page.once("dialog", d => d.accept());
+  await page.locator(".cs-file.off [data-cs-drop]").click();
+  await page.waitForTimeout(400);
+  check("an imported file can be removed; evidence already cited stays on the cell",
+    await page.locator(".cs-file").count() === 4 &&
+    await page.evaluate(() => state.clusters.find(x => x.id === "commercial").cells.Process.evidence.some(e => e.ref === "X1")));
+  await page.click('.tab[data-view="journey"]');
+  await page.waitForTimeout(300);
+  check("the Journey counts the findings that have come back and points to Current State",
+    /finding\(s\) back from the other apps/.test(await page.locator(".jr-card").nth(3).textContent()) &&
+    await page.locator(".jr-card").nth(3).locator('[data-goto="current"]').count() === 1);
+
+  // ---------- Current State: the EXCO readout ----------
+  await page.click('.tab[data-view="current"]');
+  await page.click('[data-cs-tab="readout"]');
+  await page.waitForTimeout(400);
+  check("the readout is six pages, in the order an executive asks the questions",
+    (await page.locator(".ro-page .ro-head h2").allTextContents()).join("|") ===
+    "Where we stand|Where the countries differ|Who really decides|Which roles exist where, and why|How work really runs|What we ask you to decide");
+  check("page 1 puts each country on the same scale with its own key",
+    await page.locator(".ro-tile").count() === 3 && (await page.locator(".ro-tile").nth(2).textContent()).includes("MERIDIANCA") &&
+    (await page.locator(".ro-tile").nth(2).textContent()).includes("83% of cells scored"));
+  check("money at risk is totalled only because the three countries share a currency, and is called an estimate",
+    /Across the countries: ≈ \$\d+m at risk \(estimate, same currency and unit\)/.test(await page.locator(".ro-page").first().locator(".ro-foot").textContent()));
+  check("the readout says what would weaken it before it is printed",
+    (await page.locator(".cs-warn").textContent()).includes("Only partly scored: Caldera"));
+  check("page 3 lists who really decides, per country, strongest evidence first",
+    await page.locator(".ro-page").nth(2).locator(".ro-col").count() === 3 &&
+    (await page.locator(".ro-page").nth(2).locator(".ro-col").nth(1).locator(".grade-pill").allTextContents()).join() === "Confirmed,Indicated");
+  check("page 6 sorts the classed differences into harmonise, decide and leave local",
+    (await page.locator(".ro-ask h4").allTextContents()).join("|") === "Harmonise|Decide: keep or align|Leave local" &&
+    await page.locator(".ro-ask.ask-inherited li").count() === 2 && await page.locator(".ro-ask.ask-required li").count() === 2 &&
+    await page.locator(".ro-ask.ask-chosen li").count() === 0);
+  check("an empty column says so instead of disappearing", (await page.locator(".ro-ask.ask-chosen").textContent()).includes("Nothing classed here yet"));
+  await page.fill("#ro-verdict", "One business, three operating models.");
+  await page.click("#ro-asks");   // leaving the field saves it
+  await page.waitForTimeout(900);
+  check("the verdict is the owner's own words and is saved with the comparison",
+    await page.evaluate(() => state.comparison.verdict === "One business, three operating models." && wsSharedRead(state.frameId).verdict === state.comparison.verdict));
+  await page.emulateMedia({ media: "print" });
+  check("in print the controls go and the owner's words show as text",
+    await page.evaluate(() => getComputedStyle(document.querySelector(".ro-bar")).display === "none" &&
+      getComputedStyle(document.querySelector("#ro-verdict")).display === "none" &&
+      getComputedStyle(document.querySelector(".ro-quote")).display === "block" &&
+      getComputedStyle(document.querySelector(".kpis")).display === "none" &&
+      getComputedStyle(document.querySelector(".tabs")).display === "none") &&
+    (await page.locator(".ro-quote").first().textContent()) === "One business, three operating models.");
+  const pdf = await page.pdf({ format: "A4", landscape: true, printBackground: true });
+  check("the readout prints on exactly six pages", (pdf.toString("latin1").match(/\/Type\s*\/Page\b(?!s)/g) || []).length === 6);
+  await page.emulateMedia({ media: "screen" });
+
+  // The comparison is the same whichever country is open
+  const beId = await page.evaluate(() => wsReadIndex().list.find(w => w.country === "Belmar").id);
+  await page.selectOption("#ws-switch", beId);
+  await page.waitForTimeout(600);
+  await page.click('.tab[data-view="current"]');
+  await page.click('[data-cs-tab="compare"]');
+  await page.waitForTimeout(400);
+  check("opening another country shows the same comparison: same columns, same classes, same verdict",
+    (await page.locator(".cs-map thead th").allTextContents()).join("|") === "Capability|Arden|Belmar|Caldera|Gap between countries" &&
+    await page.evaluate(() => state.country === "Belmar" && state.comparison.classes["tdx|Structure"].cls === "required" && state.comparison.verdict === "One business, three operating models.") &&
+    (await page.locator(".cs-chip.on em").textContent()) === "open now" && (await page.locator(".cs-chip.on").first().textContent()).includes("Belmar"));
+  await page.click('[data-cs-tab="findings"]');
+  await page.waitForTimeout(300);
+  check("each country keeps its own findings", await page.locator(".cs-file").count() === 2 && await page.locator(".cs-find tbody tr").count() === 5);
+  await page.reload();
+  await page.waitForTimeout(700);
+  await page.click('.tab[data-view="current"]');
+  await page.waitForTimeout(400);
+  check("countries, findings and the comparison survive a reload",
+    await page.evaluate(() => state.country === "Belmar" && state.returns.length === 2 && state.comparison.classes["tdx|Structure"].cls === "required" && validateState(state).length === 0) &&
+    await page.locator(".cs-map .cs-cell").count() === 17);
+  check("no workspace, parked or open, holds an API key",
+    await page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith("capability_compass_ws_") || k.startsWith("capability_compass_frame_") || k === "capability_compass_state_v1")
+      .every(k => !/apiKey|sk-ant/.test(localStorage.getItem(k)))));
+  check("the hand-off packet from a country workspace still passes its contract",
+    await page.evaluate(() => validateHandoffPacket(buildHandoffPacket(state)).length === 0 && buildHandoffPacket(state).engagement.country === "Belmar"));
+
   const realErrors = jsErrors.filter(e => !e.includes("ERR_TUNNEL") && !e.includes("Failed to load resource"));
   check("no JavaScript errors during the whole run", realErrors.length === 0);
   if (realErrors.length) console.log("  JS errors:", realErrors);

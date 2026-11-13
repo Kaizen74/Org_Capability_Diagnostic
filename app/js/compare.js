@@ -59,7 +59,7 @@ function sourceAppName(key) {
 /* Is this finding about who decides? Decision rights have their own
    page, so they are picked out of the process findings by wording. */
 function isDecisionFinding(f) {
-  return /different role|decid|decision|owner|approv|accountab|sign[- ]?off/i.test((f.title || "") + " " + (f.detail || ""));
+  return /different role|decid|decision|authority|approv|accountab|sign(ed|s)?[- ]?off/i.test((f.title || "") + " " + (f.detail || ""));
 }
 
 function normName(s) { return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
@@ -302,6 +302,7 @@ function readoutModel(home, frames) {
     material: diffs.filter(d => d.material).length,
     roleGaps: roles.filter(r => r.anchor && r.gapIn.length),
     rolesDiffer: roles.filter(r => r.differs),
-    unscored: countries.filter(c => c.assessed === 0).map(c => c.label)
+    unscored: countries.filter(c => c.assessed === 0).map(c => c.label),
+    partScored: countries.filter(c => c.assessed > 0 && c.assessed < c.cells).map(c => c.label + " (" + c.scoredPct + "% of cells)")
   };
 }
