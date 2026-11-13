@@ -163,10 +163,17 @@ function csCompare(ctx) {
 
 /* ---------- Tab 2: findings ---------- */
 const RETURN_SOURCES = [
-  { app: "Process Map Studio", gives: "How work really runs: steps, who decides, where practice departs from the documents and why.", where: "Open the published map → Export → “Findings for the Compass”." },
-  { app: "Org Modeling", gives: "Which roles and layers exist, what work they do, and the hypotheses about why.", where: "Scenario → Export → “Findings for the Compass”." },
+  { app: "Process Map Studio", gives: "How work really runs: steps, who decides, where practice departs from the documents, and how this country's way differs from another's.", where: "Open the published map → Export → “Findings for the Compass”." },
+  { app: "Org Modeling", gives: "Which roles and layers exist in each country, the reason each role is there, and the hypotheses about why.", where: "Export → “Findings for the Compass”, one file per country." },
   { app: "Workbench", gives: "What each role's tasks become with AI, and the capacity that frees.", where: "Engagement → Export → “Findings for the Compass”." }
 ];
+
+/* Why it is so, and against which country — when the sending app says. */
+function whyChip(f) {
+  const r = REASON_CLASSES[f.reason_class];
+  return (r ? `<span class="cs-why why-${f.reason_class}">${esc(r.label)}</span>` : "") +
+    (f.compared_with ? `<span class="cs-vs">vs ${esc(f.compared_with)}</span>` : "");
+}
 
 function csFindingRow(f) {
   const kind = FINDING_KINDS[f.kind] || { label: f.kind || "Finding" };
@@ -175,7 +182,7 @@ function csFindingRow(f) {
     ? `<span class="applied-note">✓ cited on ${esc(c.ref)}</span>`
     : `<button class="mini-btn" data-cs-cite="${esc(f.return_id)}|${f._i}|${esc(c.ref)}">Cite on ${esc(c.ref)}</button>`).join(" ");
   return `<tr><td><span class="ref-chip">${esc(f.ref || "—")}</span><span class="cs-sub">${esc(kind.label)}</span></td>
-    <td><strong>${esc(f.title)}</strong>${f.detail ? `<div class="cs-detail">${esc(f.detail)}</div>` : ""}${f.source_note ? `<div class="cs-src">${esc(f.source_note)}</div>` : ""}</td>
+    <td><strong>${esc(f.title)}</strong> ${whyChip(f)}${f.detail ? `<div class="cs-detail">${esc(f.detail)}</div>` : ""}${f.source_note ? `<div class="cs-src">${esc(f.source_note)}</div>` : ""}</td>
     <td>${f.grade ? `<span class="grade-pill g-${f.grade}">${esc(gradeMeta(f.grade).label)}</span>` : `<span class="cs-none">No grade</span>`}${f.figure ? `<div class="cs-fig">${esc(f.figure)}</div>` : ""}</td>
     <td>${cite || `<span class="cs-none">${(f.relates_to || []).length ? esc(f.relates_to.join(", ")) : "Not tied to a cell"}</span>`}</td></tr>`;
 }
@@ -184,10 +191,11 @@ function csFindings() {
   const rets = state.returns || [];
   const key = state.charter.engagementKey;
   const files = rets.map(r => {
-    const off = r.engagement_key && r.engagement_key !== key;
+    const offCountry = r.country && state.country && r.country.toLowerCase() !== state.country.toLowerCase();
+    const off = (r.engagement_key && r.engagement_key !== key) || offCountry;
     return `<div class="cs-file ${off ? "off" : ""}">
       <div><strong>${esc(sourceAppName(r.source_app))}</strong> · ${r.findings.length} finding${r.findings.length === 1 ? "" : "s"} · imported ${new Date(r.imported_at).toLocaleDateString()}
-        ${off ? `<div class="cs-fileflag">⚑ This file is for <span class="ref-chip">${esc(r.engagement_key)}</span>; this workspace is <span class="ref-chip">${esc(key)}</span>. Check it was imported into the right country.</div>` : ""}</div>
+        ${off ? `<div class="cs-fileflag">⚑ This file is for ${offCountry ? esc(r.country) + " " : ""}<span class="ref-chip">${esc(r.engagement_key)}</span>; this workspace is ${state.country ? esc(state.country) + " " : ""}<span class="ref-chip">${esc(key)}</span>. Check it was imported into the right country.</div>` : ""}</div>
       <button class="mini-btn danger" data-cs-drop="${esc(r.id)}">Remove</button></div>`;
   }).join("");
   const groups = rets.map(r => {
@@ -215,7 +223,7 @@ function roFindingList(list, n, empty) {
   if (!list.length) return `<p class="ro-empty">${empty}</p>`;
   const top = strongestFirst(list).slice(0, n);
   return `<ul class="ro-finds">${top.map(f => `<li>${f.grade ? `<span class="grade-pill g-${f.grade}">${esc(gradeMeta(f.grade).label)}</span>` : ""}
-      <strong>${esc(f.title)}</strong>${f.figure ? ` <span class="ro-fig">${esc(f.figure)}</span>` : ""}
+      <strong>${esc(f.title)}</strong>${f.figure ? ` <span class="ro-fig">${esc(f.figure)}</span>` : ""} ${whyChip(f)}
       ${f.detail ? `<span class="ro-detail">${esc(f.detail)}</span>` : ""}<span class="ref-chip">${esc(f.ref || "")}</span></li>`).join("")}</ul>
     ${list.length > n ? `<p class="ro-more">and ${list.length - n} more in the findings register</p>` : ""}`;
 }

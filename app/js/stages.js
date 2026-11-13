@@ -316,7 +316,8 @@ function bindHandoffEvents() {
   const slug = () => (state.charter.engagementKey || "compass").toLowerCase();
   document.querySelectorAll("[data-pl-decision]").forEach(sel => sel.addEventListener("change", () => {
     const cid = sel.dataset.plDecision;
-    state.pilots[cid] = Object.assign({ reason: "", name: "", kpi: "" }, state.pilots[cid] || {}, { decision: sel.value });
+    const known = (state.pilotRefs || {})[cid] || {};
+    state.pilots[cid] = Object.assign({ reason: "", name: known.name || "", kpi: known.kpi || "" }, state.pilots[cid] || {}, { decision: sel.value });
     if (!sel.value) delete state.pilots[cid];
     renderAll();
   }));

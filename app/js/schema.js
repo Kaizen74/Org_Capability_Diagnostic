@@ -42,6 +42,8 @@ var CONFIDENCE_LEVELS = ["high", "medium", "low"];
    back, and why each difference between countries exists. */
 var RETURN_FORMAT_NAME = "compass-return";
 var DIFF_CLASS_KEYS = ["required", "chosen", "inherited"];
+var FINDING_TOPIC_KEYS = ["decision_right", "role_presence", "role_reason", "way_of_working"];
+var REASON_CLASS_KEYS = ["required", "chosen", "inherited", "unknown"];
 
 function _isStr(v) { return typeof v === "string"; }
 function _isArr(v) { return Array.isArray(v); }
@@ -137,6 +139,13 @@ function validateState(s) {
   }
   if (s.country !== undefined && !_isStr(s.country)) errs.push("country must be a string");
   if (s.frameId !== undefined && !_isStr(s.frameId)) errs.push("frameId must be a string");
+  if (s.pilotRefs !== undefined && s.pilotRefs !== null) {
+    if (!_isObj(s.pilotRefs)) errs.push("pilotRefs must be an object keyed by cluster id");
+    else Object.keys(s.pilotRefs).forEach(function (cid) {
+      var pr = s.pilotRefs[cid];
+      if (!_isObj(pr) || !_isStr(pr.ref) || !/^VS-\d{1,4}$/.test(pr.ref)) errs.push("pilotRefs." + cid + ": ref must be a VS-nn ID");
+    });
+  }
   if (s.comparison !== undefined && s.comparison !== null) errs = errs.concat(validateComparison(s.comparison));
   if (s.returns !== undefined && !_isArr(s.returns)) errs.push("returns must be an array");
   (_isArr(s.returns) ? s.returns : []).forEach(function (r, i) {
@@ -391,6 +400,7 @@ function validateReturn(r) {
   if (!_isStr(r.format_version)) errs.push("format_version must be a string");
   if (!_isStr(r.source_app)) errs.push("source_app must be a string");
   if (!_isStr(r.engagement_key)) errs.push("engagement_key must be a string");
+  if (r.country !== undefined && !_isStr(r.country)) errs.push("country must be a string");
   if (!_isArr(r.findings) || !r.findings.length) { errs.push("findings must be a non-empty array"); return errs; }
   r.findings.forEach(function (f, i) {
     var w = "findings[" + i + "]";
@@ -403,6 +413,11 @@ function validateReturn(r) {
       errs.push(w + ": grade must be empty or one of " + EVIDENCE_GRADE_KEYS.join("/"));
     if (f.relates_to !== undefined && (!_isArr(f.relates_to) || f.relates_to.some(function (x) { return !_isStr(x); })))
       errs.push(w + ": relates_to must be a list of IDs");
+    if (f.topic !== undefined && f.topic !== "" && FINDING_TOPIC_KEYS.indexOf(f.topic) === -1)
+      errs.push(w + ": topic must be empty or one of " + FINDING_TOPIC_KEYS.join("/"));
+    if (f.reason_class !== undefined && f.reason_class !== "" && REASON_CLASS_KEYS.indexOf(f.reason_class) === -1)
+      errs.push(w + ": reason_class must be empty or one of " + REASON_CLASS_KEYS.join("/"));
+    if (f.compared_with !== undefined && !_isStr(f.compared_with)) errs.push(w + ": compared_with must be a string");
   });
   if (/"apiKey"|"api_key"|sk-ant-/.test(JSON.stringify(r))) errs.push("return file must not contain an API key");
   return errs;
@@ -455,6 +470,8 @@ if (typeof module !== "undefined" && module.exports) {
     UNIT_KINDS: UNIT_KINDS,
     validateCharter: validateCharter,
     DIFF_CLASS_KEYS: DIFF_CLASS_KEYS,
+    FINDING_TOPIC_KEYS: FINDING_TOPIC_KEYS,
+    REASON_CLASS_KEYS: REASON_CLASS_KEYS,
     validateReturn: validateReturn,
     validateComparison: validateComparison,
     validateHandoffPacket: validateHandoffPacket,

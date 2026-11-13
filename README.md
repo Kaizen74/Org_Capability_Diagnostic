@@ -192,6 +192,8 @@ app/                  ← the application (open app/index.html to run)
   js/stages.js        ← Journey, Charter, Hand-off and Scoreboard screens
   js/current.js       ← Current State screen: compare, findings, EXCO readout
   js/app.js           ← the other screens, drawer, wizard, persistence
+scripts/
+  make_country_samples.js ← rebuilds the fictional country samples the other apps build against
 tests/
   contract_test.js    ← data-layer ↔ UI-layer alignment checks (node tests/contract_test.js)
   e2e_mock_test.js    ← full browser regression in mock mode (never calls the real API)
@@ -200,6 +202,8 @@ docs/
   Capability_Diagnostic_Rubric_v4.md    ← revised, industry-agnostic scoring standard
   capability_dashboard_skill_v2.md      ← revised dashboard design skill
   HANDOFF_FORMAT.md                     ← the IDs, grades and file shared with the other three apps
+  sibling_prds/                         ← PRDs to paste into the other three apps
+  samples/countries/                    ← fictional three-country packets, org file and expected return files
   IMPROVEMENTS.md                       ← research basis for all revisions (with sources)
   screenshots/
 ```

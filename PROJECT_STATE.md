@@ -71,6 +71,15 @@ Increments (each ends green and committed):
 - [x] K4 — EXCO readout: six printable pages assembled from the above
 - [x] K5 — Docs and final full mock test
 
+## Done later on 2026-11-13: PRDs for the two sibling changes
+
+1. `docs/sibling_prds/PRD_org_modeling_countries.md`: Country column, by-country view, one packet per country, Compass roles by country with a reason, one findings file per country (new kind `role_reason`).
+2. `docs/sibling_prds/PRD_process_map_studio_countries.md`: country on an engagement, start a country from another's scope, line up two published maps, class each difference, print, and return `variation` findings (`Vn`); topics on existing findings.
+3. The Compass now reads the optional `country`, `topic`, `reason_class` and `compared_with` fields and the two new kinds, and shows "why" and "vs <country>" on findings.
+4. Fixed: a pilot copied to another country, or dropped and chosen again, now keeps its `VS-nn` (it used to get a new number, which would have stopped Process Map Studio matching the two maps).
+5. Fictional samples in `docs/samples/countries/` (three packets, an org file with a Country column, the two expected return files), rebuilt by `scripts/make_country_samples.js` and imported by the contract suite.
+6. Fixed demo findings that used the Compass's `DC-n` prefix as their ID.
+
 ## Done in this session (2026-11-13)
 
 1. Countries (`app/js/compare.js`, workspace box): a workspace says which country it covers; "Add another country" copies the frame and every ID with all judgements blank. Roles carried over are "to confirm".
@@ -93,21 +102,21 @@ Increments (each ends green and committed):
 
 ## Not done, and why
 
-- **"Why this role exists" has no field of its own here.** It arrives as an Org Modeling finding. Org Modeling needs a country column and a reason tag on each role to supply it properly; that is a change in its repository.
-- **Process Map Studio cannot yet compare two published maps** (one per country). The owner has agreed to reverse its "no cross-engagement comparison" rule; that is a change in its repository. Until then, the Compass lines up each country's findings side by side on readout pages 3 and 5.
+- **"Why this role exists" has no field of its own here.** It arrives as an Org Modeling `role_reason` finding. The PRD is written (`docs/sibling_prds/PRD_org_modeling_countries.md`); the owner applies it in that repository.
+- **Process Map Studio cannot yet compare two published maps** (one per country). The PRD is written (`docs/sibling_prds/PRD_process_map_studio_countries.md`); the owner applies it in that repository. Until then, the Compass lines up each country's findings side by side on readout pages 3 and 5.
 - **Scores across countries are not calibrated between raters.** The Compare screen says so. A cross-country calibration step (country leads reviewing each other's evidence for the widest gaps) is a working practice, not a feature.
 - **Operating-model hypotheses H1 to H4** (playbook Stage 1) are written in Org Modeling, not here.
 - **A second rater** was deliberately not added (owner decision).
 
 ## Suggested next session
 
-- PRDs for the two sibling changes above (Org Modeling: country and reason-for-role; Process Map Studio: compare two published maps).
+- When the owner has applied the two country PRDs, re-read both repositories, import their real return files, and check the readout pages 3–5.
 - Run a real two-country comparison and note where the wording or the six pages fight you.
 - A group roll-up workspace that reads the country workspaces, if EXCO asks for one number per capability.
 
 ## How to resume
 
 1. `cd` into the repo and run `./run_checks.sh` — both suites must pass before new work. The browser suite needs Playwright (`npm install playwright`); it is skipped with a clear message when absent.
-2. Read `DECISIONS.md` (53 entries) for why things are built the way they are, and `docs/HANDOFF_FORMAT.md` for the shared language.
+2. Read `DECISIONS.md` (59 entries) for why things are built the way they are, and `docs/HANDOFF_FORMAT.md` for the shared language.
 3. Where things live: scoring and prediction in `app/js/engine.js`; IDs, gates, packet and scoreboard logic in `app/js/handoff.js`; Journey, Charter, Hand-off and Scoreboard screens in `app/js/stages.js`; workspace storage in `app/js/workspaces.js`; country comparison, findings files and the readout model in `app/js/compare.js`; the Current State screen in `app/js/current.js`; everything else in `app/js/app.js`; the data contract in `app/js/schema.js`.
 4. Watch out for: workspaces copied from one frame share a `frameId`, and their comparison is kept under `capability_compass_frame_<frameId>` and re-read whenever a workspace is opened; the active workspace is stored under the original key `capability_compass_state_v1`, other workspaces under `capability_compass_ws_<id>`; a redraw is deliberately delayed while the mouse is down (`renderAll` in `app.js`).
