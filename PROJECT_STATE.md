@@ -4,7 +4,7 @@
 
 - **Owner:** Eric (non-technical) · **Branch:** `claude/org-diagnostic-system-app-syt54v`
 - **What it is:** a zero-install organizational capability diagnostic that runs by double-clicking `app/index.html`. No server, no accounts; all data stays in the browser. It is the first of four apps in the owner's six-stage leapfrog workflow (with Org Modeling, Process Map Studio and the AI Org Advisory Workbench): it runs Stage 0, Stage 1 and Stage 5 and writes the hand-off the others start from.
-- **Last updated:** 2026-11-11
+- **Last updated:** 2026-11-13
 
 ## Status: working and fully tested
 
@@ -54,6 +54,18 @@ Increments (each ends green and committed):
 - [x] I6 — Stage 5 scoreboard (trend across versions, forecast check) on the Delta view
 - [x] I7 — Journey home and stage-ordered navigation (done with I3)
 - [x] I8 — Docs (GUIDE, README, DECISIONS, HANDOFF_FORMAT), final full mock test
+
+## This session (2026-11-13) — current-state analysis across countries, and an EXCO readout
+
+Owner decisions (2026-11-13): the comparison unit is **country** · start with the Compass · Process Map Studio's "no cross-engagement comparison" rule may be reversed later (not this session).
+Context checked today: all three sibling apps now read the `compass-handoff` file and write `compass-return` v1.0 (ref, kind, title, detail, grade, figure, relates_to, source_note).
+
+Increments (each ends green and committed):
+- [ ] K1 — Country on a workspace; copy a workspace's frame to another country (same IDs, blank scores); comparison logic and contract (`app/js/compare.js`)
+- [ ] K2 — Import the other apps' return files; findings register; cite a finding on a cell
+- [ ] K3 — Compare view: variation map, roles by country, differences classed Required / Chosen / Inherited
+- [ ] K4 — EXCO readout: six printable pages assembled from the above
+- [ ] K5 — Docs and final full mock test
 
 ## Done in this session (2026-11-11)
 
