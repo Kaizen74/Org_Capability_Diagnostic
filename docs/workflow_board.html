@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Four apps, one workflow: the board</title>
+<style>
+:root{
+  --ink:#141B2B; --navy:#233F6C; --l1:#EDEFF4; --l2:#C6D2E6; --l3:#6C8CBE;
+  --amber:#E0912B; --amber-bg:#FBF3E7; --amber-deep:#8A5412;
+  --bg:#F4F6FA; --card:#fff; --line:#E3E7F0; --muted:#5A6474;
+  --compass:#233F6C; --org:#6C8CBE; --pms:#8A5412; --wb:#141B2B;
+  --head:"Archivo","Segoe UI",system-ui,sans-serif; --body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5}
+h1,h2,h3,h4{font-family:var(--head);margin:0}
+button{font:inherit;cursor:pointer}
+header{background:var(--ink);color:#fff;padding:22px 28px 0}
+header h1{font-size:24px;font-weight:900;letter-spacing:-.01em}
+header h1 span{color:var(--amber)}
+header p{margin:4px 0 16px;color:#B9C4D8;max-width:90ch}
+.modes{display:flex;gap:4px;flex-wrap:wrap}
+.mode{background:none;border:none;color:#B9C4D8;font-family:var(--head);font-weight:700;font-size:14px;padding:11px 16px;border-bottom:3px solid transparent}
+.mode.on{color:#fff;border-bottom-color:var(--amber);background:rgba(255,255,255,.07)}
+.mode small{display:inline-block;background:var(--amber);color:#2A1A05;border-radius:999px;font-size:10px;font-weight:800;padding:1px 7px;margin-left:6px;vertical-align:2px}
+main{max-width:1280px;margin:0 auto;padding:22px 20px 60px}
+.panel{display:none}.panel.on{display:block}
+.lede{color:var(--muted);max-width:100ch;margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.chip{display:inline-block;font-family:var(--head);font-weight:800;font-size:10px;letter-spacing:.04em;border-radius:5px;padding:1px 6px;background:#EEF2F9;color:var(--navy);border:1px solid var(--line);white-space:nowrap}
+.app{display:inline-flex;align-items:center;gap:6px;font-family:var(--head);font-weight:800;font-size:11px;border-radius:999px;padding:2px 10px;color:#fff;white-space:nowrap}
+.app.compass{background:var(--compass)}.app.org{background:var(--org)}.app.pms{background:var(--amber-bg);color:var(--amber-deep);border:1px solid var(--amber)}.app.wb{background:#fff;color:var(--ink);border:1px solid var(--ink)}
+.flag{display:inline-block;font-family:var(--head);font-weight:800;font-size:10px;color:var(--amber-deep);background:var(--amber-bg);border:1px solid var(--amber);border-radius:999px;padding:1px 8px}
+
+/* ---- current state path ---- */
+.cs-wrap{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:18px;align-items:start}
+.progress{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:12.5px;color:var(--muted)}
+.bar{flex:1;height:8px;border-radius:999px;background:var(--l1);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--navy);border-radius:999px;transition:width .2s}
+.steps{list-style:none;margin:0;padding:0;position:relative}
+.steps:before{content:"";position:absolute;left:19px;top:14px;bottom:14px;width:2px;background:var(--l2)}
+.step{position:relative;display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:none;border:1px solid transparent;border-radius:12px;padding:9px 10px;margin-bottom:2px}
+.step:hover{background:#fff}
+.step.sel{background:#fff;border-color:var(--l3);box-shadow:0 2px 10px rgba(20,27,43,.06)}
+.num{flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:#fff;border:2px solid var(--l3);color:var(--navy);display:grid;place-items:center;font-family:var(--head);font-weight:900;font-size:11px;position:relative;z-index:1;margin-top:1px}
+.step.done .num{background:var(--navy);border-color:var(--navy);color:#fff}
+.step-t{font-family:var(--head);font-weight:800;font-size:13.5px;display:block}
+.step-s{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px}
+.phase-h{font-family:var(--head);font-weight:800;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:14px 0 4px 44px}
+.detail h2{font-size:20px;font-weight:900;margin:8px 0 4px}
+.detail .q{font-size:15px;color:#333B4D;margin:0 0 14px;border-left:4px solid var(--amber);padding-left:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.box{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:#FBFCFE}
+.box h4{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.box ul,.box ol{margin:0;padding-left:18px}.box li{margin-bottom:3px}
+.box.wide{grid-column:1/-1}
+.box.warn{background:var(--amber-bg);border-color:#EED9B8}
+.box.warn h4{color:var(--amber-deep)}
+.donebtn{margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn{background:var(--navy);color:#fff;border:none;border-radius:9px;padding:9px 16px;font-family:var(--head);font-weight:800;font-size:13px}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.btn.isdone{background:#fff;color:var(--navy);border:2px solid var(--navy)}
+
+/* ---- journey grid ---- */
+.jgrid{display:grid;grid-template-columns:150px repeat(6,minmax(0,1fr));gap:6px;overflow-x:auto}
+.jh{background:var(--ink);color:#fff;border-radius:10px;padding:9px 10px}
+.jh b{display:block;font-family:var(--head);font-size:13px}
+.jh span{font-size:11px;color:#B9C4D8;display:block;line-height:1.3}
+.jh i{font-style:normal;color:var(--amber);font-weight:900;margin-right:4px}
+.jr{display:flex;align-items:center;font-family:var(--head);font-weight:800;font-size:12.5px;padding:0 4px}
+.jc{min-height:74px;border-radius:10px;border:1px dashed var(--line);background:transparent}
+button.jc{border:1px solid var(--line);background:#fff;text-align:left;padding:8px 10px;font-size:12px;line-height:1.35;border-left-width:5px}
+button.jc:hover,button.jc.sel{box-shadow:0 2px 10px rgba(20,27,43,.1);border-color:var(--l3)}
+button.jc.compass{border-left-color:var(--compass)}button.jc.org{border-left-color:var(--org)}button.jc.pms{border-left-color:var(--amber)}button.jc.wb{border-left-color:var(--ink)}
+button.jc b{font-family:var(--head);display:block;font-size:12.5px;margin-bottom:2px}
+.band{grid-column:2/5;background:var(--amber-bg);border:1px solid var(--amber);color:var(--amber-deep);border-radius:999px;text-align:center;font-family:var(--head);font-weight:800;font-size:11.5px;padding:4px}
+.band2{grid-column:5/8;background:#EEF2F9;border:1px solid var(--line);color:var(--navy);border-radius:999px;text-align:center;font-family:var(--head);font-weight:800;font-size:11.5px;padding:4px}
+#jdetail{margin-top:14px}
+
+/* ---- files flow ---- */
+.flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:10px;align-items:stretch}
+.flow .arrow{display:flex;flex-direction:column;justify-content:center;align-items:center;font-family:var(--head);font-weight:800;font-size:11px;color:var(--muted);text-align:center;min-width:120px}
+.flow .arrow b{font-size:24px;color:var(--navy);line-height:1}
+.stack{display:grid;gap:8px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-family:var(--head);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);text-align:left;padding:6px 10px;border-bottom:2px solid var(--ink)}
+td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.three{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.why{border:1px solid var(--line);border-top:5px solid var(--l3);border-radius:12px;padding:12px 14px;background:#fff}
+.why.c{border-top-color:var(--navy)}.why.i{border-top-color:var(--amber)}
+.why em{font-style:normal;font-family:var(--head);font-weight:800;font-size:12px;display:block;margin-top:4px}
+h3.sec{font-size:15px;font-weight:900;margin:22px 0 10px}
+footer{color:var(--muted);font-size:12px;margin-top:26px}
+@media(max-width:900px){.cs-wrap,.grid2,.three,.flow{grid-template-columns:1fr}.flow .arrow b{transform:rotate(90deg)}}
+@media print{header .modes,.donebtn,.progress{display:none}.panel{display:block!important;break-after:page}body{background:#fff}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Four apps, <span>one workflow</span></h1>
+  <p>How to sequence Capability Compass, Org Modeling, Process Map Studio and the AI Org Advisory Workbench to assess and design a fit-for-purpose operating model and system. Start with the current-state analysis; the rest of the journey follows from it.</p>
+  <nav class="modes" id="modes"></nav>
+</header>
+<main>
+  <section class="panel" id="p-now">
+    <p class="lede"><strong>Your immediate need.</strong> Nine steps that frame the analysis, gather the evidence in each country, and end with six pages for EXCO. Click a step for exactly where to go and what "done" looks like. Ticks are remembered on this computer.</p>
+    <div class="cs-wrap">
+      <div>
+        <div class="progress"><span id="prog-t"></span><div class="bar"><i id="prog-b"></i></div><button class="btn ghost" id="reset" style="padding:4px 10px;font-size:11px">Reset</button></div>
+        <div class="steps" id="steps"></div>
+      </div>
+      <div class="card detail" id="detail"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="p-journey">
+    <p class="lede"><strong>The whole journey: six stages, four apps.</strong> Each card is what one app does in one stage. Click a card for the question it answers and what it passes on. Empty cells mean that app has no part in that stage.</p>
+    <div class="jgrid" id="jgrid"></div>
+    <div class="card" id="jdetail"></div>
+  </section>
+
+  <section class="panel" id="p-files">
+    <p class="lede"><strong>What travels between the apps.</strong> Two small files and one shared language. Nothing is retyped, and every ID means the same thing in every app and in every country.</p>
+    <div class="flow">
+      <div class="card"><span class="app compass">Capability Compass</span>
+        <h3 style="margin:8px 0 4px">Sends the hand-off file</h3>
+        <p style="margin:0;color:var(--muted)">One per country, from <strong>Hand-off → Download the full packet</strong>. It carries the charter, scores, roles, money levers and the chosen pilot, all with their IDs.</p></div>
+      <div class="arrow"><b>→</b>hand-off file<br>(one per country)</div>
+      <div class="stack">
+        <div class="card"><span class="app org">Org Modeling</span><div style="margin-top:6px">Structure, roles, and why each role is there</div></div>
+        <div class="card"><span class="app pms">Process Map Studio</span><div style="margin-top:6px">How work really runs, and who really decides</div></div>
+        <div class="card"><span class="app wb">Workbench</span><div style="margin-top:6px">What each role's tasks become with AI</div></div>
+      </div>
+      <div class="arrow"><b>→</b>findings file<br>(one per country)</div>
+      <div class="card"><span class="app compass">Capability Compass</span>
+        <h3 style="margin:8px 0 4px">Reads the findings</h3>
+        <p style="margin:0;color:var(--muted)">Under <strong>Current State → Findings</strong>. Importing never changes a score. You cite a finding on a cell, then decide whether to re-score.</p></div>
+    </div>
+
+    <h3 class="sec">Why a difference between countries exists: three words, used in every app</h3>
+    <div class="three">
+      <div class="why"><h4>Required</h4>Regulation, a customer contract or the physical site makes it so.<em>→ Leave local</em></div>
+      <div class="why c"><h4>Chosen</h4>A deliberate local decision, made for a reason someone can state.<em>→ Decide: keep or align</em></div>
+      <div class="why i"><h4>Inherited</h4>History, an acquisition or habit. Nobody decided it.<em>→ Harmonise</em></div>
+    </div>
+
+    <h3 class="sec">How sure are we: three evidence grades, your judgement</h3>
+    <div class="card"><table><tr><th>Grade</th><th>Means</th><th>Use it to</th></tr>
+      <tr><td><strong>Confirmed</strong></td><td>Verified at source</td><td>Decide</td></tr>
+      <tr><td><strong>Indicated</strong></td><td>Supported, not yet verified</td><td>Decide with care; say so</td></tr>
+      <tr><td><strong>Hypothesis</strong></td><td>Still to test</td><td>Never decide on this alone</td></tr></table></div>
+
+    <h3 class="sec">One ID for one thing</h3>
+    <div class="card"><table><tr><th>ID</th><th>Names</th><th>Created in</th></tr>
+      <tr><td><span class="chip">CAP-03</span></td><td>A capability cluster</td><td>Compass</td></tr>
+      <tr><td><span class="chip">CAP-03.People</span></td><td>One scored cell</td><td>Compass</td></tr>
+      <tr><td><span class="chip">VS-01</span></td><td>A value stream chosen to examine. The same number in every country.</td><td>Compass</td></tr>
+      <tr><td><span class="chip">RL-011</span> <span class="chip">LV-02</span></td><td>An anchor role; a money lever</td><td>Compass</td></tr>
+      <tr><td><span class="chip">S-05</span> <span class="chip">X3</span> <span class="chip">V1</span></td><td>A process step; a gap between documented and done; a difference between two countries' maps</td><td>Process Map Studio</td></tr>
+      <tr><td><span class="chip">H2</span></td><td>An operating-model hypothesis</td><td>Org Modeling</td></tr>
+      <tr><td><span class="chip">T-014</span></td><td>A task</td><td>Workbench</td></tr></table>
+      <p style="margin:10px 0 0;color:var(--muted);font-size:12.5px">Each country has its own key in front (for example a frame key plus a two-letter country code), so an ID quoted in a board paper always says which country it came from.</p></div>
+  </section>
+
+  <section class="panel" id="p-exco">
+    <p class="lede"><strong>What EXCO sees.</strong> The current-state analysis ends in six pages, printed from <strong>Compass → Current State → EXCO readout</strong>. You write two things: the verdict and the ask. Everything else is counted or quoted, so every line traces to a score or a finding.</p>
+    <div class="card"><table id="exco"></table></div>
+    <h3 class="sec">Before you present</h3>
+    <div class="card"><ul style="margin:0;padding-left:18px">
+      <li>Every country fully scored. An unscored cell reads "Not scored"; it is never counted as weak.</li>
+      <li>Every material difference (two levels or more) classed Required, Chosen or Inherited, with a one-line reason.</li>
+      <li>Findings imported for each country, or pages 3 to 5 will say plainly that they are empty.</li>
+      <li>Country leads have looked at each other's evidence for the widest gaps. Different people score different countries, and one may simply be stricter.</li>
+      <li>Money at risk is an estimate until finance validates it, and is only totalled when the countries share a currency.</li></ul></div>
+  </section>
+  <footer>Built for the six-stage workflow. The app screens named here exist today except where a step is marked ⚑, which needs a change described in a PRD already written for that app.</footer>
+</main>
+
+<script>
+const APPS={compass:"Capability Compass",org:"Org Modeling",pms:"Process Map Studio",wb:"Workbench"};
+const STEPS=[
+ {phase:"Frame it",t:"Frame the analysis",app:"compass",where:"Compass → Charter",
+  q:"What are we trying to learn, about which business, in which countries, and who decides what happens next?",
+  bring:["The business or segment in scope","The countries to compare","The sponsor and who owns each decision"],
+  doit:["Write the five-sentence thesis: what business you are building and why the current model may not fit.","State the four questions of this analysis in the scope: which roles exist, why they exist, who really decides, how work really runs.","Check the design criteria (they must total 100) and the evidence rules.","Lock the charter. Later changes need a logged reason."],
+  get:["A locked charter: the rules every later judgement is held to"],done:"Charter locked; sponsor named.",
+  watch:"Do not skip this to save time. Without agreed criteria, every country will argue its own way is right."},
+ {phase:"Frame it",t:"Build the frame in one country",app:"compass",where:"Compass → Value Chain, Roles",
+  q:"What exactly will every country be measured against?",
+  bring:["The capability clusters or value streams","Where the money is made and lost","The anchor roles the model depends on"],
+  doit:["In your home country's workspace, settle the clusters (or value streams).","On Value Chain, list the money levers and act on the calibration panel: it tests whether these are the right clusters for the money.","On Roles, list the anchor roles and score them."],
+  get:["A frame: clusters, levers and roles, each with a permanent ID"],done:"The calibration panel shows no high-severity finding; every cluster has roles.",
+  watch:"Get the frame right before copying it. A cluster added later in one country will not line up with the others."},
+ {phase:"Frame it",t:"Add each country",app:"compass",where:"Compass → Workspace box → Rename or delete this one… → Add another country",
+  q:"How do we make sure the same ID means the same thing everywhere?",
+  bring:["Each country's name and a two- or three-letter code"],
+  doit:["Say which country the current workspace covers.","Add each other country. It gets the same clusters, levers, roles, charter and IDs, with every score, piece of evidence and amount blank.","To let a country lead do the scoring: open that country, Export, send the file, and Import what comes back."],
+  get:["One workspace per country, comparable line by line"],done:"Every country in scope has a workspace.",
+  watch:"Roles copied to a new country show \"To confirm\". Someone there must say whether each exists, is thin, or is absent."},
+ {phase:"Gather the evidence",t:"Score each country from its own evidence",app:"compass",where:"Compass → Roles, Evidence, Signal Matrix (in each country)",
+  q:"Where does each country really stand today?",
+  bring:["Each country's documents: org charts, strategy papers, survey results, workforce files"],
+  doit:["Confirm every role's status.","Upload documents under Evidence and analyse them.","Score every cell on the Signal Matrix. Cite a source and choose an evidence grade for each.","Fill in that country's money weights. Save a version."],
+  get:["A scored, sourced baseline per country"],done:"Every cell scored and graded in every country; a version saved.",
+  watch:"Leave a cell unscored rather than guess. \"Not scored\" is honest; a guessed Level 1 becomes a false finding."},
+ {phase:"Gather the evidence",t:"Choose what to examine closely, and hand off",app:"compass",where:"Compass → Hand-off (in each country)",
+  q:"Which value stream do we map in detail, and what do the other apps need to start?",
+  bring:["The Priority Board ranking: money at risk, weak cells, missing roles"],
+  doit:["Give every cluster a decision: examine now, later, or not this cycle (with the reason).","Name the value stream and its process KPI. Choose the same one in each country: it keeps the same VS number.","Download the full packet for each country."],
+  get:["One hand-off file per country"],done:"The same value stream is chosen in at least two countries; packets downloaded.",
+  watch:"Pick one value stream first. Two countries on one process teaches more than one country on five."},
+ {phase:"Gather the evidence",t:"Which roles exist, and why",app:"org",where:"Org Modeling → upload the org file, import each country's packet",pending:true,
+  q:"Which roles and layers exist in each country, and why is each role there or missing?",
+  bring:["An org file with a Country column","Each country's hand-off file"],
+  doit:["Upload the org file; review layers, spans and cost side by side by country.","Import each country's packet.","On the Compass roles screen, confirm which job titles match each anchor role.","For each role and country, record why it is there or missing: Required, Chosen or Inherited.","Export one findings file per country."],
+  get:["A findings file per country: structure, head-count per role, and the reason"],done:"Every role with nobody in it has a recorded reason, or is marked \"not known yet\".",
+  watch:"⚑ The country view and the reason per role need the Org Modeling country PRD applied. Until then, Org Modeling gives one whole-organisation findings file."},
+ {phase:"Gather the evidence",t:"How work really runs, and who really decides",app:"pms",where:"Process Map Studio → new engagement from each country's packet",pending:true,
+  q:"How is the work done in practice, who makes each decision, and how does that differ between countries?",
+  bring:["Each country's hand-off file","Interviews and process documents from each country"],
+  doit:["Start one engagement per country from its packet, on the same value stream.","Add transcripts and documents; review and publish each map.","Review the gaps between documented and done, and who really decides.","Line up the two countries' maps, and class each difference Required, Chosen or Inherited.","Export the findings file for each country."],
+  get:["A published map per country","A findings file per country, including differences between countries"],done:"A published map in at least two countries; findings exported.",
+  watch:"⚑ Lining up two countries' maps needs the Process Map Studio country PRD applied. Until then, each country's findings sit side by side in the readout without step-by-step matching."},
+ {phase:"Bring it together",t:"Compare the countries and explain the differences",app:"compass",where:"Compass → Current State → Compare countries, Findings",
+  q:"Where do the countries differ, and which differences are ours to remove?",
+  bring:["The findings files from the other apps"],
+  doit:["Open each country and import its findings files.","Cite the findings that matter on the cells they relate to; re-score where the evidence warrants.","On Compare countries, read the map: gaps of one level or more are flagged.","Class every material difference: Required, Chosen or Inherited, with a one-line reason."],
+  get:["A variation map","Every material difference explained"],done:"No material difference is left unclassed.",
+  watch:"A small gap may be a stricter scorer, not a real difference. Have country leads check each other's evidence on the widest gaps."},
+ {phase:"Bring it together",t:"Take six pages to EXCO",app:"compass",where:"Compass → Current State → EXCO readout",
+  q:"What do we ask EXCO to decide so that design can start?",
+  bring:["Your verdict in one or two sentences","Your ask"],
+  doit:["Clear the \"Before you present\" list at the top of the readout.","Write the verdict and the ask.","Print or save as PDF: six pages.","Record EXCO's decisions in the Charter's decision log."],
+  get:["The EXCO readout","A decision on what to harmonise, what to leave local, and where to pilot the design"],done:"EXCO has decided; the decision is logged.",
+  watch:"The readout only assembles. If a page looks thin, the evidence is thin: say so rather than fill it."}
+];
+const STAGES=[["0","Frame","What business are we building, and how will we judge the design?"],["1","Focus","Where must the model change, and where does it matter most?"],["2","Find","How does work really run?"],["3","Dial","What to standardise, and how much should AI do?"],["4","Design","Which model and system do we install together?"],["5","Deliver","Is it lifting capability, cycle by cycle?"]];
+const CELLS={
+ "compass-0":["Charter","Thesis, principles, design criteria, the leapfrog gate, evidence rules. Locked.","Sets the rules every later choice is judged by. Org Modeling later scores options against these same criteria.","A locked charter"],
+ "compass-1":["Diagnose and choose","Money map, roles, evidence, scores by country, the pilot. Then Current State and the EXCO readout.","Says where capability is weak where the money is, and which value stream to examine. This is where the current-state analysis is compared and reported.","Hand-off file per country; later the six-page readout"],
+ "org-1":["Structure baseline","Layers, spans, cost, roles by country, and the first hypotheses.","Shows what the structure is today and why each role is there. Writes the operating-model hypotheses (H1…) that Stage 2 tests.","Findings file; hypotheses"],
+ "pms-2":["Map the real work","Evidence-traced maps, gaps between documented and done, who decides, differences between countries.","Turns interviews and documents into a map you can defend line by line.","Published map; findings file"],
+ "compass-3":["Findings back","Import findings, cite them, re-score, save a version.","Keeps one record of what is now known. Scores change only by your hand.","A new version"],
+ "pms-3":["What to standardise","A verdict for each gap: codify, correct, rewrite the rule, or leave.","Separates local adaptation worth keeping from drift worth fixing.","Dispositions per step"],
+ "wb-3":["How much AI","Each task: automate, assist, or keep human.","Sets the dial for AI role by role, from the tasks up.","Task dispositions"],
+ "org-4":["Compare the options","Scenarios scored against the criteria locked in Stage 0.","Makes the choice of structure a scored comparison, not a preference.","Scored options"],
+ "wb-4":["Roles and capacity","What changes in each role, and the capacity that frees.","Shows what the new system asks of people, and what it gives back.","Role impact; capacity"],
+ "compass-5":["Scoreboard","Trend across versions; were last cycle's calls right?","Tells you whether the installed system is lifting capability, and holds the forecast to account.","The scoreboard"]
+};
+const EXCO=[["1","Where we stand","Your one-line verdict, then each country on one scale","Compass scores; money at risk where estimated"],["2","Where the countries differ","The variation map; how many differences are required, chosen or inherited","Compass → Compare countries"],["3","Who really decides","Decisions made by a different role from the one on paper","Process Map Studio findings"],["4","Which roles exist where, and why","Anchor roles by country, and the reasons","Compass roles; Org Modeling and Workbench findings"],["5","How work really runs","Where practice departs from the documents, and what it costs","Process Map Studio findings"],["6","What we ask you to decide","Harmonise, decide, or leave local; where to pilot; your ask","Your classifications"]];
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const KEY="four_apps_board_v1";
+let done={};try{done=JSON.parse(localStorage.getItem(KEY))||{}}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(done))}catch(e){}};
+let sel=Math.max(0,STEPS.findIndex((s,i)=>!done[i]));
+
+const MODES=[["now","Current-state analysis","now"],["journey","The whole journey"],["files","What travels between apps"],["exco","What EXCO sees"]];
+function setMode(m){MODES.forEach(x=>{$("p-"+x[0]).classList.toggle("on",x[0]===m)});document.querySelectorAll(".mode").forEach(b=>b.classList.toggle("on",b.dataset.m===m))}
+$("modes").innerHTML=MODES.map(m=>`<button class="mode" data-m="${m[0]}">${m[1]}${m[2]?` <small>start here</small>`:""}</button>`).join("");
+document.querySelectorAll(".mode").forEach(b=>b.onclick=()=>setMode(b.dataset.m));
+
+function drawSteps(){
+  let h="",ph="";
+  STEPS.forEach((s,i)=>{
+    if(s.phase!==ph){ph=s.phase;h+=`<div class="phase-h">${esc(ph)}</div>`}
+    h+=`<button class="step ${i===sel?"sel":""} ${done[i]?"done":""}" data-i="${i}"><span class="num">${done[i]?"✓":i+1}</span>
+      <span><span class="step-t">${esc(s.t)}</span><span class="step-s"><span class="app ${s.app}">${APPS[s.app]}</span>${s.pending?'<span class="flag">⚑ needs PRD</span>':""}</span></span></button>`;
+  });
+  $("steps").innerHTML=h;
+  document.querySelectorAll(".step").forEach(b=>b.onclick=()=>{sel=+b.dataset.i;draw()});
+  const n=STEPS.filter((s,i)=>done[i]).length;
+  $("prog-t").textContent=n+" of "+STEPS.length+" done";$("prog-b").style.width=(n/STEPS.length*100)+"%";
+}
+function drawDetail(){
+  const s=STEPS[sel],li=a=>a.map(x=>`<li>${esc(x)}</li>`).join("");
+  $("detail").innerHTML=`<span class="app ${s.app}">${APPS[s.app]}</span> <span class="chip">Step ${sel+1} of ${STEPS.length}</span>
+    <h2>${esc(s.t)}</h2><p class="q">${esc(s.q)}</p>
+    <div class="grid2">
+      <div class="box wide"><h4>Where</h4><strong>${esc(s.where)}</strong></div>
+      <div class="box wide"><h4>What you do</h4><ol>${li(s.doit)}</ol></div>
+      <div class="box"><h4>You bring</h4><ul>${li(s.bring)}</ul></div>
+      <div class="box"><h4>You get</h4><ul>${li(s.get)}</ul></div>
+      <div class="box wide"><h4>Done when</h4>${esc(s.done)}</div>
+      <div class="box wide warn"><h4>Watch out</h4>${esc(s.watch)}</div>
+    </div>
+    <div class="donebtn"><button class="btn ${done[sel]?"isdone":""}" id="tick">${done[sel]?"✓ Done (click to undo)":"Mark this step done"}</button>
+      ${sel>0?'<button class="btn ghost" id="prev">← Previous</button>':""}${sel<STEPS.length-1?'<button class="btn ghost" id="next">Next step →</button>':""}</div>`;
+  $("tick").onclick=()=>{done[sel]=!done[sel];save();if(done[sel]&&sel<STEPS.length-1)sel++;draw()};
+  if($("prev"))$("prev").onclick=()=>{sel--;draw()};if($("next"))$("next").onclick=()=>{sel++;draw()};
+}
+function draw(){drawSteps();drawDetail()}
+$("reset").onclick=()=>{if(confirm("Clear all ticks?")){done={};save();sel=0;draw()}};
+
+function drawJourney(pick){
+  let h=`<div></div><div class="band">Current-state analysis: your immediate need</div><div class="band2">Design and delivery</div><div></div>`;
+  h+=STAGES.map(s=>`<div class="jh"><b><i>${s[0]}</i>${s[1]}</b><span>${esc(s[2])}</span></div>`).join("");
+  Object.keys(APPS).forEach(a=>{
+    h+=`<div class="jr"><span class="app ${a}">${APPS[a]}</span></div>`;
+    STAGES.forEach((s,i)=>{const c=CELLS[a+"-"+i];
+      h+=c?`<button class="jc ${a} ${pick===a+"-"+i?"sel":""}" data-k="${a}-${i}"><b>${esc(c[0])}</b>${esc(c[1])}</button>`:`<div class="jc"></div>`});
+  });
+  $("jgrid").innerHTML=h;
+  document.querySelectorAll("button.jc").forEach(b=>b.onclick=()=>drawJourney(b.dataset.k));
+  const k=pick||"compass-0",c=CELLS[k],[a,i]=k.split("-"),st=STAGES[+i];
+  $("jdetail").innerHTML=`<span class="app ${a}">${APPS[a]}</span> <span class="chip">Stage ${st[0]} · ${st[1]}</span>
+    <h2 style="font-size:18px;margin:8px 0 4px">${esc(c[0])}</h2><p class="q" style="border-left:4px solid var(--amber);padding-left:12px;margin:0 0 12px">${esc(st[2])}</p>
+    <div class="grid2"><div class="box"><h4>What this app does here</h4>${esc(c[1])}</div><div class="box"><h4>Why it matters</h4>${esc(c[2])}</div><div class="box wide"><h4>What it passes on</h4>${esc(c[3])}</div></div>`;
+}
+$("exco").innerHTML=`<tr><th>Page</th><th>The question</th><th>What it shows</th><th>Where it comes from</th></tr>`+EXCO.map(r=>`<tr><td><span class="chip">${r[0]}</span></td><td><strong>${r[1]}</strong></td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("");
+draw();drawJourney();setMode("now");
+</script>
+</body>
+</html>
