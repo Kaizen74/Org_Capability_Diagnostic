@@ -94,6 +94,40 @@ h3.sec{font-size:15px;font-weight:900;margin:22px 0 10px}
 footer{color:var(--muted);font-size:12px;margin-top:26px}
 @media(max-width:900px){.cs-wrap,.grid2,.three,.flow{grid-template-columns:1fr}.flow .arrow b{transform:rotate(90deg)}}
 @media print{header .modes,.donebtn,.progress{display:none}.panel{display:block!important;break-after:page}body{background:#fff}}
+
+/* ---- outcome mock-ups ---- */
+.mk-wrap{display:grid;grid-template-columns:260px 1fr;gap:18px;align-items:start}
+.mk-nav{display:grid;gap:4px}
+.mk-btn{display:flex;gap:10px;align-items:flex-start;text-align:left;background:none;border:1px solid transparent;border-radius:10px;padding:9px 10px}
+.mk-btn:hover{background:#fff}.mk-btn.sel{background:#fff;border-color:var(--l3);box-shadow:0 2px 10px rgba(20,27,43,.06)}
+.mk-btn b{font-family:var(--head);font-size:13px;display:block}.mk-btn span span{font-size:11.5px;color:var(--muted)}
+.mk-btn i{flex:0 0 auto;width:22px;height:22px;border-radius:6px;background:var(--ink);color:#fff;font-style:normal;font-family:var(--head);font-weight:900;font-size:11px;display:grid;place-items:center}
+.frame{border:1px solid #CBD3E1;border-radius:12px;overflow:hidden;background:#fff;box-shadow:0 6px 24px rgba(20,27,43,.08)}
+.frame-bar{background:var(--ink);color:#B9C4D8;font-size:11.5px;padding:7px 12px;display:flex;gap:8px;align-items:center}
+.frame-bar u{width:9px;height:9px;border-radius:50%;background:#55627C;display:inline-block}
+.frame-bar em{margin-left:auto;font-style:normal;background:var(--amber);color:#2A1A05;border-radius:999px;font-family:var(--head);font-weight:800;font-size:10px;padding:1px 8px}
+.frame-body{padding:18px 20px}
+.frame-body h3{font-size:17px;font-weight:900;margin-bottom:2px}
+.frame-body .sub{color:var(--muted);font-size:12.5px;margin:0 0 14px}
+.mk-notes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.lv{display:inline-grid;place-items:center;min-width:34px;height:22px;border-radius:999px;font-family:var(--head);font-weight:800;font-size:11.5px;padding:0 8px}
+.lv1{background:var(--l1);color:#5A6474;box-shadow:inset 0 0 0 1.5px var(--amber)}.lv2{background:var(--l2);color:#26344C;box-shadow:inset 0 0 0 1.5px var(--amber)}.lv3{background:var(--l3);color:#fff}.lv4{background:var(--navy);color:#fff}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.tile{border:1px solid var(--line);border-radius:12px;padding:12px 14px}.tile h4{font-size:14px;margin-bottom:6px}
+.tile .big{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:12px;margin-bottom:6px}.tile .big .lv{height:32px;font-size:18px;min-width:56px}
+.quote{font-family:var(--head);font-weight:700;font-size:16px;line-height:1.35;border-left:5px solid var(--amber);padding-left:12px;margin:0 0 14px}
+.rc{display:inline-block;font-family:var(--head);font-weight:800;font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:1px 8px;border:1px solid var(--line);white-space:nowrap}
+.rc.req{background:#EEF2F9;color:#3F5F92;border-color:var(--l3)}.rc.cho{background:#EEF2F9;color:var(--navy);border-color:var(--navy)}.rc.inh{background:var(--amber-bg);color:var(--amber-deep);border-color:var(--amber)}
+.diff td{background:#FFFDF8}.am{color:var(--amber-deep);font-weight:600}
+.gapbar{display:inline-block;width:70px;height:7px;border-radius:999px;background:var(--l1);overflow:hidden;vertical-align:middle;margin-right:6px}.gapbar i{display:block;height:100%;background:var(--navy)}.gapbar.w i{background:var(--amber)}
+.cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.col{border:1px solid var(--line);border-top:5px solid var(--l3);border-radius:12px;padding:12px 14px}.col.c{border-top-color:var(--navy)}.col.i{border-top-color:var(--amber)}
+.col h4{font-size:15px;margin-bottom:2px}.col p{margin:0 0 8px;font-size:11.5px;color:var(--muted)}.col ul{margin:0;padding:0;list-style:none}.col li{border-top:1px solid var(--line);padding:6px 0;font-size:12.5px}
+.track{position:relative;height:16px;background:var(--l1);border-radius:999px;margin:4px 0 2px}
+.track .now{position:absolute;left:0;top:0;bottom:0;background:var(--l3);border-radius:999px}
+.track .mark{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--ink)}.track .amb{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--amber)}
+.legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted);margin-bottom:8px;flex-wrap:wrap}.legend b{display:inline-block;width:14px;height:8px;border-radius:2px;vertical-align:middle;margin-right:4px}
+@media(max-width:900px){.mk-wrap,.mk-notes,.tiles,.cols3{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -112,6 +146,11 @@ footer{color:var(--muted);font-size:12px;margin-top:26px}
       </div>
       <div class="card detail" id="detail"></div>
     </div>
+  </section>
+
+  <section class="panel" id="p-out">
+    <p class="lede"><strong>What good looks like at the end of the current-state analysis.</strong> Seven mock-up screens of the outcomes you are working towards, and what each one hands to the design phase. All names and numbers are <strong>illustrative and fictional</strong> (a made-up group with three made-up countries: Arden, Belmar and Caldera).</p>
+    <div class="mk-wrap"><div class="mk-nav" id="mk-nav"></div><div id="mk-view"></div></div>
   </section>
 
   <section class="panel" id="p-journey">
@@ -257,7 +296,7 @@ let done={};try{done=JSON.parse(localStorage.getItem(KEY))||{}}catch(e){}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(done))}catch(e){}};
 let sel=Math.max(0,STEPS.findIndex((s,i)=>!done[i]));
 
-const MODES=[["now","Current-state analysis","now"],["journey","The whole journey"],["files","What travels between apps"],["exco","What EXCO sees"]];
+const MODES=[["now","Current-state analysis","now"],["out","Outcomes to aim for"],["journey","The whole journey"],["files","What travels between apps"],["exco","What EXCO sees"]];
 function setMode(m){MODES.forEach(x=>{$("p-"+x[0]).classList.toggle("on",x[0]===m)});document.querySelectorAll(".mode").forEach(b=>b.classList.toggle("on",b.dataset.m===m))}
 $("modes").innerHTML=MODES.map(m=>`<button class="mode" data-m="${m[0]}">${m[1]}${m[2]?` <small>start here</small>`:""}</button>`).join("");
 document.querySelectorAll(".mode").forEach(b=>b.onclick=()=>setMode(b.dataset.m));
@@ -310,6 +349,78 @@ function drawJourney(pick){
     <div class="grid2"><div class="box"><h4>What this app does here</h4>${esc(c[1])}</div><div class="box"><h4>Why it matters</h4>${esc(c[2])}</div><div class="box wide"><h4>What it passes on</h4>${esc(c[3])}</div></div>`;
 }
 $("exco").innerHTML=`<tr><th>Page</th><th>The question</th><th>What it shows</th><th>Where it comes from</th></tr>`+EXCO.map(r=>`<tr><td><span class="chip">${r[0]}</span></td><td><strong>${r[1]}</strong></td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("");
+/* ---------- outcome mock-ups (illustrative, fictional) ---------- */
+const lv=n=>`<span class="lv lv${Math.round(n)}">${Number.isInteger(n)?"L"+n:n.toFixed(1)}</span>`;
+const rc={req:'<span class="rc req">Required</span>',cho:'<span class="rc cho">Chosen</span>',inh:'<span class="rc inh">Inherited</span>'};
+const C=["Arden","Belmar","Caldera"];
+const tbl=(head,rows)=>`<table><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr>${rows.map(r=>`<tr class="${r.d?"diff":""}">${r.c.map(x=>`<td>${x}</td>`).join("")}</tr>`).join("")}</table>`;
+const MOCKS=[
+ {t:"One verdict, one scale",s:"Where each country stands",src:"Compass → EXCO readout, page 1",
+  body:()=>`<p class="quote">Three countries run one business on three operating models. One difference is required by regulation; the widest gaps are inherited, and they cost speed in cargo handling.</p>
+   <div class="tiles">${[[3.3,3,24,"$131m"],[2.8,6,24,"$101m"],[2.7,8,20,"$72m"]].map((x,i)=>`<div class="tile"><h4>${C[i]}</h4><div class="big">${lv(x[0])}average level of 4</div><div><strong>${x[1]}</strong> of ${x[2]} scored cells need action</div><div><strong>≈ ${x[3]}</strong> at risk (estimate)</div></div>`).join("")}</div>`,
+  gives:"A single sentence leadership can repeat, and every country measured on the same four-level scale against the same capabilities.",
+  design:"The baseline the design must beat. The Scoreboard later measures every cycle against these numbers."},
+ {t:"The variation map",s:"Where the countries differ",src:"Compass → Current State → Compare countries",
+  body:()=>tbl(["Capability"].concat(C,["Gap"]),[["Gateway / Hub Services",3.3,2.5,2.8,.8],["Food & Catering",3.5,3.5,3.0,.5],["Technology, Data & AI",3.3,2.3,2.3,1.0],["Commercial Leadership",3.0,3.0,2.3,.8],["Enterprise Leadership",3.5,3.0,3.3,.5],["Human Capital",3.3,2.8,null,.5]].map(r=>({d:r[4]>=1,c:[`<strong>${r[0]}</strong>`,lv(r[1]),lv(r[2]),r[3]===null?'<span style="color:var(--muted)">Not scored</span>':lv(r[3]),`<span class="gapbar ${r[4]>=1?"w":""}"><i style="width:${r[4]/3*100}%"></i></span><strong>${r[4].toFixed(1)}</strong>${r[4]>=1?' <span class="flag">⚑ wide</span>':""}`]}))),
+  gives:"One picture of where the same capability is strong in one country and weak in another, with honest blanks where nobody has scored yet.",
+  design:"Shows where a single design can be lifted from the strongest country, and where no country is strong so the design must be new."},
+ {t:"Who really decides",s:"Decision rights, paper against practice",src:"Process Map Studio findings → readout page 3",
+  body:()=>tbl(["Decision","On paper"].concat(C,["Why it differs"]),[
+   {d:1,c:["<strong>Approve the renewal price</strong>","Commercial lead",'<span class="am">Regional finance controller</span>','<span class="am">Country manager</span>',"Commercial lead",rc.inh]},
+   {d:1,c:["<strong>Sign off the load plan</strong>","Certified load controller","Certified load controller",'<span class="am">Shift supervisor</span>',"Nationally certified controller",rc.req+" "+rc.inh]},
+   {d:1,c:["<strong>Approve overtime</strong>","Regional roster owner","Regional roster owner",'<span class="am">Station manager</span>',"Regional roster owner",rc.inh]},
+   {c:["<strong>Release a food batch</strong>","Food safety lead","Food safety lead","Food safety lead","Food safety lead","—"]}]),
+  gives:"For each decision that matters: who the documents say decides, and who actually does in each country. Amber marks practice that departs from paper.",
+  design:"The raw material for the decision-rights design. You see which decisions drifted for a good reason and which simply drifted."},
+ {t:"The role landscape",s:"Which roles exist where, and why",src:"Compass roles + Org Modeling findings → readout page 4",
+  body:()=>tbl(["Anchor role"].concat(C,["Why"]),[
+   {d:1,c:["<strong>Head of Pricing</strong>","○ Absent","● Exists · 1","○ Absent",rc.cho+" Belmar created it after two large renewals"]},
+   {d:1,c:["<strong>Head, Analytics & AI</strong>","◐ Thin · 1","○ Absent","◐ Thin · 1",rc.cho+" Belmar buys analytics as a service"]},
+   {d:1,c:["<strong>Hub Duty Controller</strong>","◐ Thin · 1","○ Absent","● Exists · 2",rc.inh+" Belmar rotates supervisors since the merger"]},
+   {d:1,c:["<strong>Load Controller (certified)</strong>","● Exists · 2","● Exists · 2","● Exists · 2",rc.req+" Caldera needs national certification"]},
+   {c:["<strong>M&A / Integration Lead</strong>","○ Absent","○ Absent","○ Absent","Absent everywhere: a design question, not a country one"]}]),
+  gives:"Every role the model depends on, in every country: there, thin or missing, how many people hold it, and the reason.",
+  design:"Tells the design which roles to keep, create, merge or stop, and separates a role missing by choice from one missing by accident."},
+ {t:"How the work really runs",s:"The same value stream in two countries",src:"Process Map Studio → Compare countries → readout page 5",
+  body:()=>`<p class="sub" style="margin-top:-8px"><span class="chip">VS-01</span> Bid to contract renewal</p>`+tbl(["Step","Arden","Belmar","Difference"],[
+   {c:["Receive renewal request","Account manager · 1 day","Account manager · 1 day","—"]},
+   {d:1,c:["Build the bid pack",'Rebuilt each time · <span class="am">9 days</span>',"Reused template · 3 days","<strong>V2</strong> 3 times longer in Arden "+rc.inh]},
+   {d:1,c:["Approve the price",'Finance controller · <span class="am">6 days wait</span>',"Country manager · 1 day","<strong>V1</strong> Different decider "+rc.inh]},
+   {d:1,c:["Legal review","Group legal","Local counsel","<strong>V3</strong> "+rc.req+" local contract law"]},
+   {c:["Send the offer",'<span class="am">38 days before expiry (target 90)</span>','<span class="am">61 days before expiry (target 90)</span>',"Neither meets the promise"]}]),
+  gives:"Step by step, how each country actually does the work, where it departs from the documents, and what that costs in days.",
+  design:"The best-practice step is often already running in one country. The design starts from proven practice, not a blank page."},
+ {t:"The decision sheet",s:"Every difference lands in one of three places",src:"Compass → EXCO readout, page 6",
+  body:()=>`<div class="cols3">
+   <div class="col i"><h4>Harmonise</h4><p>Inherited: nobody decided it</p><ul><li><strong>Load planning</strong>: two systems since the merger</li><li><strong>Renewal pricing authority</strong>: three different deciders</li><li><strong>Bid pack</strong>: adopt Belmar's template</li></ul></div>
+   <div class="col c"><h4>Decide: keep or align</h4><p>Chosen: a deliberate local decision</p><ul><li><strong>Analytics</strong>: bought as a service in Belmar</li><li><strong>Head of Pricing</strong>: one country has it; should all?</li></ul></div>
+   <div class="col"><h4>Leave local</h4><p>Required: regulation, contract or site</p><ul><li><strong>Load controller certification</strong> in Caldera</li><li><strong>Legal review</strong> under local contract law</li></ul></div></div>
+   <p class="quote" style="margin:14px 0 0;font-size:14px">The ask: agree to harmonise the three inherited differences, starting with load planning; decide the two chosen ones by next quarter; pilot the redesign on renewals.</p>`,
+  gives:"A clear ask. Leadership is not told \"the countries differ\"; it is asked to harmonise, to decide, or to leave alone.",
+  design:"Sets the boundary of the design: what must be one way everywhere, what may vary, and what is not up for debate."},
+ {t:"The design brief",s:"The foundation the design phase starts from",src:"Assembled from all of the above; carried into Stages 3 to 5",
+  body:()=>`<div class="legend"><span><b style="background:var(--l3)"></b>Where we are today (best country to weakest shown as one bar)</span><span><b style="background:var(--ink)"></b>Industry norm</span><span><b style="background:var(--amber)"></b>Leapfrog ambition</span></div>
+   ${[["Decision speed on renewals",35,60,90],["One way of working across countries",40,55,85],["Work designed for people and AI together",20,35,80],["Capability measured every cycle",45,50,90]].map(r=>`<div style="margin-bottom:10px"><strong>${r[0]}</strong><div class="track"><div class="now" style="width:${r[1]}%"></div><div class="mark" style="left:${r[2]}%"></div><div class="amb" style="left:${r[3]}%"></div></div></div>`).join("")}
+   <div class="grid2" style="margin-top:14px">
+    <div class="box"><h4>Fixed constraints (Required)</h4><ul><li>National certification in Caldera</li><li>Local legal review</li></ul></div>
+    <div class="box"><h4>Proven practice to scale</h4><ul><li>Belmar's reusable bid pack</li><li>Belmar's one-day price approval</li></ul></div>
+    <div class="box"><h4>Hypotheses to test in design</h4><ul><li><span class="chip">H1</span> Pricing authority inside Commercial halves renewal time</li><li><span class="chip">H2</span> One load-planning system removes double entry</li></ul></div>
+    <div class="box"><h4>Baseline the scoreboard will track</h4><ul><li>Average capability level per country</li><li>Days from bid request to signed contract</li><li>Anchor roles filled</li></ul></div></div>`,
+  gives:"One page that turns the diagnosis into a starting point: the constraints, what already works, what to test, and how far the ambition sits beyond the industry norm.",
+  design:"This is the hand-over. Catching up means reaching the black line; leapfrogging means designing for the amber one, and the gap between them is the design agenda."}
+];
+let mk=0;
+function drawMock(){
+  $("mk-nav").innerHTML=MOCKS.map((m,i)=>`<button class="mk-btn ${i===mk?"sel":""}" data-mk="${i}"><i>${i+1}</i><span><b>${m.t}</b><span>${m.s}</span></span></button>`).join("");
+  const m=MOCKS[mk];
+  $("mk-view").innerHTML=`<div class="frame"><div class="frame-bar"><u></u><u></u><u></u><span>${m.src}</span><em>Mock-up · illustrative data</em></div>
+    <div class="frame-body"><h3>${m.t}</h3><p class="sub">${m.s}</p>${m.body()}</div></div>
+    <div class="mk-notes"><div class="box"><h4>What this outcome gives you</h4>${m.gives}</div><div class="box warn"><h4>What it sets up for design</h4>${m.design}</div></div>
+    <div class="donebtn">${mk>0?'<button class="btn ghost" id="mk-prev">← Previous</button>':""}${mk<MOCKS.length-1?'<button class="btn" id="mk-next">Next outcome →</button>':""}</div>`;
+  document.querySelectorAll("[data-mk]").forEach(b=>b.onclick=()=>{mk=+b.dataset.mk;drawMock()});
+  if($("mk-prev"))$("mk-prev").onclick=()=>{mk--;drawMock()};if($("mk-next"))$("mk-next").onclick=()=>{mk++;drawMock()};
+}
+drawMock();
 draw();drawJourney();setMode("now");
 </script>
 </body>
