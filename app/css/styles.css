@@ -1194,3 +1194,12 @@ select.to-confirm { border-color: var(--amber); background: var(--amber-bg); col
 .cs-why.why-inherited { background: var(--amber-bg); color: var(--amber-deep); border-color: var(--amber); }
 .cs-why.why-unknown { background: #fff; color: var(--muted); border-style: dashed; }
 .cs-vs { font-size: 11px; color: var(--muted); font-weight: 600; margin-right: 4px; }
+
+/* ---------- Not scored is not Level 1 ---------- */
+.cell.unscored, .lens-chip.unscored, .tl-chip.unscored {
+  background: repeating-linear-gradient(45deg, #FFFFFF, #FFFFFF 6px, #F1F3F8 6px, #F1F3F8 9px);
+  color: var(--muted); border: 1px dashed #B9C2D3; box-shadow: none;
+}
+.cell.unscored .status { color: var(--muted); }
+.d-unscored { font-size: 12px; color: var(--muted); background: #F3F5F9; border: 1px dashed #B9C2D3; border-radius: 8px; padding: 7px 10px; margin: 0 0 8px 0; }
+.sv-warn { background: var(--amber-bg); border: 1px solid #EED9B8; color: var(--amber-deep); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 12.5px; margin: 0; }

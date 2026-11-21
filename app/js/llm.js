@@ -122,11 +122,14 @@ function valueChainBrief(state) {
 
 function buildScanPrompt(state, keywords) {
   var clusterLines = state.clusters.map(function (c) {
-    var weak = state.lenses.filter(function (l) { return c.cells[l.key] && c.cells[l.key].level <= 2; }).map(function (l) { return l.key; });
+    var scoredCell = function (cell) { return !!cell && cell.status !== "Not yet assessed"; };
+    var weak = state.lenses.filter(function (l) { return scoredCell(c.cells[l.key]) && c.cells[l.key].level <= 2; }).map(function (l) { return l.key; });
+    var unscored = state.lenses.filter(function (l) { return c.cells[l.key] && !scoredCell(c.cells[l.key]); }).map(function (l) { return l.key; });
     var wt = typeof clusterEconomicWeight === "function" ? clusterEconomicWeight(state, c.id) : 0;
     return '- id: "' + c.id + '" | ' + c.name + " — " + c.desc +
       (wt ? " | economic weight: " + wt + "%" : "") +
-      (weak.length ? " | weak lenses: " + weak.join(", ") : "");
+      (weak.length ? " | weak lenses: " + weak.join(", ") : "") +
+      (unscored.length ? " | not scored yet: " + unscored.join(", ") : "");
   }).join("\n");
   var lensKeys = state.lenses.map(function (l) { return l.key; }).join(", ");
   var money = valueChainBrief(state);

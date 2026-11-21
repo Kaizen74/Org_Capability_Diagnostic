@@ -251,9 +251,11 @@ function clusterMoney(state, cluster, lenses) {
   const levers = (((state.valueChain || {}).levers) || []).filter(l => l.cluster_id === cluster.id);
   const valued = levers.filter(l => typeof l.value_at_stake === "number" && l.value_at_stake > 0);
   const stake = valued.reduce((a, l) => a + l.value_at_stake, 0);
-  const gap = Math.max(0, (4 - clusterAvg(cluster, lenses || state.lenses)) / 3);
+  const avg = clusterAvg(cluster, lenses || state.lenses);
+  /* Money at risk needs a score: an unscored cluster's gap is unknown. */
+  const gap = avg === null ? 0 : Math.max(0, (4 - avg) / 3);
   return {
-    hasValue: valued.length > 0, stake, gap, atRisk: stake * gap,
+    hasValue: valued.length > 0 && avg !== null, stake, gap, atRisk: stake * gap, scored: avg !== null,
     validated: valued.length > 0 && valued.every(l => l.validated === true)
   };
 }
@@ -267,7 +269,7 @@ function fmtMoney(state, n) {
 /* ---- 5. Stage 1 — readiness and the pilot shortlist -------------- */
 const PILOT_DECISIONS = ["", "pilot", "later", "out"];
 
-function cellAssessed(cell) { return !!cell && cell.status !== "Not yet assessed"; }
+/* cellAssessed() lives in engine.js, beside the other scoring rules. */
 
 /* Candidates are ranked where the three signals point the same way:
    money at risk, weak cells, and missing anchor seats. */
@@ -294,11 +296,13 @@ function stage1Readiness(state) {
   const s0 = stage0Readiness(state);
   const pilots = state.pilots || {};
   let cells = 0, assessed = 0, graded = 0;
-  state.clusters.forEach(cl => state.lenses.forEach(l => {
+  /* Context-only clusters are out of scope this cycle, by a stated reason. */
+  const scoped = state.clusters.filter(inScope);
+  scoped.forEach(cl => state.lenses.forEach(l => {
     const c = cl.cells[l.key]; if (!c) return;
     cells++; if (cellAssessed(c)) assessed++; if (c.grade) graded++;
   }));
-  const withRoles = state.clusters.filter(c => (c.roles || []).length > 0).length;
+  const withRoles = scoped.filter(c => (c.roles || []).length > 0).length;
   const toConfirm = state.clusters.reduce((n, c) => n + (c.roles || []).filter(r => r.unconfirmed).length, 0);
   const decided = state.clusters.filter(c => (pilots[c.id] || {}).decision).length;
   const unreasoned = state.clusters.filter(c => {
@@ -320,8 +324,8 @@ function stage1Readiness(state) {
     { key: "evidence", level: "should", view: "matrix", label: "Every score cites a source", ok: k.groundedPct === 100, detail: k.groundedPct + "% of scores cite at least one source" },
     { key: "graded", level: "should", view: "matrix", label: "Every score carries an evidence grade", ok: cells > 0 && graded === cells, detail: graded + " of " + cells + " cells graded" },
     { key: "direction", level: "should", view: "trajectory", label: "Direction known for most cells", ok: k.unknownPct <= 25, detail: k.unknownPct + "% of directions unknown" },
-    { key: "roles", level: "should", view: "roles", label: "Anchor roles listed for every " + unitWord(state), ok: withRoles === state.clusters.length && toConfirm === 0, detail: withRoles + " of " + state.clusters.length + " have roles scored" + (toConfirm ? "; " + toConfirm + " role(s) copied from another country still to confirm" : "") },
-    { key: "baseline", level: "must", view: "delta", label: "Baseline version saved", ok: (state.versions || []).length > 0, detail: (state.versions || []).length ? (state.versions.length + " version(s) saved") : "Use “Save version” to freeze the baseline the scoreboard measures against" },
+    { key: "roles", level: "should", view: "roles", label: "Anchor roles listed for every " + unitWord(state), ok: withRoles === scoped.length && toConfirm === 0, detail: withRoles + " of " + scoped.length + " have roles scored" + (toConfirm ? "; " + toConfirm + " role(s) copied from another country still to confirm" : "") },
+    { key: "baseline", level: "must", view: "delta", label: "Baseline version saved", ok: !!latestVersion(state), detail: latestVersion(state) ? (state.versions.filter(versionHasScores).length + " version(s) with scores saved") : ((state.versions || []).length ? "Versions saved so far hold no scores; save one after scoring" : "Use “Save version” to freeze the baseline the scoreboard measures against") },
     { key: "decisions", level: "must", view: "handoff", label: "A pilot decision for every " + unitWord(state) + ", with a reason for each exclusion", ok: decided === state.clusters.length && unreasoned === 0, detail: decided + " of " + state.clusters.length + " decided" + (unreasoned ? "; " + unreasoned + " exclusion(s) have no reason" : "") },
     { key: "pilot", level: "must", view: "handoff", label: "At least one pilot named, with its process KPI", ok: chosen.length > 0 && chosenReady === chosen.length, detail: chosen.length ? chosenReady + " of " + chosen.length + " pilot(s) have a name and KPI" : "No pilot chosen yet" }
   ];
@@ -345,7 +349,8 @@ function stateAtVersion(state, i) {
 }
 
 function versionTrend(state) {
-  const points = (state.versions || []).map((v, i) => {
+  /* A version saved before anything was scored records nothing: leave it out. */
+  const points = (state.versions || []).map((v, i) => ({ v, i })).filter(x => versionHasScores(x.v)).map(({ v, i }) => {
     const s = stateAtVersion(state, i);
     const k = enterpriseKpis(s);
     return { label: v.version, when: v.savedAt, note: v.label, avg: k.avg, weak: k.weak, grounded: k.groundedPct, clusters: s.clusters };
@@ -369,8 +374,9 @@ function versionTrend(state) {
    is two review cycles. */
 function forecastCheck(state) {
   const vs = state.versions || [];
-  if (!vs.length) return null;
-  const i = vs.length - 1;
+  let i = vs.length - 1;
+  while (i >= 0 && !versionHasScores(vs[i])) i--;
+  if (i < 0) return null;
   const past = stateAtVersion(state, i);
   const rows = [];
   past.clusters.forEach(pc => {
@@ -378,7 +384,7 @@ function forecastCheck(state) {
     if (!nowCl) return;
     state.lenses.forEach(l => {
       const then = pc.cells[l.key], now = nowCl.cells[l.key];
-      if (!then || !now) return;
+      if (!cellAssessed(then) || !cellAssessed(now) || !inScope(nowCl)) return;
       const t = cellTrajectory(past, pc, l.key);
       const lab = trajectoryLabel(t);
       const moved = now.level - then.level;
@@ -419,7 +425,8 @@ function buildHandoffPacket(state) {
     const exp = clusterValueExposure(state, cl, state.lenses);
     return {
       ref: cl.ref, name: cl.name, desc: cl.desc || "", priority_move: cl.priority_move || "",
-      avg_level: Math.round(clusterAvg(cl, state.lenses) * 100) / 100,
+      avg_level: (a => a === null ? null : Math.round(a * 100) / 100)(clusterAvg(cl, state.lenses)),
+      scope: clusterScope(cl), scored_cells: clusterScoredCount(cl, state.lenses),
       trajectory: ct.known ? trajectoryLabel(ct).word : "Unknown",
       economic_weight_pct: exp.weight, exposure_index: Math.round(exp.exposure * 10) / 10,
       value_at_stake: money.hasValue ? money.stake : null,
@@ -429,7 +436,8 @@ function buildHandoffPacket(state) {
         const c = cl.cells[l.key];
         const t = cellTrajectory(state, cl, l.key);
         return {
-          ref: cellRef(cl, l.key), lens: l.key, level: c.level, level_label: LEVEL_LABELS[c.level],
+          ref: cellRef(cl, l.key), lens: l.key, level: c.level, level_label: cellAssessed(c) ? LEVEL_LABELS[c.level] : "Not scored", scored: cellAssessed(c),
+          quick_win: c.quick && c.quick.on ? { action: c.quick.action || "", owner: c.quick.owner || "" } : null,
           status: c.status, rationale: c.rationale || "", intervention: c.intervention || "",
           grade: c.grade || null,
           trajectory: trajectoryLabel(t).word, confidence: t.known ? t.confidence : null,
@@ -475,7 +483,7 @@ function buildHandoffPacket(state) {
   });
 
   const ready = stage1Readiness(state);
-  const latest = (state.versions || [])[(state.versions || []).length - 1];
+  const latest = latestVersion(state);
 
   /* Shaped around what each app accepts TODAY. None of them imports this
      file yet, so each block is also offered as copy-ready text. */
@@ -590,7 +598,7 @@ function handoffBrief(packet, app) {
 /* ---- 8. The journey — where am I in the six stages? --------------- */
 function journeyStages(state) {
   const s0 = stage0Readiness(state), s1 = stage1Readiness(state);
-  const vs = (state.versions || []).length;
+  const vs = (state.versions || []).filter(versionHasScores).length;
   const pilots = Object.values(state.pilots || {}).filter(p => p && p.decision === "pilot").length;
   const st = (done, started) => done ? "done" : (started ? "doing" : "todo");
   return [

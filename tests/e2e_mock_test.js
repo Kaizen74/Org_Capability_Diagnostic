@@ -909,12 +909,25 @@ function check(name, cond) {
   await page.click('.tab[data-view="matrix"]');
   await page.waitForTimeout(300);
   check("fresh diagnostic renders 24 cells", await page.locator(".cell").count() === 24);
-  check("fresh cells show '? Unknown' trajectory — never a guessed arrow",
-    await page.locator(".momo-unknown").count() === 24);
+  check("fresh cells read 'Not scored' — never a guessed Level 1 or an Action pill",
+    await page.locator(".cell.unscored").count() === 24 && await page.locator(".cell .action-pill").count() === 0 && await page.locator(".momo").count() === 0);
   const velKpi = await page.locator(".kpi").nth(2).textContent();
   check("velocity KPI honestly reports no trajectory evidence", velKpi.includes("? n/a"));
+  check("the headline counts scored cells only: 0 of 24, nothing needing action",
+    (await page.locator(".kpi").nth(0).textContent()).includes("0 of 24 cells scored") && (await page.locator(".kpi").nth(1).textContent()).includes("0"));
+  // Scoring is the act of picking a level: no status edit, no change rationale needed the first time
+  await page.locator(".cell").first().click();
+  await page.waitForTimeout(300);
+  check("an unscored cell's panel says it counts nowhere until a level is chosen", await page.locator(".d-unscored").count() === 1);
+  await page.click('#lvl-picker [data-lvl="2"]');
+  await page.waitForTimeout(200);
+  await page.click("#d-save");
+  await page.waitForTimeout(400);
+  check("picking a level scores the cell and labels it, with the first score logged",
+    await page.evaluate(() => { const c = state.clusters[0].cells[state.lenses[0].key]; return c.status === "Early" && c.level === 2 && c.history.slice(-1)[0].rationale === "First score"; }) &&
+    (await page.locator(".kpi").nth(0).textContent()).includes("1 of 24 cells scored") && await page.locator(".cell .action-pill").count() === 1);
   const evKpi = await page.locator(".kpi").nth(4).textContent();
-  check("evidence-gap finding surfaces when unknown > 25%", evKpi.includes("evidence gap"));
+  check("evidence-gap finding surfaces when unknown > 25% of scored cells", evKpi.includes("evidence gap"));
 
   // A fresh diagnostic ships the industry's money map STRUCTURE, no numbers.
   await page.click('.tab[data-view="valuechain"]');

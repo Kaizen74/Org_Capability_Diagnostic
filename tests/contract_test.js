@@ -1108,5 +1108,39 @@ checkOk("sample returns land on the right readout pages: who decides, roles, how
 checkOk("sample returns: every cell they point at exists in the Belmar workspace",
   [omS, pmsS].every(f => f.findings.every(x => (x.relates_to || []).filter(r => /\./.test(r)).every(r => run("findingCells(__sw, " + JSON.stringify({ relates_to: [r] }) + ")").length === 1))));
 
+// ---- 45. Not scored is not Level 1 (owner review, 2026-11-21) ----
+const ns = wfDemo();
+ns.clusters[0].cells.Culture.status = "Not yet assessed";        // gateway Culture was L2, weak
+ns.clusters[1].cells = JSON.parse(JSON.stringify(ns.clusters[1].cells));
+Object.values(ns.clusters[1].cells).forEach(c => { c.status = "Not yet assessed"; });  // food: nothing scored
+put("__ns", ns);
+const nk = run("enterpriseKpis(__ns)");
+checkOk("unscored cells are left out of the averages and the weak count",
+  nk.total === 24 && nk.scored === 19 && nk.unscored === 5 && nk.weak === run("enterpriseKpis(__wd)").weak - 2);
+checkOk("a cluster with nothing scored has no average, no gap and no money at risk",
+  run("clusterAvg(__ns.clusters[1], __ns.lenses)") === null && run("clusterValueExposure(__ns, __ns.clusters[1], __ns.lenses)").gap === 0 &&
+  run("clusterMoney(__ns, __ns.clusters[1], __ns.lenses)").hasValue === false);
+checkOk("an unscored cell has no direction, whatever its leading indicators say",
+  run("cellTrajectory(__ns, __ns.clusters[0], 'Culture')").known === false);
+checkOk("an unscored cluster sorts after every scored one on the board",
+  run("orderClustersForBoard(__ns, 'weakest').clusters.slice(-1)[0].id") === "food");
+checkOk("the hand-off file says which cells are scored, without changing its shape",
+  run("buildHandoffPacket(__ns)").clusters[1].avg_level === null && run("buildHandoffPacket(__ns)").clusters[1].cells.every(c => c.scored === false && c.level_label === "Not scored") &&
+  schema.validateHandoffPacket(run("buildHandoffPacket(__ns)")).length === 0);
+checkOk("the Stage 1 gate still requires every in-scope cell scored", run('stage1Readiness(__ns).checks.find(c => c.key === "scored")').ok === false);
+// Versions with no scores record nothing
+const ev = wfDemo(); const emptySnap = JSON.parse(JSON.stringify(ev.clusters));
+emptySnap.forEach(c => Object.values(c.cells).forEach(x => { x.status = "Not yet assessed"; x.level = 1; }));
+ev.versions.push({ version: "v2.0", label: "empty", savedAt: "2026-11-20T00:00:00Z", snapshot: { clusters: emptySnap, patterns: [] } });
+put("__ev", ev);
+checkOk("an empty version is not a baseline: trends and calls still read the last version with scores",
+  run("latestVersion(__ev)").version === "v1.0" && run("versionTrend(__ev)").points.length === 2 && run("forecastCheck(__ev)").baseline === "v1.0" &&
+  JSON.stringify(run("enterpriseKpis(__ev)").velocity) === JSON.stringify(run("enterpriseKpis(__wd)").velocity));
+const onlyEmpty = wfDemo(); onlyEmpty.versions = [{ version: "v1.0", label: "empty", savedAt: "2026-11-20T00:00:00Z", snapshot: { clusters: emptySnap, patterns: [] } }];
+put("__oe", onlyEmpty);
+checkOk("with only empty versions there is no baseline, no false 'Improving', and the gate says so",
+  run("latestVersion(__oe)") === null && run("enterpriseKpis(__oe)").alerts.breakout.length === run("enterpriseKpis(Object.assign({}, __oe, { versions: [] }))").alerts.breakout.length &&
+  run("forecastCheck(__oe)") === null && run('stage1Readiness(__oe).checks.find(c => c.key === "baseline")').ok === false);
+
 console.log(failures ? `\n${failures} CONTRACT FAILURE(S)` : "\nAll contract checks passed.");
 process.exit(failures ? 1 : 0);
