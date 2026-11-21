@@ -90,6 +90,8 @@ function validateState(s) {
   (s.clusters || []).forEach(function (c, i) {
     if (!_isStr(c.id)) errs.push("clusters[" + i + "]: id required");
     if (!_isStr(c.name)) errs.push("clusters[" + i + "]: name required");
+    if (c.scope !== undefined && ["scored", "enabler", "context"].indexOf(c.scope) === -1) errs.push("clusters[" + i + "]: scope must be scored, enabler or context");
+    if (c.scope === "context" && !(_isStr(c.scope_reason) && c.scope_reason.trim())) errs.push("clusters[" + i + "]: a context-only cluster needs a reason");
     if (c.roles !== undefined) {
       if (!_isArr(c.roles)) errs.push("clusters[" + i + "].roles must be an array");
       else c.roles.forEach(function (r, ri) {

@@ -305,6 +305,7 @@ function readoutModel(home, frames) {
     const k = enterpriseKpis(f.state);
     let cells = 0, assessed = 0, sum = 0, weak = 0, stake = 0, atRisk = 0, valued = false;
     f.state.clusters.forEach(cl => {
+      if (!inScope(cl)) return;   // context only: not part of this cycle's counts
       let clCells = 0, clDone = 0;
       f.state.lenses.forEach(l => {
         const c = cl.cells[l.key]; if (!c) return;

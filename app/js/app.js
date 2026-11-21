@@ -270,7 +270,9 @@ function stateFromPreset(preset, orgName, streams) {
         last_updated: nowIso(), updated_by: "—"
       };
     });
-    return { id: c.id, no: c.no, name: c.name, desc: c.desc, priority_move: c.priority_move, cells, roles: [] };
+    /* The preset's move is a suggested SOLUTION; a current-state analysis
+       starts from a question. It is offered as a greyed example instead. */
+    return { id: c.id, no: c.no, name: c.name, desc: c.desc, priority_move: "", cells, roles: [] };
   });
   return {
     schema: 1,
@@ -440,6 +442,9 @@ function viewMatrix() {
         ? `<span class="mat-chip" title="${esc(mat.levers.map(l => l.name).join('; '))}">◧ ${mat.weight}% of P&L weight${(() => { const m = clusterMoney(state, cl); return m.hasValue ? " · ≈ " + fmtMoney(state, m.atRisk) + " at risk" + (m.validated ? "" : " (est.)") : " · " + mat.share + "% of the mapped money"; })()}</span>`
         : `<span class="mat-chip none" title="No P&L lever maps to this cluster">◧ no economic weight mapped</span>`)
       : "";
+    const scope = clusterScope(cl);
+    const scopeChip = scope === "context" ? `<span class="mat-chip ctx" title="${esc(cl.scope_reason || "")}">◌ Context only · not scored this cycle</span>`
+      : scope === "enabler" ? `<span class="mat-chip enab" title="Scored, carries no money weight by design">◇ Enabler · scored, no money weight</span>` : "";
     return `
     <div class="matrix-row">
       <div class="cluster-head">
@@ -447,8 +452,8 @@ function viewMatrix() {
         <span class="c-no" title="Stable ID — quote it in the other apps">${esc(cl.ref || ("CLUSTER " + cl.no))}</span>
         <span class="c-name">${esc(cl.name)}</span>
         <span class="c-desc">${esc(cl.desc)}</span>
-        ${matChip}
-        <span class="pm-chip"><span class="arrow">➜</span><span>${esc(cl.priority_move)}</span></span>
+        ${scope === "scored" ? matChip : scopeChip}
+        ${cl.priority_move ? `<span class="pm-chip"><span class="arrow">➜</span><span>${esc(cl.priority_move)}</span></span>` : ""}
       </div>
       ${state.lenses.map(l => cellHtml(cl, l)).join("")}
     </div>`;
@@ -508,7 +513,7 @@ function viewBoard() {
         ${(() => { const m = clusterMoney(state, cl); return m.hasValue ? `<span class="b-money" title="Amount at stake ${fmtMoney(state, m.stake)} × capability gap. ${m.validated ? "Validated by finance." : "An estimate until finance validates it."}">≈ ${fmtMoney(state, m.atRisk)} at risk${m.validated ? "" : " (est.)"}</span>` : ""; })()}
         ${cov.gaps.length ? `<span class="b-flagpill" title="${esc(cov.gaps.map(r => r.title).join('; '))}">⚑ ${cov.gaps.length} anchor seat${cov.gaps.length > 1 ? "s" : ""} ${cov.gaps.every(r => r.status === "absent") ? "absent" : "at risk"}</span>` : ""}
       </div>
-      <div class="pm-banner"><span class="arrow">➜</span><span>${esc(cl.priority_move)}</span></div>
+      ${cl.priority_move ? `<div class="pm-banner"><span class="arrow">➜</span><span>${esc(cl.priority_move)}</span></div>` : ""}
       ${bind ? `<div class="b-binding" title="The lowest-level cell that is not already improving — where intervention bites first">Binding constraint: <button class="b-bind-link" data-cluster="${esc(cl.id)}" data-lens="${esc(bind.lensKey)}">${esc(bind.lensName)} · L${bind.cell.level} ${bindLabel.sym} ${bindLabel.word}</button></div>` : ""}
       <div class="lens-chips">${chips}</div>
     </div>`;
@@ -929,6 +934,50 @@ function blankCells() {
   return cells;
 }
 
+/* ---------- Cluster scope, renames and the preset's example text ---------- */
+function presetPm(cl) {
+  const p = PRESETS.find(x => x.industry_id === state.industry_id);
+  const c = p && p.clusters.find(x => x.id === cl.id);
+  return c ? c.priority_move : "";
+}
+function pmExample(cl) {
+  return presetPm(cl) ? "Example from the preset: " + presetPm(cl) : "e.g. Why does labour per tonne differ between hubs of similar scale?";
+}
+/* Context only is ONE entry: it also becomes the Hand-off decision
+   "Not this cycle" with the same reason, so nothing is asked twice. */
+function setClusterScope(cl, scope, reason) {
+  const was = clusterScope(cl);
+  if (scope === "scored") delete cl.scope; else cl.scope = scope;
+  if (scope === "context") {
+    cl.scope_reason = reason;
+    state.pilots[cl.id] = Object.assign({ name: "", kpi: "" }, state.pilots[cl.id] || {}, { decision: "out", reason: "Context only: " + reason, fromScope: true });
+  } else {
+    delete cl.scope_reason;
+    if (was === "context" && state.pilots[cl.id] && state.pilots[cl.id].fromScope) delete state.pilots[cl.id];
+  }
+  if (was !== clusterScope(cl)) state.changeLog.push({ at: nowIso(), cluster: cl.name, lens: "—", from: 0, to: 0, rationale: "Scope set to " + SCOPE_META[clusterScope(cl)].label + (reason && scope === "context" ? ": " + reason : ""), by: state.actor || "You" });
+}
+/* Has this cluster's ID been used anywhere it would be read later? */
+function idTravelled(cl) {
+  if (Object.values(cl.cells || {}).some(cellAssessed)) return true;
+  if ((state.versions || []).some(v => versionHasScores(v) && v.snapshot.clusters.some(c => c.id === cl.id))) return true;
+  if (state.handedOffAt) return true;
+  return !!state.frameId && wsReadIndex().list.some(w => w.frameId === state.frameId && w.id !== state.workspaceId);
+}
+/* "A different capability": new internal id and a new public ID; the old
+   ID is retired with its history, never reused. Levers and pilots follow. */
+function reidentifyCluster(cl) {
+  const oldId = cl.id, oldRef = cl.ref, oldName = cl.name;
+  const newId = "cl_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  (state.valueChain.levers || []).forEach(l => { if (l.cluster_id === oldId) l.cluster_id = newId; });
+  if (state.pilots[oldId]) { state.pilots[newId] = state.pilots[oldId]; delete state.pilots[oldId]; delete state.pilots[newId].ref; }
+  if (state.pilotRefs && state.pilotRefs[oldId]) delete state.pilotRefs[oldId];
+  cl.id = newId; delete cl.ref; cl.cells = blankCells();
+  state.retiredRefs = (state.retiredRefs || []).concat([{ ref: oldRef || "", name: oldName, at: nowIso() }]);
+  ensureRefs(state);
+  state.changeLog.push({ at: nowIso(), cluster: oldName, lens: "—", from: 0, to: 0, rationale: "Retired " + (oldRef || "the old ID") + " as a different capability; now " + cl.ref, by: state.actor || "You" });
+}
+
 function renumberClusters() { state.clusters.forEach((c, i) => { c.no = i + 1; }); }
 
 function addCluster(name, desc, priorityMove, leverIds) {
@@ -937,7 +986,7 @@ function addCluster(name, desc, priorityMove, leverIds) {
     id, no: state.clusters.length + 1,
     name: (name || "New capability cluster").slice(0, 60),
     desc: desc || "",
-    priority_move: priorityMove || "Score this cluster from evidence, then name the one move that matters.",
+    priority_move: priorityMove || "",
     cells: blankCells(), roles: []
   });
   (leverIds || []).forEach(lid => {
@@ -1906,7 +1955,7 @@ function renderDrawer() {
       <div class="d-field"><label>Intervention — imperative verb phrase</label>
         <input type="text" id="d-intervention" value="${esc(cell.intervention)}"></div>
       ${cell.intervention ? `<div class="d-callout amber">➜ ${esc(cell.intervention)}</div>` : ""}
-      <div class="d-callout navy">Cluster priority move: ${esc(cluster.priority_move)}</div>
+      ${cluster.priority_move ? `<div class="d-callout navy">Diagnostic question → priority move: ${esc(cluster.priority_move)}</div>` : ""}
       <div class="d-section">
         <h4>Leading indicators (drive the trajectory forecast)</h4>
         <div id="li-list">${liRows || '<p style="font-size:12px;color:var(--muted);margin:0">None yet. Add 1–3 forward-looking signals (e.g. hiring funnel, adoption rate, pulse trend).</p>'}</div>
@@ -2146,8 +2195,12 @@ function openClusterModal(clusterId) {
     <h2>Edit cluster</h2><p class="m-sub">Changes apply immediately across all views.</p>
     <div class="m-field"><label>Name</label><input type="text" id="cm-name" value="${esc(cl.name)}"></div>
     <div class="m-field"><label>One-line description</label><input type="text" id="cm-desc" value="${esc(cl.desc)}"></div>
-    <div class="m-field"><label>Priority move — the one sentence of what must be done next</label>
-      <textarea id="cm-pm">${esc(cl.priority_move)}</textarea></div>
+    <div class="m-field"><label>Diagnostic question → priority move <span class="m-opt">— before design, the question this cluster must answer; after design, the one move that matters</span></label>
+      <textarea id="cm-pm" placeholder="${esc(pmExample(cl))}">${esc(cl.priority_move)}</textarea>
+      ${presetPm(cl) && cl.priority_move === presetPm(cl) ? `<p class="cm-flag">⚑ This is the industry preset's suggested move, not yours. In a current-state analysis, replace it with the question this cluster must answer.</p>` : ""}</div>
+    <div class="m-field"><label>Scope this cycle</label>
+      <select id="cm-scope">${Object.keys(SCOPE_META).map(k => `<option value="${k}" ${clusterScope(cl) === k ? "selected" : ""}>${SCOPE_META[k].label} — ${esc(SCOPE_META[k].hint)}</option>`).join("")}</select>
+      <textarea id="cm-scope-reason" placeholder="Why it is context only this cycle (required), e.g. JV operations are context only in Phase 1" style="display:${clusterScope(cl) === "context" ? "block" : "none"};margin-top:6px">${esc(cl.scope_reason || "")}</textarea></div>
     <div class="cm-materiality">
       <strong>Economic weight: ${mat.weight}%${mat.mapped && mat.weight ? ` · ${mat.share}% of the mapped money · rank ${mat.rank} of ${mat.of}` : ""}</strong>
       <p>${mat.levers.length
@@ -2162,11 +2215,32 @@ function openClusterModal(clusterId) {
       <span class="grow"></span><button class="btn-navy" id="cm-save">Save cluster</button>
     </div>`);
   $("m-close").addEventListener("click", closeModal);
+  $("cm-scope").addEventListener("change", () => { $("cm-scope-reason").style.display = $("cm-scope").value === "context" ? "block" : "none"; });
   $("cm-save").addEventListener("click", () => {
-    cl.name = $("cm-name").value.trim() || cl.name;
-    cl.desc = $("cm-desc").value.trim();
-    cl.priority_move = $("cm-pm").value.trim();
-    closeModal(); renderAll(); toast("Cluster updated.");
+    const scope = $("cm-scope").value, reason = $("cm-scope-reason").value.trim();
+    if (scope === "context" && !reason) { toast("Say why this cluster is context only this cycle."); $("cm-scope-reason").focus(); return; }
+    const newName = $("cm-name").value.trim() || cl.name;
+    const apply = asNew => {
+      if (asNew) reidentifyCluster(cl);
+      cl.name = newName;
+      cl.desc = $("cm-desc").value.trim();
+      cl.priority_move = $("cm-pm").value.trim();
+      setClusterScope(cl, scope, reason);
+      closeModal(); renderAll();
+      toast(asNew ? "Saved as a different capability with a new ID; " + (cl.ref || "") + " starts unscored." : "Cluster updated.");
+    };
+    const renamed = newName.toLowerCase().replace(/\s+/g, " ") !== cl.name.toLowerCase().replace(/\s+/g, " ");
+    if (!renamed || !idTravelled(cl)) { apply(false); return; }
+    /* The ID has travelled (scored, in a version, handed off or copied to
+       other units): ask whether this is the same capability. */
+    openModal(`<h2>Same capability, or a different one?</h2>
+      <p class="m-sub"><strong>${esc(cl.ref || "")}</strong> has already been used: it is scored, saved in a version, handed off, or copied to other units. Renaming “${esc(cl.name)}” to “${esc(newName)}”…</p>
+      <div class="m-row" style="flex-direction:column;align-items:stretch">
+        <button class="btn-navy" id="rn-same">Same capability, clearer name — keep ${esc(cl.ref || "the ID")} and its history</button>
+        <button class="btn-plain" id="rn-new">A different capability — give it a new ID and start it unscored (${esc(cl.ref || "the old ID")} is retired, never reused)</button>
+      </div>`);
+    $("rn-same").addEventListener("click", () => apply(false));
+    $("rn-new").addEventListener("click", () => apply(true));
   });
   const mergeBtn = $("cm-merge");
   if (mergeBtn) mergeBtn.addEventListener("click", () => {

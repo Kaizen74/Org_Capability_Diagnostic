@@ -250,16 +250,16 @@ function viewHandoff() {
       <td>${c.money.hasValue ? "≈ " + fmtMoney(state, c.money.atRisk) + (c.money.validated ? "" : " (est.)") : (c.weight ? "Exposure " + Math.round(c.exposure) : "—")}</td>
       <td>${c.weak ? c.weak + " weak" + (c.binding ? " · " + esc(c.binding) : "") : "none weak"}</td>
       <td>${c.seatGaps ? c.seatGaps + " at risk" : "—"}</td>
-      <td><select data-pl-decision="${esc(cl.id)}">
+      <td>${!inScope(cl) ? `<span class="ctx-pill" title="Set in the cluster's scope">Context only</span>` : `<select data-pl-decision="${esc(cl.id)}">
         <option value="" ${!p.decision ? "selected" : ""}>Decide…</option>
         <option value="pilot" ${p.decision === "pilot" ? "selected" : ""}>Pilot now</option>
         <option value="later" ${p.decision === "later" ? "selected" : ""}>Later</option>
-        <option value="out" ${p.decision === "out" ? "selected" : ""}>Not this cycle</option></select></td>
+        <option value="out" ${p.decision === "out" ? "selected" : ""}>Not this cycle</option></select>`}</td>
       <td>${p.decision === "pilot"
         ? `<div class="pl-pilot"><span class="ref-chip">${esc(p.ref || "")}</span>
             <input type="text" class="vc-in" data-pl="${esc(cl.id)}|name" value="${esc(p.name || "")}" placeholder="Value stream to map, e.g. Bid to contract renewal">
             <input type="text" class="vc-in" data-pl="${esc(cl.id)}|kpi" value="${esc(p.kpi || "")}" placeholder="Its process KPI"></div>`
-        : `<input type="text" class="vc-in" data-pl="${esc(cl.id)}|reason" value="${esc(p.reason || "")}" placeholder="${p.decision ? "Why — an exclusion needs a stated reason" : "—"}" ${p.decision ? "" : "disabled"}>`}</td>
+        : `<input type="text" class="vc-in" data-pl="${esc(cl.id)}|reason" value="${esc(p.reason || "")}" ${!inScope(cl) ? "disabled" : ""} placeholder="${p.decision ? "Why — an exclusion needs a stated reason" : "—"}" ${p.decision ? "" : "disabled"}>`}</td>
     </tr>`;
   }).join("");
 
@@ -343,6 +343,7 @@ function bindHandoffEvents() {
     downloadText(slug() + "_brief_" + b.dataset.hoDl + ".txt", handoffBrief(buildHandoffPacket(state), b.dataset.hoDl));
   }));
   $("ho-packet").addEventListener("click", () => {
+    state.handedOffAt = state.handedOffAt || nowIso();   // from now on a rename asks keep-or-new-ID
     const packet = buildHandoffPacket(state);
     const errs = validateHandoffPacket(packet);
     if (errs.length) { toast("Packet not written: " + errs[0]); return; }

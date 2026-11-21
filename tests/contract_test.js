@@ -1142,5 +1142,26 @@ checkOk("with only empty versions there is no baseline, no false 'Improving', an
   run("latestVersion(__oe)") === null && run("enterpriseKpis(__oe)").alerts.breakout.length === run("enterpriseKpis(Object.assign({}, __oe, { versions: [] }))").alerts.breakout.length &&
   run("forecastCheck(__oe)") === null && run('stage1Readiness(__oe).checks.find(c => c.key === "baseline")').ok === false);
 
+// ---- 46. Cluster scope: Scored, Enabler, Context only ----
+const sc = wfDemo(); sc.valueChain.levers = sc.valueChain.levers.filter(l => l.cluster_id !== "leadership" && l.cluster_id !== "enabling");
+put("__sc0", sc);
+checkOk("without a scope, a cluster with no lever is flagged by calibration",
+  run("calibrateClusters(__sc0)").some(f => f.key === "unweighted-cluster" && f.clusterId === "leadership"));
+sc.clusters.find(c => c.id === "leadership").scope = "enabler";
+const ctxCl = sc.clusters.find(c => c.id === "enabling"); ctxCl.scope = "context"; ctxCl.scope_reason = "Support functions are context only in Phase 1";
+Object.values(ctxCl.cells).forEach(c => { c.status = "Not yet assessed"; });
+sc.pilots.enabling = { decision: "out", reason: "Context only: Support functions are context only in Phase 1", name: "", kpi: "", fromScope: true };
+put("__sc", sc);
+checkOk("an enabler or context-only cluster is not flagged for carrying no money", !run("calibrateClusters(__sc)").some(f => f.key === "unweighted-cluster"));
+checkOk("context-only cells are left out of every total and of the Stage 1 'every cell scored' check",
+  run("enterpriseKpis(__sc)").total === 20 && run('stage1Readiness(__sc).checks.find(c => c.key === "scored")').ok === true &&
+  run('stage1Readiness(__sc).checks.find(c => c.key === "decisions")').ok === true);
+checkOk("the hand-off says each cluster's scope and still validates",
+  run("buildHandoffPacket(__sc)").clusters.find(c => c.name === ctxCl.name).scope === "context" &&
+  run("buildHandoffPacket(__sc)").exclusions.some(e => /Context only/.test(e.reason)) && schema.validateHandoffPacket(run("buildHandoffPacket(__sc)")).length === 0);
+check("a workspace with scoped clusters conforms to the contract", schema.validateState(sc));
+checkOk("a context-only cluster without a reason is refused",
+  schema.validateState(Object.assign({}, sc, { clusters: sc.clusters.map(c => c.id === "enabling" ? Object.assign({}, c, { scope_reason: "" }) : c) })).length === 1);
+
 console.log(failures ? `\n${failures} CONTRACT FAILURE(S)` : "\nAll contract checks passed.");
 process.exit(failures ? 1 : 0);
