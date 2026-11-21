@@ -300,11 +300,13 @@ function csReadout(ctx) {
       ${list.length ? `<ul>${list.slice(0, 8).map(d => `<li><span class="ref-chip">${esc(d.ref)}</span> <strong>${esc(d.cluster)}</strong> · ${esc(d.lens)} <span class="ro-detail">${esc(d.high.join(", "))} L${d.hi} · ${esc(d.low.join(", "))} L${d.lo}${d.note ? " — " + esc(d.note) : ""}</span></li>`).join("")}</ul>${list.length > 8 ? `<p class="ro-more">and ${list.length - 8} more</p>` : ""}`
         : `<p class="ro-empty">Nothing classed here yet.</p>`}</div>`;
   };
+  const quick = m.countries.filter(c => c.quickWins.length).map(c => `<li><strong>${esc(c.label)}</strong>: ${c.quickWins.slice(0, 4).map(q => `<span class="ref-chip">${esc(q.ref)}</span> ${esc(q.action || q.cluster + " · " + q.lens)}${q.owner ? " (" + esc(q.owner) + ")" : ""}`).join("; ")}${c.quickWins.length > 4 ? "; and " + (c.quickWins.length - 4) + " more" : ""}</li>`).join("");
   const pilots = m.countries.filter(c => c.pilots.length).map(c => `<li><strong>${esc(c.label)}</strong>: ${c.pilots.map(p => `<span class="ref-chip">${esc(p.ref)}</span> ${esc(p.name || "pilot not named")}${p.kpi ? " (" + esc(p.kpi) + ")" : ""}`).join("; ")}</li>`).join("");
   const p6 = page(6, "What we ask you to decide", "Every difference lands in one of three places.",
     `<div class="ro-asks">${["inherited", "chosen", "required"].map(askCol).join("")}</div>
     ${unclassedMaterial ? `<p class="ro-call">⚑ ${unclassedMaterial} material difference${unclassedMaterial > 1 ? "s are" : " is"} still to classify and ${unclassedMaterial > 1 ? "are" : "is"} not part of this ask.</p>` : ""}
     ${m.byClass.unclassified.length - unclassedMaterial ? `<p class="ro-foot">${m.byClass.unclassified.length - unclassedMaterial} smaller difference${m.byClass.unclassified.length - unclassedMaterial > 1 ? "s" : ""} (one level apart) ${m.byClass.unclassified.length - unclassedMaterial > 1 ? "are" : "is"} not classed and not part of this ask.</p>` : ""}
+    ${quick ? `<h3 class="ro-sub">Act now: quick-win candidates</h3><ul class="ro-pilots">${quick}</ul>` : ""}
     ${pilots ? `<h3 class="ro-sub">Where we would pilot the design</h3><ul class="ro-pilots">${pilots}</ul>` : ""}
     <div class="ro-own"><label for="ro-asks">The ask <span class="no-print">— what you need EXCO to agree to move to design</span></label>
       <textarea id="ro-asks" class="no-print" placeholder="For example: Agree to harmonise the three inherited differences; confirm the two chosen ones stay local for now; approve the export cargo pilot in Thailand.">${esc(cmp.asks || "")}</textarea>

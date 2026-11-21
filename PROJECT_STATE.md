@@ -77,7 +77,7 @@ Owner approved seven changes after reviewing a real SG Hub workspace (2026-11-21
 - [x] R1 — "Not scored" means not scored everywhere (tiles, KPIs, averages, ranking, money, trends, AI scan, hand-off); picking a level marks a cell scored; Clear score; migration marks cells that clearly carry a score. Versions must hold scores to count (warn on save; trends skip unscored; delete a version).
 - [x] R2 — Cluster scope (Scored / Enabler / Context only, context synced to the Hand-off decision); rename asks keep-or-new-ID once the ID has travelled.
 - [x] R3 — Units to compare: unit word, tier, a Charter card that creates units from the locked frame, and bringing frame changes into a unit (additions and renames only).
-- [ ] R4 — Diagnostic question relabel (no preset solutions seeded); quick-win candidates on cells, listed on readout page 6.
+- [x] R4 — Diagnostic question relabel (no preset solutions seeded); quick-win candidates on cells, listed on readout page 6.
 - [ ] R5 — Workflow board, guide, decisions; full mock test plus a check on a copy of the owner's workspace (not committed).
 
 ## Done later on 2026-11-13: PRDs for the two sibling changes

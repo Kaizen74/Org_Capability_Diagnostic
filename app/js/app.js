@@ -2003,6 +2003,10 @@ function renderDrawer() {
       <div class="d-field"><label>Intervention — imperative verb phrase</label>
         <input type="text" id="d-intervention" value="${esc(cell.intervention)}"></div>
       ${cell.intervention ? `<div class="d-callout amber">➜ ${esc(cell.intervention)}</div>` : ""}
+      <div class="d-field d-quick"><label><input type="checkbox" id="d-quick" ${cell.quick && cell.quick.on ? "checked" : ""}> Quick-win candidate — actionable now, without waiting for the redesign</label>
+        <div id="d-quick-fields" style="display:${cell.quick && cell.quick.on ? "flex" : "none"}">
+          <input type="text" id="d-quick-action" value="${esc((cell.quick || {}).action || "")}" placeholder="The action, in one line">
+          <input type="text" id="d-quick-owner" value="${esc((cell.quick || {}).owner || "")}" placeholder="Owner (a role, not a name)"></div></div>
       ${cluster.priority_move ? `<div class="d-callout navy">Diagnostic question → priority move: ${esc(cluster.priority_move)}</div>` : ""}
       <div class="d-section">
         <h4>Leading indicators (drive the trajectory forecast)</h4>
@@ -2087,6 +2091,7 @@ function renderDrawer() {
   }));
   $("d-save").addEventListener("click", () => saveDrawer(cluster, lens, cell));
   if ($("d-clear")) $("d-clear").addEventListener("click", () => clearScore(cluster, lens, cell));
+  if ($("d-quick")) $("d-quick").addEventListener("change", () => { $("d-quick-fields").style.display = $("d-quick").checked ? "flex" : "none"; });
 }
 
 function persistDrawerFields(cluster, cell, includeLevel) {
@@ -2103,6 +2108,10 @@ function persistDrawerFields(cluster, cell, includeLevel) {
     if (v) cell.evidence[parseInt(inp.dataset.evRef, 10)].ref = v; else delete cell.evidence[parseInt(inp.dataset.evRef, 10)].ref;
   });
   if ($("d-grade")) cell.grade = $("d-grade").value;
+  if ($("d-quick")) {
+    if ($("d-quick").checked) cell.quick = { on: true, action: $("d-quick-action").value.trim(), owner: $("d-quick-owner").value.trim() };
+    else delete cell.quick;
+  }
   cell.watch = cell.watch || [];
   document.querySelectorAll("[data-w]").forEach(inp => { cell.watch[parseInt(inp.dataset.w, 10)] = inp.value.trim(); });
   cell.evidence = cell.evidence.filter(e => e.label || e.note);

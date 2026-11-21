@@ -1220,3 +1220,8 @@ select.to-confirm { border-color: var(--amber); background: var(--amber-bg); col
 .fr-list { display: grid; gap: 6px; max-height: 50vh; overflow-y: auto; }
 .fr-item { display: flex; gap: 9px; align-items: flex-start; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
 .fr-item.info { background: #F3F5F9; color: var(--muted); }
+
+/* ---------- Quick-win candidates ---------- */
+.d-quick label { display: flex; gap: 8px; align-items: center; text-transform: none; letter-spacing: 0; font-size: 12.5px; font-weight: 700; color: var(--ink); }
+#d-quick-fields { gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+#d-quick-fields input { flex: 1 1 180px; border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; font-size: 13px; }

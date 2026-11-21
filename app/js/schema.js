@@ -52,6 +52,7 @@ function _isObj(v) { return v !== null && typeof v === "object" && !Array.isArra
 /* Validate one cell. Returns error strings (empty = valid). */
 function validateCell(cell, where) {
   var errs = [];
+  if (cell && cell.quick !== undefined && (!_isObj(cell.quick) || typeof cell.quick.on !== "boolean")) errs.push(where + ": quick must be { on, action, owner }");
   if (!_isObj(cell)) return [where + ": cell is not an object"];
   if (!(cell.level >= 1 && cell.level <= 4)) errs.push(where + ": level must be 1-4");
   if (!_isStr(cell.status)) errs.push(where + ": status must be a string");

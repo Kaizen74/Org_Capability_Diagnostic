@@ -323,6 +323,8 @@ function readoutModel(home, frames) {
       cells, assessed, scoredPct: cells ? Math.round((assessed / cells) * 100) : 0,
       avg: assessed ? sum / assessed : null, weak: assessed ? weak : null, grounded: k.groundedPct,
       money: valued ? { atRisk, stake, text: fmtMoney(f.state, atRisk), unit: (vc.currency || "") + "|" + (vc.value_unit || "") } : null,
+      quickWins: f.state.clusters.reduce((a, cl) => a.concat(f.state.lenses.filter(l => (cl.cells[l.key] || {}).quick && cl.cells[l.key].quick.on)
+        .map(l => ({ ref: (cl.ref || "") + "." + l.key, cluster: cl.name, lens: l.name, action: cl.cells[l.key].quick.action || "", owner: cl.cells[l.key].quick.owner || "" }))), []),
       pilots: Object.keys(f.state.pilots || {}).filter(cid => f.state.pilots[cid].decision === "pilot")
         .map(cid => { const p = f.state.pilots[cid]; return { ref: p.ref || "", name: p.name || "", kpi: p.kpi || "" }; })
     };
