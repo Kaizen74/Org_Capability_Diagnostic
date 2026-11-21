@@ -141,6 +141,8 @@ function validateState(s) {
   }
   if (s.country !== undefined && !_isStr(s.country)) errs.push("country must be a string");
   if (s.frameId !== undefined && !_isStr(s.frameId)) errs.push("frameId must be a string");
+  if (s.unitTier !== undefined && ["mapped", "scored"].indexOf(s.unitTier) === -1) errs.push("unitTier must be mapped or scored");
+  if (s.frameHomeId !== undefined && !_isStr(s.frameHomeId)) errs.push("frameHomeId must be a string");
   if (s.pilotRefs !== undefined && s.pilotRefs !== null) {
     if (!_isObj(s.pilotRefs)) errs.push("pilotRefs must be an object keyed by cluster id");
     else Object.keys(s.pilotRefs).forEach(function (cid) {

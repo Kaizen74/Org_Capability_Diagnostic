@@ -1163,5 +1163,48 @@ check("a workspace with scoped clusters conforms to the contract", schema.valida
 checkOk("a context-only cluster without a reason is refused",
   schema.validateState(Object.assign({}, sc, { clusters: sc.clusters.map(c => c.id === "enabling" ? Object.assign({}, c, { scope_reason: "" }) : c) })).length === 1);
 
+// ---- 47. Units to compare: words, tiers, frame changes ----
+checkOk("the unit word changes the words, and 'Country' keeps today's wording",
+  run('unitWords({ comparison: {} })').many === "countries" && run('unitWords({ comparison: { unitWord: "Station" } })').one === "station" &&
+  run('unitWords({ comparison: { unitWord: "Business unit" } })').Many === "Business units" && run('unitWords({ comparison: { unitWord: "Nonsense" } })').one === "country");
+const fh = wfDemo(); fh.country = "SIN"; fh.workspaceId = "ws_sin"; fh.frameId = "fr_x"; fh.comparison = run("defaultComparison()"); fh.returns = [];
+put("__fh", fh);
+const fu = run('ensureRefs(frameCopy(__fh, "LHR", "LHR"))');
+checkOk("a unit remembers its home and starts as 'scored and mapped'", fu.frameHomeId === "ws_sin" && fu.unitTier === "mapped");
+put("__fu0", fu);
+checkOk("a fresh unit has nothing to bring in from the frame", run("frameDiff(__fh, __fu0)").length === 0);
+// The home changes its frame: a cluster added, one renamed and set to context, a role and a lever added, the charter amended
+const fh2 = JSON.parse(JSON.stringify(fh));
+fh2.clusters.push({ id: "newcl", ref: "CAP-07", no: 7, name: "Network products", desc: "", priority_move: "", cells: JSON.parse(JSON.stringify(fh.clusters[0].cells)), roles: [] });
+fh2.clusters[5].name = "Human Capital (enabler)"; fh2.clusters[4].scope = "context"; fh2.clusters[4].scope_reason = "JV context only";
+fh2.clusters[0].roles.push({ id: "r-new", ref: "RL-020", title: "Load planning lead", status: "exists", axisA: { consequence: 4, scarcity: 4, trend: 3 }, tki: { time: 4, locked: 4, relationship: 2 }, note: "" });
+fh2.valueChain.levers.push({ id: "lv_new", ref: "LV-08", name: "Energy pass-through", share_pct: 9, capability: "Pricing", cluster_id: "commercial", value_at_stake: 40, validated: true });
+fh2.charter.amendments = [{ at: "2026-11-21T00:00:00Z", reason: "Added P7", by: "You" }];
+fh2.idSeq = Object.assign({}, fh2.idSeq, { CAP: 7, RL: 20, LV: 8 });
+// The unit has scored a cell and set a lever weight; those must survive
+const fu2 = JSON.parse(JSON.stringify(fu)); fu2.clusters[0].cells.Process.status = "Running well"; fu2.clusters[0].cells.Process.level = 4; fu2.valueChain.levers[0].share_pct = 33;
+put("__fh2", fh2); put("__fu2", fu2);
+const fd = run("frameDiff(__fh2, __fu2)");
+checkOk("the unit sees each frame change by kind",
+  ["cl+newcl", "cl~" + fh.clusters[5].id, "cl~" + fh.clusters[4].id, "rl+gateway|RL-020", "lv+lv_new", "charter"].every(k => fd.some(x => x.key === k)));
+const keys = fd.filter(x => x.key !== "cl~" + fh.clusters[5].id).map(x => x.key);   // one rename deliberately left out
+put("__fk", keys);
+const fa = run("ensureRefs(applyFrameChanges(JSON.parse(JSON.stringify(__fu2)), __fh2, __fk))");
+check("a unit with frame changes brought in still conforms to the contract", schema.validateState(fa));
+checkOk("additions arrive blank: new cluster unscored, new role 'to confirm', new lever weight 0 with no amount",
+  fa.clusters.find(c => c.id === "newcl").ref === "CAP-07" && Object.values(fa.clusters.find(c => c.id === "newcl").cells).every(c => c.status === "Not yet assessed") &&
+  fa.clusters[0].roles.find(r => r.ref === "RL-020").unconfirmed === true &&
+  fa.valueChain.levers.find(l => l.id === "lv_new").share_pct === 0 && fa.valueChain.levers.find(l => l.id === "lv_new").value_at_stake === undefined);
+checkOk("the unit's own scores and weights are untouched, and an unticked change is not applied",
+  fa.clusters[0].cells.Process.level === 4 && fa.clusters[0].cells.Process.status === "Running well" && fa.valueChain.levers[0].share_pct === 33 &&
+  fa.clusters[5].name === fu.clusters[5].name);
+checkOk("a context-only change becomes the unit's Hand-off decision too",
+  fa.clusters[4].scope === "context" && fa.pilots[fa.clusters[4].id].decision === "out" && /JV context only/.test(fa.pilots[fa.clusters[4].id].reason));
+checkOk("nothing is ever deleted: a cluster no longer in the frame is only flagged",
+  (() => { const u = JSON.parse(JSON.stringify(fu)); u.clusters.push({ id: "local", name: "Local only", desc: "", cells: {}, roles: [] }); put("__fu3", u);
+    const d = run("frameDiff(__fh, __fu3)"); return d.length === 1 && d[0].info === true && run("applyFrameChanges(JSON.parse(JSON.stringify(__fu3)), __fh, ['cl-local'])").clusters.some(c => c.id === "local"); })());
+checkOk("after bringing changes in, the ID counters stay ahead, so no ID is ever reused", fa.idSeq.CAP >= 7 && fa.idSeq.RL >= 20 && fa.idSeq.LV >= 8);
+checkOk("a unit's tier is checked by the contract", schema.validateState(Object.assign({}, fu, { unitTier: "maybe" })).length === 1);
+
 console.log(failures ? `\n${failures} CONTRACT FAILURE(S)` : "\nAll contract checks passed.");
 process.exit(failures ? 1 : 0);

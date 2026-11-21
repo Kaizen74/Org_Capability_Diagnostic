@@ -40,6 +40,7 @@ function wsRegister(st) {
   row.name = st.workspaceName;
   row.unit = st.unit || "capability";
   row.country = st.country || "";
+  row.tier = st.unitTier || "mapped";
   row.frameId = st.frameId || "";
   row.updatedAt = new Date().toISOString();
   ix.active = st.workspaceId;

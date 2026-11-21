@@ -229,7 +229,9 @@ function roFindingList(list, n, empty) {
 }
 
 function roPerCountry(m, pick, n, emptyFor) {
-  return `<div class="ro-cols">${m.finds.per.map(p => `<div class="ro-col"><h4>${esc(p.label)}</h4>${roFindingList(pick(p), n, emptyFor)}</div>`).join("")}</div>`;
+  const tierOf = id => (m.countries.find(c => c.id === id) || {}).tier;
+  return `<div class="ro-cols">${m.finds.per.map(p => `<div class="ro-col"><h4>${esc(p.label)}</h4>${
+    !pick(p).length && tierOf(p.id) === "scored" ? `<p class="ro-empty">Scored only: not mapped, by design.</p>` : roFindingList(pick(p), n, emptyFor)}</div>`).join("")}</div>`;
 }
 
 function csReadout(ctx) {
@@ -247,7 +249,7 @@ function csReadout(ctx) {
   if (m.partScored.length) gaps.push("Only partly scored: " + m.partScored.join(", ") + ". The unscored cells are left out, not counted as weak.");
   const unclassedMaterial = m.byClass.unclassified.filter(d => d.material).length;
   if (unclassedMaterial) gaps.push(unclassedMaterial + " material difference(s) not yet classed as Required, Chosen or Inherited.");
-  const noFinds = m.finds.per.filter(p => !p.total).map(p => p.label);
+  const noFinds = m.finds.per.filter(p => !p.total && (m.countries.find(c => c.id === p.id) || {}).tier !== "scored").map(p => p.label);
   if (noFinds.length) gaps.push("No findings imported for " + noFinds.join(", ") + ", so pages 3 to 5 are thin there.");
   if (!(cmp.verdict || "").trim()) gaps.push("The one-line verdict on page 1 is not written.");
 

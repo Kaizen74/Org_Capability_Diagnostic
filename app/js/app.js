@@ -58,6 +58,53 @@ function addCountryWorkspace(here, country, code) {
   toast(country + " created with the same IDs and blank scores. Confirm its roles, then score.");
 }
 
+/* A unit built from the frame on screen, created without leaving it. */
+function createUnitFromFrame(name, code, tier) {
+  if (unitFamily().some(w => (w.country || "").toLowerCase() === name.toLowerCase()) || name.toLowerCase() === (state.country || "").toLowerCase())
+    throw new Error("There is already a workspace for " + name + ".");
+  if (!state.frameId) state.frameId = wsNewFrameId();
+  const st = migrateState(frameCopy(state, name, code));
+  st.unitTier = UNIT_TIERS[tier] ? tier : "mapped";
+  st.workspaceId = wsNewId();
+  st.changeLog.push({ at: nowIso(), cluster: "Workspace", lens: "—", from: 0, to: 0, rationale: "Created for " + name + " from the frame of " + (state.country || state.workspaceName) + ": same IDs, scores blank.", by: state.actor || "You" });
+  wsPark(st); wsRegister(st);
+  renderAll();   // saves, and marks the workspace on screen as the active one again
+  toast(name + " added with the same IDs and blank scores. You are still in " + (state.country || state.workspaceName) + ".");
+}
+
+/* Bring frame changes from the home unit into this one: additions and
+   renames only, each item chosen by hand. */
+function openFrameReview() {
+  const home = wsPeek(state.frameHomeId);
+  if (!home) { toast("The home workspace could not be read."); return; }
+  const items = frameDiff(home, state);
+  openModal(`<button class="m-close" id="m-close">✕</button>
+    <h2>Frame changes from ${esc(home.country || home.workspaceName)}</h2>
+    <p class="m-sub">Tick what to bring in. Only additions and renames are applied: nothing is deleted here, and no score, role status, weight or amount is touched.</p>
+    <div class="fr-list">${items.map(x => `<label class="fr-item ${x.info ? "info" : ""}">${x.info ? "ⓘ" : `<input type="checkbox" data-fr="${esc(x.key)}" checked>`}
+      <span><strong>${esc(x.kind)}</strong> · ${esc(x.label)}</span></label>`).join("") || "<p>Nothing differs.</p>"}</div>
+    <div class="m-row"><span class="grow"></span><button class="btn-navy" id="fr-apply">Bring in the ticked changes</button></div>`);
+  $("m-close").addEventListener("click", closeModal);
+  $("fr-apply").addEventListener("click", () => {
+    const keys = [...document.querySelectorAll("[data-fr]")].filter(c => c.checked).map(c => c.dataset.fr);
+    applyFrameChanges(state, home, keys);
+    ensureRefs(state);
+    state.changeLog.push({ at: nowIso(), cluster: "Frame", lens: "—", from: 0, to: 0, rationale: "Brought in " + keys.length + " frame change(s) from " + (home.country || home.workspaceName), by: state.actor || "You" });
+    closeModal(); renderAll(); toast(keys.length + " frame change(s) brought in. Scores untouched.");
+  });
+}
+
+/* Say "station" (or asset, business unit) instead of "country" in the
+   app's own headings and labels. User text is never rewritten. */
+function applyUnitWords(root) {
+  if (!root || !state || unitWordOf(state) === "Country") return;
+  const W = unitWords(state);
+  const sw = t => t.replace(/\b(countries|Countries|country|Country)\b/g, m => ({ countries: W.many, Countries: W.Many, country: W.one, Country: W.One })[m]);
+  root.querySelectorAll(".cs-tab, h1, h2, h3, th, label, summary, .sig-meta, .lede, .view-note, .ch-note, .cs-start p, .cs-start li, .cs-warn li, .ro-head p, .ro-title p, .ho-note, .cs-key, .ro-foot, .ro-empty, .mini-btn, .btn-navy").forEach(el => {
+    el.childNodes.forEach(n => { if (n.nodeType === 3 && /countr/i.test(n.nodeValue)) n.nodeValue = sw(n.nodeValue); });
+  });
+}
+
 function switchWorkspace(id) {
   if (!state || id === state.workspaceId) return;
   try {
@@ -89,7 +136,7 @@ function openWorkspaceManager() {
     <h2>This workspace</h2>
     <p class="m-sub">A workspace is one complete diagnostic. Keep one for the group and one per segment or client; they never mix. ${others.length ? "You also have: " + others.map(w => esc(w.name)).join(", ") + "." : "This is your only workspace."}</p>
     <div class="m-field"><label>Workspace name</label><input type="text" id="wsm-name" value="${esc(state.workspaceName)}"></div>
-    <div class="m-field"><label>Country this workspace covers <span class="m-opt">— leave blank for a group-wide diagnostic</span></label>
+    <div class="m-field"><label>${esc(unitWords(state).One)} this workspace covers <span class="m-opt">— leave blank for a group-wide diagnostic</span></label>
       <input type="text" id="wsm-country" value="${esc(state.country || "")}" placeholder="For example: Singapore"></div>
     <div class="m-row">
       <button class="btn-plain danger" id="wsm-delete">Delete this workspace</button>
@@ -385,6 +432,7 @@ function renderView() {
   else if (activeView === "current") el.innerHTML = viewCurrent();
   else if (activeView === "delta") el.innerHTML = viewDelta();
   else el.innerHTML = viewJourney();
+  applyUnitWords(el);
   bindViewEvents();
 }
 
