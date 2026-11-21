@@ -130,6 +130,30 @@ footer{color:var(--muted);font-size:12px;margin-top:26px}
 .track .mark{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--ink)}.track .amb{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--amber)}
 .legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted);margin-bottom:8px;flex-wrap:wrap}.legend b{display:inline-block;width:14px;height:8px;border-radius:2px;vertical-align:middle;margin-right:4px}
 @media(max-width:900px){.mk-wrap,.mk-notes,.tiles,.cols3{grid-template-columns:1fr}}
+
+/* ---- frame once, score each unit ---- */
+.fu-flow{display:grid;grid-template-columns:1fr 34px 1.5fr 34px 1fr 34px 1fr;gap:6px;align-items:stretch}
+.fu-step{border:1px solid var(--line);border-radius:12px;background:#fff;padding:12px 14px;border-top:5px solid var(--navy)}
+.fu-step.u{border-top-color:var(--l3)}.fu-step.t{border-top-color:var(--amber)}
+.fu-step h4{font-size:14px;margin:0 0 2px}.fu-step .when{font-size:11px;font-family:var(--head);font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.fu-step ul{margin:6px 0 0;padding-left:17px;font-size:12.5px}.fu-step li{margin-bottom:2px}
+.fu-arrow{display:grid;place-items:center;font-size:22px;color:var(--navy);font-weight:900}
+.units{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.unit{border:1px dashed var(--l3);border-radius:8px;padding:6px 8px;font-size:11.5px;background:#FBFCFE}.unit b{font-family:var(--head);display:block;font-size:12px}
+.unit.home{border:2px solid var(--navy)}
+.rules{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.rule{border:1px solid var(--line);border-left:5px solid var(--navy);border-radius:12px;background:#fff;padding:12px 14px}
+.rule b{font-family:var(--head);display:block;font-size:14px;margin-bottom:4px}
+.rule.a{border-left-color:var(--amber)}
+.chk{list-style:none;margin:0;padding:0;columns:2;column-gap:26px}
+.chk li{break-inside:avoid;padding:5px 0 5px 26px;position:relative;border-bottom:1px solid var(--line);font-size:13px}
+.chk input{position:absolute;left:0;top:7px}
+.faq details{border:1px solid var(--line);border-radius:10px;background:#fff;padding:10px 14px;margin-bottom:6px}
+.faq summary{font-family:var(--head);font-weight:800;cursor:pointer}
+.faq details p{margin:8px 0 2px;color:#333B4D}
+#p-units .card{overflow-x:auto}
+.yes{color:var(--navy);font-weight:700}.no{color:var(--amber-deep);font-weight:700}
+@media(max-width:900px){.fu-flow,.rules{grid-template-columns:1fr}.fu-arrow{transform:rotate(90deg)}.chk{columns:1}}
 </style>
 </head>
 <body>
@@ -140,7 +164,7 @@ footer{color:var(--muted);font-size:12px;margin-top:26px}
 </header>
 <main>
   <section class="panel" id="p-now">
-    <p class="lede"><strong>Your immediate need.</strong> Nine steps that frame the analysis, gather the evidence in each country, and end with six pages for EXCO, plus one optional step for hearing the shop floor. Click a step for exactly where to go and what "done" looks like. Ticks are remembered on this computer. <strong>Where an app says "country", type whatever unit you are comparing</strong>: a country, a station or an asset.</p>
+    <p class="lede"><strong>Your immediate need.</strong> Nine steps that frame the analysis, gather the evidence in each country, and end with six pages for EXCO, plus one optional step for hearing the shop floor. Click a step for exactly where to go and what "done" looks like. Ticks are remembered on this computer. New to multi-unit work? Read <a href="#" id="go-units">Frame once, score each unit</a> first. <strong>Where an app says "country", type whatever unit you are comparing</strong>: a country, a station or an asset.</p>
     <div class="cs-wrap">
       <div>
         <div class="progress"><span id="prog-t"></span><div class="bar"><i id="prog-b"></i></div><button class="btn ghost" id="reset" style="padding:4px 10px;font-size:11px">Reset</button></div>
@@ -208,6 +232,83 @@ footer{color:var(--muted);font-size:12px;margin-top:26px}
       <p style="margin:10px 0 0;color:var(--muted);font-size:12.5px">Each country has its own key in front (for example a frame key plus a two-letter country code), so an ID quoted in a board paper always says which country it came from.</p></div>
   </section>
 
+  <section class="panel" id="p-units">
+    <p class="lede"><strong>Frame once, score each unit.</strong> You frame the organisation once, in one workspace. Every other unit (a country, station, asset or business unit) is copied from that frame, so the same ID means the same thing everywhere. Each unit is then scored and evidenced on its own. The units come back together for the comparison and the EXCO readout, and the design is done once, for the whole organisation. All examples here are fictional.</p>
+
+    <div class="fu-flow">
+      <div class="fu-step"><span class="when">Once · Stages 0 and 1</span><h4>Frame and Focus</h4>
+        <ul><li>Charter for the whole organisation</li><li>Clusters, scope, diagnostic questions</li><li>Money levers and anchor roles</li><li>Lock the charter</li></ul></div>
+      <div class="fu-arrow">→</div>
+      <div class="fu-step u"><span class="when">Each unit · Stages 2 and 3</span><h4>Find and score</h4>
+        <ul><li>Same frame, every score blank</li><li>Its own evidence, roles, scores and money</li><li>Mapped units go on to the other apps</li></ul>
+        <div class="units"><div class="unit home"><b>Arden</b>Home unit: holds the frame <em>and</em> is scored</div><div class="unit"><b>Belmar</b>Scored and mapped</div><div class="unit"><b>Caldera</b>Scored only</div></div></div>
+      <div class="fu-arrow">→</div>
+      <div class="fu-step t"><span class="when">Together · end of Stage 3</span><h4>Compare and report</h4>
+        <ul><li>Compare the units</li><li>Class each difference</li><li>Six pages to EXCO</li></ul></div>
+      <div class="fu-arrow">→</div>
+      <div class="fu-step"><span class="when">Once · Stages 4 and 5</span><h4>Design and deliver</h4>
+        <ul><li>One design for the organisation</li><li>Required differences stay local, chosen ones are decided, inherited ones harmonised</li></ul></div>
+    </div>
+
+    <h3 class="sec">Stage by stage: where each part is done</h3>
+    <div class="card"><table>
+      <tr><th>Stage</th><th>Done where</th><th>What happens</th><th>App</th></tr>
+      <tr><td><span class="chip">0 Frame</span></td><td><strong>Once</strong>, in your home workspace</td><td>The charter for the whole organisation: name, sponsor, thesis, scope, design criteria, decisions, frame key. Lock it.</td><td><span class="app compass">Capability Compass</span></td></tr>
+      <tr><td><span class="chip">1 Focus</span></td><td><strong>Once</strong>, in the same workspace</td><td>Clusters with their scope and diagnostic question; money levers; anchor roles. Clear the calibration panel.</td><td><span class="app compass">Capability Compass</span></td></tr>
+      <tr><td><em>Then</em></td><td>Charter → Units to compare</td><td>Choose the unit word, name the home unit, add each other unit with its tier. Each gets the same frame and IDs, every score blank.</td><td><span class="app compass">Capability Compass</span></td></tr>
+      <tr><td><span class="chip">2 Find</span></td><td><strong>Each unit</strong> separately</td><td>Evidence, role status and scores. Scored-and-mapped units also go to Process Map Studio and Org Modeling. Narrative Lens if needed.</td><td><span class="app compass">Compass</span> <span class="app org">Org</span> <span class="app pms">PMS</span> <span class="app nl">optional</span></td></tr>
+      <tr><td><span class="chip">3 Dial</span></td><td><strong>Each unit</strong>, then <strong>together</strong></td><td>Import findings, re-score, save a version in each unit. Then compare the units and print the readout.</td><td><span class="app compass">Compass</span> <span class="app wb">Workbench</span></td></tr>
+      <tr><td><span class="chip">4 Design</span> <span class="chip">5 Deliver</span></td><td><strong>Once</strong>, for the organisation</td><td>One design, shaped by how the units differ, then measured cycle by cycle on the Scoreboard.</td><td><span class="app org">Org</span> <span class="app wb">Workbench</span> <span class="app compass">Compass</span></td></tr>
+    </table></div>
+
+    <h3 class="sec">Three rules that keep the comparison honest</h3>
+    <div class="rules">
+      <div class="rule"><b>The home workspace is also a unit</b>It describes the whole organisation in its charter, but you score it as one unit, like the others. There is no separate, unscored "group" workspace above the units. Choose as home the unit you know best and have the most evidence for.</div>
+      <div class="rule a"><b>One kind of unit per comparison</b>Pick one level: countries, or stations, or assets, or business units. Comparing a region with a single asset makes every difference meaningless. The Compass does not add units up into a regional total; if you need a region-level view later, set it up as a separate comparison.</div>
+      <div class="rule"><b>Frame changes flow one way, and only add</b>Change the frame in the home workspace, then open each unit and use <strong>Review frame changes</strong>. Only additions and renames come in, ticked one by one. Nothing is deleted, and no score, status, weight or amount moves.</div>
+    </div>
+
+    <h3 class="sec">What is set once, and what each unit fills in</h3>
+    <div class="grid2">
+      <div class="box"><h4>Set once, in the frame (home workspace)</h4><ul>
+        <li>Charter: organisation name, sponsor, thesis, scope, design criteria, decision owners</li>
+        <li>The frame key (each unit's key is built from it)</li>
+        <li>Clusters and their IDs, scope (Scored, Enabler, Context only) and diagnostic question</li>
+        <li>The list of money levers and the list of anchor roles</li>
+        <li>The unit word: country, station, asset or business unit</li></ul></div>
+      <div class="box"><h4>Filled in by each unit</h4><ul>
+        <li>Evidence, scores, evidence grades and rationale</li>
+        <li>Whether each anchor role exists, is thin or is absent there (they start as "To confirm")</li>
+        <li>Money weights and amounts in that unit's currency</li>
+        <li>Hand-off decisions and the value stream to examine (choose the same one across units)</li>
+        <li>Quick-win candidates, findings from the other apps, saved versions</li></ul></div>
+    </div>
+
+    <h3 class="sec">Which tier for each unit</h3>
+    <div class="card"><table>
+      <tr><th>Tier</th><th>What it means</th><th>Choose it when</th></tr>
+      <tr><td><strong>Scored and mapped</strong></td><td>Scored in the Compass, and its value stream is mapped in Process Map Studio and its structure read in Org Modeling.</td><td>It is one of the two or three units you most expect to differ, or where most money is at stake. Map at least two units.</td></tr>
+      <tr><td><strong>Scored only</strong></td><td>Scored in the Compass; no process map, by design. The readout says so plainly instead of showing a gap.</td><td>You need it on the scale for completeness, but time or access does not allow interviews this cycle.</td></tr>
+    </table></div>
+
+    <h3 class="sec">Before you add any units: lock the frame</h3>
+    <div class="card"><p style="margin:0 0 8px;color:var(--muted);font-size:12.5px">Each unit is a copy of the frame as it stands. Getting these right first saves a round of frame reviews in every unit. Ticks are remembered on this computer.</p>
+      <ul class="chk" id="fchk"></ul></div>
+
+    <h3 class="sec">Questions worth asking before you start</h3>
+    <div class="faq">
+      <details><summary>Can I add a unit later?</summary><p><span class="yes">Yes.</span> Add it from Charter → Units to compare at any time. It is copied from the frame as it stands that day, so it starts up to date.</p></details>
+      <details><summary>A cluster does not apply in one unit. Do I delete it there?</summary><p><span class="no">No.</span> Deleting breaks the line-up with the other units. Leave its cells Not scored and write why in the cell notes. If it applies nowhere this cycle, set it to Context only in the home frame and bring that change into each unit.</p></details>
+      <details><summary>Who should score each unit?</summary><p>Ideally the unit lead, from that unit's own evidence. Open the unit, Export, send the file, and Import what comes back. Different people score differently, so before EXCO have the leads look at each other's evidence on the widest gaps.</p></details>
+      <details><summary>Where does the comparison happen, and what does it need?</summary><p>On Current State → Compare countries, in any workspace of the frame. Every unit must be in the Compass on <strong>the same computer and browser</strong>, so import the files the unit leads send back. Each unit needs its scores and a saved version that holds them.</p></details>
+      <details><summary>How do I avoid losing work?</summary><p>The Compass keeps everything in this browser only. Clearing browser data, or switching computer, loses it. <strong>Export each workspace at the end of every working session</strong> and keep the files in your approved storage.</p></details>
+      <details><summary>Can I change the frame key after adding units?</summary><p>Avoid it. Every unit's key, and so every ID quoted in a board paper, is built from it. Settle the key before adding the first unit.</p></details>
+      <details><summary>What about confidential documents?</summary><p>Workspace files and exports hold your organisation's data: keep them where your policy allows. <strong>Analyse and synthesise evidence</strong> sends document text to the Claude API, so check your data policy before using it on restricted documents. You can always score by hand and cite the document without sending it.</p></details>
+      <details><summary>When should I save a version?</summary><p>In each unit, once its cells are scored, and again after findings come back and you re-score. A version with no scores is ignored, and the app warns before saving one.</p></details>
+      <details><summary>Can I show EXCO an early read?</summary><p><span class="yes">Yes.</span> The readout assembles from whatever is scored and imported. Printed at about week 6, it is your early read; pages with thin evidence say so rather than filling the gap. Quick-win candidates appear on page 6 as "Act now".</p></details>
+    </div>
+  </section>
+
   <section class="panel" id="p-exco">
     <p class="lede"><strong>What EXCO sees.</strong> The current-state analysis ends in six pages, printed from <strong>Compass → Current State → EXCO readout</strong>. You write two things: the verdict and the ask. Everything else is counted or quoted, so every line traces to a score or a finding.</p>
     <div class="card"><table id="exco"></table></div>
@@ -220,7 +321,7 @@ footer{color:var(--muted);font-size:12px;margin-top:26px}
       <li>If you ran Narrative Lens, its patterns are cited as Indicated evidence behind a score. They are never a finding on their own.</li>
       <li>Money at risk is an estimate until finance validates it, and is only totalled when the countries share a currency.</li></ul></div>
   </section>
-  <footer>Built for the six-stage workflow. Reviewed against all five apps on 17 November 2026 and updated on 21 November 2026: every screen named here exists today. Narrative Lens is the app in the TESSA-Sensemaking repository.</footer>
+  <footer>Built for the six-stage workflow. Reviewed against all five apps on 17 November 2026 and updated on 21 November 2026 (scoring, scope, units): every screen named here exists today. Narrative Lens is the app in the TESSA-Sensemaking repository.</footer>
 </main>
 
 <script>
@@ -228,21 +329,21 @@ const APPS={compass:"Capability Compass",org:"Org Modeling",pms:"Process Map Stu
 const STEPS=[
  {phase:"Frame it",t:"Frame the analysis",app:"compass",where:"Compass → Charter",
   q:"What are we trying to learn, about which business, in which countries, and who decides what happens next?",
-  bring:["The business or segment in scope","The countries to compare","The sponsor and who owns each decision"],
-  doit:["Write the five-sentence thesis: what business you are building and why the current model may not fit.","State the four questions of this analysis in the scope: which roles exist, why they exist, who really decides, how work really runs.","Check the design criteria (they must total 100) and the evidence rules.","Lock the charter. Later changes need a logged reason."],
+  bring:["The business or segment in scope","The units to compare, and which one is home","The sponsor, co-sponsors and who owns each decision"],
+  doit:["Write the five-sentence thesis: what business you are building and why the current model may not fit.","State the four questions of this analysis in the scope: which roles exist, why they exist, who really decides, how work really runs.","Check the design criteria (they must total 100) and the evidence rules.","Set the organisation name and a frame key you will keep (each unit's key is built from it).","Lock the charter. Later changes need a logged reason."],
   get:["A locked charter: the rules every later judgement is held to"],done:"Charter locked; sponsor named.",
-  watch:"Do not skip this to save time. Without agreed criteria, every country will argue its own way is right."},
- {phase:"Frame it",t:"Build the frame in one country",app:"compass",where:"Compass → Value Chain, Roles",
+  watch:"Do not skip this to save time. Without agreed criteria, every country will argue its own way is right. The charter speaks for the whole organisation, even though this workspace is also scored as your home unit."},
+ {phase:"Frame it",t:"Build the frame in your home unit",app:"compass",where:"Compass → Value Chain, Roles",
   q:"What exactly will every country be measured against?",
   bring:["The capability clusters or value streams","Where the money is made and lost","The anchor roles the model depends on"],
   doit:["In your home country's workspace, settle the clusters (or value streams).","Give each cluster a scope (Edit cluster): Scored, Enabler (scored, no money weight) or Context only (not scored this cycle, with a reason).","Write each cluster's diagnostic question: what this analysis must find out. Leave the solution for the design.","On Value Chain, list the money levers and act on the calibration panel: it tests whether these are the right clusters for the money.","On Roles, list the anchor roles and score them."],
   get:["A frame: clusters, levers and roles, each with a permanent ID"],done:"The calibration panel shows no high-severity finding; every cluster has roles.",
   watch:"Get the frame right before copying it. Later changes made here can be brought into each country (additions and renames only; scores never move), but a frame that keeps changing makes the comparison harder to read."},
- {phase:"Frame it",t:"Add each country",app:"compass",where:"Compass → Charter → Units to compare (once the charter is locked)",
+ {phase:"Frame it",t:"Add each unit",app:"compass",where:"Compass → Charter → Units to compare (once the charter is locked)",
   q:"How do we make sure the same ID means the same thing everywhere?",
-  bring:["Each country's name and a two- or three-letter code"],
+  bring:["Each unit's name and a two- or three-letter code","Which units will be mapped, and which scored only"],
   doit:["Choose what you are comparing (country, station, asset or business unit) and say which one this workspace covers.","Add each other unit with its tier: scored and mapped, or scored only. It gets the same clusters, levers, roles, charter and IDs, with every score, piece of evidence and amount blank. You stay where you are.","If the frame changes later, open each unit and use Review frame changes.","To let a country lead do the scoring: open that country, Export, send the file, and Import what comes back."],
-  get:["One workspace per country, comparable line by line"],done:"Every country in scope has a workspace.",
+  get:["One workspace per unit, comparable line by line"],done:"Every unit in scope has a workspace; at least two are scored and mapped.",
   watch:"Roles copied to a new country show \"To confirm\". Someone there must say whether each exists, is thin, or is absent."},
  {phase:"Gather the evidence",t:"Score each country from its own evidence",app:"compass",where:"Compass → Roles, Evidence, Signal Matrix (in each country)",
   q:"Where does each country really stand today?",
@@ -312,7 +413,7 @@ let done={};try{done=JSON.parse(localStorage.getItem(KEY))||{}}catch(e){}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(done))}catch(e){}};
 let sel=Math.max(0,STEPS.findIndex((s,i)=>!done[i]&&!s.optional));
 
-const MODES=[["now","Current-state analysis","now"],["out","Outcomes to aim for"],["journey","The whole journey"],["files","What travels between apps"],["exco","What EXCO sees"]];
+const MODES=[["now","Current-state analysis","now"],["out","Outcomes to aim for"],["journey","The whole journey"],["units","Frame once, score each unit"],["files","What travels between apps"],["exco","What EXCO sees"]];
 function setMode(m){MODES.forEach(x=>{$("p-"+x[0]).classList.toggle("on",x[0]===m)});document.querySelectorAll(".mode").forEach(b=>b.classList.toggle("on",b.dataset.m===m))}
 $("modes").innerHTML=MODES.map(m=>`<button class="mode" data-m="${m[0]}">${m[1]}${m[2]?` <small>start here</small>`:""}</button>`).join("");
 document.querySelectorAll(".mode").forEach(b=>b.onclick=()=>setMode(b.dataset.m));
@@ -439,6 +540,12 @@ function drawMock(){
   if($("mk-prev"))$("mk-prev").onclick=()=>{mk--;drawMock()};if($("mk-next"))$("mk-next").onclick=()=>{mk++;drawMock()};
 }
 drawMock();
+const FCHK=["Charter locked, with the organisation name, sponsor and co-sponsors","Frame key final","Every decision has an owner","Clusters final, with IDs","Each cluster's scope set (Context only has a reason)","Each cluster's diagnostic question written in your own words","Money levers listed; calibration panel clear","Anchor roles listed against their clusters","Unit word chosen and home unit named","Tier chosen for each unit","Home workspace exported as a backup"];
+const FKEY="four_apps_board_frame_v1";let fdone={};try{fdone=JSON.parse(localStorage.getItem(FKEY))||{}}catch(e){}
+function drawChk(){$("fchk").innerHTML=FCHK.map((t,i)=>`<li><input type="checkbox" data-f="${i}" ${fdone[i]?"checked":""} id="fc${i}"><label for="fc${i}">${esc(t)}</label></li>`).join("");
+  document.querySelectorAll("[data-f]").forEach(c=>c.onchange=()=>{fdone[c.dataset.f]=c.checked;try{localStorage.setItem(FKEY,JSON.stringify(fdone))}catch(e){}})}
+drawChk();
+$("go-units").onclick=e=>{e.preventDefault();setMode("units");window.scrollTo(0,0)};
 draw();drawJourney();setMode("now");
 </script>
 </body>
