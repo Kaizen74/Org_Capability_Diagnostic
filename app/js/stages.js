@@ -126,7 +126,60 @@ function viewCharter() {
         table(["Stage", "Decision", "Owner", "Evidence required", "Status"], decisionRows, "No decisions.") +
         `<button class="mini-btn" data-ch-add="decisions">＋ Log a decision</button>` +
         ((ch.amendments || []).length ? `<p class="ch-note"><strong>Amendments after lock:</strong> ${ch.amendments.map(a => esc(new Date(a.at).toLocaleDateString() + " — " + a.reason + " (" + a.by + ")")).join(" · ")}</p>` : ""), true)}
+      ${unitsCard()}
     </section>`;
+}
+
+/* ---------- Units to compare (Charter) ---------- */
+function unitFamily() {
+  if (!state.frameId) return [];
+  return wsReadIndex().list.filter(w => w.frameId === state.frameId);
+}
+function unitsCard() {
+  const W = unitWords(state);
+  const locked = !!state.charter.lockedAt;
+  const fam = unitFamily();
+  const home = state.frameHomeId ? wsReadIndex().list.find(w => w.id === state.frameHomeId) : null;
+  const diff = home ? (() => { const h = wsPeek(home.id); return h ? frameDiff(h, state).filter(x => !x.info) : []; })() : [];
+  return `<details class="ch-sec units-card" data-sec="units" ${locked ? "open" : ""}><summary><span class="ch-n">U</span><span class="ch-t">Units to compare</span>
+      <span class="ch-sub">one workspace per ${esc(W.one)}, built from this frame, so every ID means the same thing</span></summary>
+    <div class="ch-body">
+      ${home ? `<div class="u-home">This ${esc(W.one)} was built from the frame of <strong>${esc(home.country || home.name)}</strong>. The frame is edited there.
+        ${diff.length ? `<span class="u-diff">⚑ The frame has ${diff.length} change${diff.length > 1 ? "s" : ""} not yet brought in here.</span> <button class="mini-btn" id="u-review">Review frame changes</button>` : `<span class="u-same">✓ Up to date with the frame.</span>`}</div>` : ""}
+      <div class="u-row">
+        <label>What are you comparing?
+          <select id="u-word">${Object.keys(UNIT_WORDS).map(k => `<option ${unitWordOf(state) === k ? "selected" : ""}>${k}</option>`).join("")}</select></label>
+        <label>This ${esc(W.one)}
+          <input type="text" id="u-here" value="${esc(state.country || "")}" placeholder="e.g. SIN"></label>
+        <label>Its tier
+          <select id="u-tier">${Object.keys(UNIT_TIERS).map(k => `<option value="${k}" ${unitTier(state) === k ? "selected" : ""}>${UNIT_TIERS[k].label}</option>`).join("")}</select></label>
+      </div>
+      ${fam.length > 1 ? `<table class="delta-table u-list"><thead><tr><th>${esc(W.One)}</th><th>Tier</th><th></th></tr></thead><tbody>
+        ${fam.map(w => `<tr><td><strong>${esc(w.country || w.name)}</strong>${w.id === state.workspaceId ? " <em>· open now</em>" : ""}</td><td>${esc((UNIT_TIERS[w.tier] || UNIT_TIERS.mapped).label)}</td>
+          <td>${w.id === state.workspaceId ? "" : `<button class="mini-btn" data-u-open="${esc(w.id)}">Open</button>`}</td></tr>`).join("")}</tbody></table>` : ""}
+      ${home ? "" : locked ? `<div class="u-add">
+        <label>Add a ${esc(W.one)} <input type="text" id="u-new" placeholder="e.g. LHR"></label>
+        <label>Code <input type="text" id="u-code" maxlength="3" placeholder="LHR"></label>
+        <label>Tier <select id="u-new-tier">${Object.keys(UNIT_TIERS).map(k => `<option value="${k}">${UNIT_TIERS[k].label}</option>`).join("")}</select></label>
+        <button class="btn-navy" id="u-add">Add from this frame</button></div>
+        <p class="ch-note">Each new ${esc(W.one)} gets the same clusters, levers, roles, charter and IDs, with every score, piece of evidence, weight and amount blank. Roles show “To confirm” until someone there says. You stay here.</p>`
+        : `<p class="ch-note">Lock the charter first: ${esc(W.many)} are built from the locked frame.</p>`}
+    </div></details>`;
+}
+function bindUnitsCard() {
+  if (!$("u-word")) return;
+  $("u-word").addEventListener("change", () => { state.comparison.unitWord = $("u-word").value; renderAll(); });
+  $("u-here").addEventListener("change", () => { state.country = $("u-here").value.trim(); renderAll(); });
+  $("u-tier").addEventListener("change", () => { state.unitTier = $("u-tier").value; renderAll(); });
+  document.querySelectorAll("[data-u-open]").forEach(b => b.addEventListener("click", () => switchWorkspace(b.dataset.uOpen)));
+  if ($("u-add")) $("u-add").addEventListener("click", () => {
+    const name = $("u-new").value.trim(), code = $("u-code").value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!state.country) { toast("First say which " + unitWords(state).one + " this workspace covers."); $("u-here").focus(); return; }
+    if (!name) { toast("Name the " + unitWords(state).one + " to add."); $("u-new").focus(); return; }
+    if (code.length < 2) { toast("Give it a short code of 2 or 3 letters."); $("u-code").focus(); return; }
+    try { createUnitFromFrame(name, code, $("u-new-tier").value); } catch (e) { toast(e.message); }
+  });
+  if ($("u-review")) $("u-review").addEventListener("click", openFrameReview);
 }
 
 function chSet(path, raw) {
@@ -152,6 +205,7 @@ const CH_BLANK = {
 
 function bindCharterEvents() {
   if (!$("ch-gate")) return;
+  bindUnitsCard();
   const openSecs = () => [...document.querySelectorAll(".ch-sec[open]")].map(d => d.dataset.sec);
   const rerender = () => {
     const keep = openSecs();
@@ -250,16 +304,16 @@ function viewHandoff() {
       <td>${c.money.hasValue ? "≈ " + fmtMoney(state, c.money.atRisk) + (c.money.validated ? "" : " (est.)") : (c.weight ? "Exposure " + Math.round(c.exposure) : "—")}</td>
       <td>${c.weak ? c.weak + " weak" + (c.binding ? " · " + esc(c.binding) : "") : "none weak"}</td>
       <td>${c.seatGaps ? c.seatGaps + " at risk" : "—"}</td>
-      <td><select data-pl-decision="${esc(cl.id)}">
+      <td>${!inScope(cl) ? `<span class="ctx-pill" title="Set in the cluster's scope">Context only</span>` : `<select data-pl-decision="${esc(cl.id)}">
         <option value="" ${!p.decision ? "selected" : ""}>Decide…</option>
         <option value="pilot" ${p.decision === "pilot" ? "selected" : ""}>Pilot now</option>
         <option value="later" ${p.decision === "later" ? "selected" : ""}>Later</option>
-        <option value="out" ${p.decision === "out" ? "selected" : ""}>Not this cycle</option></select></td>
+        <option value="out" ${p.decision === "out" ? "selected" : ""}>Not this cycle</option></select>`}</td>
       <td>${p.decision === "pilot"
         ? `<div class="pl-pilot"><span class="ref-chip">${esc(p.ref || "")}</span>
             <input type="text" class="vc-in" data-pl="${esc(cl.id)}|name" value="${esc(p.name || "")}" placeholder="Value stream to map, e.g. Bid to contract renewal">
             <input type="text" class="vc-in" data-pl="${esc(cl.id)}|kpi" value="${esc(p.kpi || "")}" placeholder="Its process KPI"></div>`
-        : `<input type="text" class="vc-in" data-pl="${esc(cl.id)}|reason" value="${esc(p.reason || "")}" placeholder="${p.decision ? "Why — an exclusion needs a stated reason" : "—"}" ${p.decision ? "" : "disabled"}>`}</td>
+        : `<input type="text" class="vc-in" data-pl="${esc(cl.id)}|reason" value="${esc(p.reason || "")}" ${!inScope(cl) ? "disabled" : ""} placeholder="${p.decision ? "Why — an exclusion needs a stated reason" : "—"}" ${p.decision ? "" : "disabled"}>`}</td>
     </tr>`;
   }).join("");
 
@@ -343,6 +397,7 @@ function bindHandoffEvents() {
     downloadText(slug() + "_brief_" + b.dataset.hoDl + ".txt", handoffBrief(buildHandoffPacket(state), b.dataset.hoDl));
   }));
   $("ho-packet").addEventListener("click", () => {
+    state.handedOffAt = state.handedOffAt || nowIso();   // from now on a rename asks keep-or-new-ID
     const packet = buildHandoffPacket(state);
     const errs = validateHandoffPacket(packet);
     if (errs.length) { toast("Packet not written: " + errs[0]); return; }

@@ -58,6 +58,53 @@ function addCountryWorkspace(here, country, code) {
   toast(country + " created with the same IDs and blank scores. Confirm its roles, then score.");
 }
 
+/* A unit built from the frame on screen, created without leaving it. */
+function createUnitFromFrame(name, code, tier) {
+  if (unitFamily().some(w => (w.country || "").toLowerCase() === name.toLowerCase()) || name.toLowerCase() === (state.country || "").toLowerCase())
+    throw new Error("There is already a workspace for " + name + ".");
+  if (!state.frameId) state.frameId = wsNewFrameId();
+  const st = migrateState(frameCopy(state, name, code));
+  st.unitTier = UNIT_TIERS[tier] ? tier : "mapped";
+  st.workspaceId = wsNewId();
+  st.changeLog.push({ at: nowIso(), cluster: "Workspace", lens: "—", from: 0, to: 0, rationale: "Created for " + name + " from the frame of " + (state.country || state.workspaceName) + ": same IDs, scores blank.", by: state.actor || "You" });
+  wsPark(st); wsRegister(st);
+  renderAll();   // saves, and marks the workspace on screen as the active one again
+  toast(name + " added with the same IDs and blank scores. You are still in " + (state.country || state.workspaceName) + ".");
+}
+
+/* Bring frame changes from the home unit into this one: additions and
+   renames only, each item chosen by hand. */
+function openFrameReview() {
+  const home = wsPeek(state.frameHomeId);
+  if (!home) { toast("The home workspace could not be read."); return; }
+  const items = frameDiff(home, state);
+  openModal(`<button class="m-close" id="m-close">✕</button>
+    <h2>Frame changes from ${esc(home.country || home.workspaceName)}</h2>
+    <p class="m-sub">Tick what to bring in. Only additions and renames are applied: nothing is deleted here, and no score, role status, weight or amount is touched.</p>
+    <div class="fr-list">${items.map(x => `<label class="fr-item ${x.info ? "info" : ""}">${x.info ? "ⓘ" : `<input type="checkbox" data-fr="${esc(x.key)}" checked>`}
+      <span><strong>${esc(x.kind)}</strong> · ${esc(x.label)}</span></label>`).join("") || "<p>Nothing differs.</p>"}</div>
+    <div class="m-row"><span class="grow"></span><button class="btn-navy" id="fr-apply">Bring in the ticked changes</button></div>`);
+  $("m-close").addEventListener("click", closeModal);
+  $("fr-apply").addEventListener("click", () => {
+    const keys = [...document.querySelectorAll("[data-fr]")].filter(c => c.checked).map(c => c.dataset.fr);
+    applyFrameChanges(state, home, keys);
+    ensureRefs(state);
+    state.changeLog.push({ at: nowIso(), cluster: "Frame", lens: "—", from: 0, to: 0, rationale: "Brought in " + keys.length + " frame change(s) from " + (home.country || home.workspaceName), by: state.actor || "You" });
+    closeModal(); renderAll(); toast(keys.length + " frame change(s) brought in. Scores untouched.");
+  });
+}
+
+/* Say "station" (or asset, business unit) instead of "country" in the
+   app's own headings and labels. User text is never rewritten. */
+function applyUnitWords(root) {
+  if (!root || !state || unitWordOf(state) === "Country") return;
+  const W = unitWords(state);
+  const sw = t => t.replace(/\b(countries|Countries|country|Country)\b/g, m => ({ countries: W.many, Countries: W.Many, country: W.one, Country: W.One })[m]);
+  root.querySelectorAll(".cs-tab, h1, h2, h3, th, label, summary, .sig-meta, .lede, .view-note, .ch-note, .cs-start p, .cs-start li, .cs-warn li, .ro-head p, .ro-title p, .ho-note, .cs-key, .ro-foot, .ro-empty, .mini-btn, .btn-navy").forEach(el => {
+    el.childNodes.forEach(n => { if (n.nodeType === 3 && /countr/i.test(n.nodeValue)) n.nodeValue = sw(n.nodeValue); });
+  });
+}
+
 function switchWorkspace(id) {
   if (!state || id === state.workspaceId) return;
   try {
@@ -65,6 +112,7 @@ function switchWorkspace(id) {
     const next = wsTakeParked(id);
     if (!next) { wsTakeParked(state.workspaceId); toast("That workspace could not be found."); renderAll(); return; }
     state = adoptSharedComparison(migrateState(next));
+    setTimeout(noteAutoScored, 2800);
     closeDrawer(); activeView = "journey"; renderAll();
     toast("Switched to “" + state.workspaceName + "”.");
   } catch (e) { toast(e.message); }
@@ -88,7 +136,7 @@ function openWorkspaceManager() {
     <h2>This workspace</h2>
     <p class="m-sub">A workspace is one complete diagnostic. Keep one for the group and one per segment or client; they never mix. ${others.length ? "You also have: " + others.map(w => esc(w.name)).join(", ") + "." : "This is your only workspace."}</p>
     <div class="m-field"><label>Workspace name</label><input type="text" id="wsm-name" value="${esc(state.workspaceName)}"></div>
-    <div class="m-field"><label>Country this workspace covers <span class="m-opt">— leave blank for a group-wide diagnostic</span></label>
+    <div class="m-field"><label>${esc(unitWords(state).One)} this workspace covers <span class="m-opt">— leave blank for a group-wide diagnostic</span></label>
       <input type="text" id="wsm-country" value="${esc(state.country || "")}" placeholder="For example: Singapore"></div>
     <div class="m-row">
       <button class="btn-plain danger" id="wsm-delete">Delete this workspace</button>
@@ -151,9 +199,31 @@ function adoptSharedComparison(s) {
   return s;
 }
 
+/* Cells that clearly carry a score (a level above 1, a rationale or
+   evidence) but still say "Not yet assessed" were scored before the app
+   marked scoring explicitly. They are marked scored, so nothing that was
+   counted before silently disappears. */
+let lastAutoScored = 0;
+const LEVEL_WORDS = ["", "Absent", "Early", "Emerging", "Established"];
+function autoScoreCells(clusters) {
+  let n = 0;
+  (clusters || []).forEach(cl => Object.values(cl.cells || {}).forEach(c => {
+    if (c && c.status === "Not yet assessed" && (c.level > 1 || (c.rationale || "").trim() || (c.evidence || []).length)) {
+      c.status = LEVEL_WORDS[c.level] || "Assessed"; n++;
+    }
+  }));
+  return n;
+}
+function noteAutoScored() {
+  if (lastAutoScored) toast(lastAutoScored + " cell(s) that already carried a level, rationale or evidence are now marked scored.");
+  lastAutoScored = 0;
+}
+
 /* Backfill fields added after a state was first saved. */
 function migrateState(s) {
   if (!s) return s;
+  lastAutoScored = autoScoreCells(s.clusters);
+  (s.versions || []).forEach(v => { if (v && v.snapshot) autoScoreCells(v.snapshot.clusters); });
   if (!Array.isArray(s.briefings)) s.briefings = [];
   if (!Array.isArray(s.signal_keywords)) {
     const preset = PRESETS.find(p => p.industry_id === s.industry_id);
@@ -247,7 +317,9 @@ function stateFromPreset(preset, orgName, streams) {
         last_updated: nowIso(), updated_by: "—"
       };
     });
-    return { id: c.id, no: c.no, name: c.name, desc: c.desc, priority_move: c.priority_move, cells, roles: [] };
+    /* The preset's move is a suggested SOLUTION; a current-state analysis
+       starts from a question. It is offered as a greyed example instead. */
+    return { id: c.id, no: c.no, name: c.name, desc: c.desc, priority_move: "", cells, roles: [] };
   });
   return {
     schema: 1,
@@ -327,8 +399,8 @@ function renderKpis() {
   const evidenceGap = k.unknownPct > 25;
   $("kpis").innerHTML = `
     <div class="kpi"><div class="k-label">Average maturity</div>
-      <div class="k-value">${fmt1(k.avg)}<span style="font-size:13px;color:var(--muted)"> / 4</span></div>
-      <div class="k-note">${k.cells} cells across ${state.clusters.length} clusters</div></div>
+      <div class="k-value">${k.scored ? fmt1(k.avg) : "—"}<span style="font-size:13px;color:var(--muted)"> / 4</span></div>
+      <div class="k-note">${k.scored} of ${k.total} cells scored${k.unscored ? " · the rest are not counted" : ""}</div></div>
     <div class="kpi ${k.weak ? "flag" : ""}"><div class="k-label">Cells needing action</div>
       <div class="k-value">${k.weak}</div><div class="k-note">rated Level 1–2 (amber flagged)</div></div>
     <div class="kpi ${evidenceGap ? "flag" : ""}"><div class="k-label">Capability velocity</div>
@@ -360,6 +432,7 @@ function renderView() {
   else if (activeView === "current") el.innerHTML = viewCurrent();
   else if (activeView === "delta") el.innerHTML = viewDelta();
   else el.innerHTML = viewJourney();
+  applyUnitWords(el);
   bindViewEvents();
 }
 
@@ -367,6 +440,14 @@ function renderView() {
 function cellHtml(cluster, lens) {
   const cell = cluster.cells[lens.key];
   if (!cell) return "<div></div>";
+  /* Not scored is not Level 1: no level, no Action pill, no colour. */
+  if (!cellAssessed(cell)) {
+    const ctx = !inScope(cluster);
+    return `<button class="cell unscored" data-cluster="${esc(cluster.id)}" data-lens="${esc(lens.key)}"
+      aria-label="${esc(cluster.name)} — ${esc(lens.name)}: ${ctx ? "context only, not scored this cycle" : "not scored yet"}">
+      <span class="status">${ctx ? "Context only" : "Not scored"}</span>
+      <span class="meta">${ctx ? "Out of scope this cycle" : "Open to score from evidence"}</span></button>`;
+  }
   const t = cellTrajectory(state, cluster, lens.key);
   const ml = trajectoryLabel(t);
   const conf = cellConfidence(cell);
@@ -409,6 +490,9 @@ function viewMatrix() {
         ? `<span class="mat-chip" title="${esc(mat.levers.map(l => l.name).join('; '))}">◧ ${mat.weight}% of P&L weight${(() => { const m = clusterMoney(state, cl); return m.hasValue ? " · ≈ " + fmtMoney(state, m.atRisk) + " at risk" + (m.validated ? "" : " (est.)") : " · " + mat.share + "% of the mapped money"; })()}</span>`
         : `<span class="mat-chip none" title="No P&L lever maps to this cluster">◧ no economic weight mapped</span>`)
       : "";
+    const scope = clusterScope(cl);
+    const scopeChip = scope === "context" ? `<span class="mat-chip ctx" title="${esc(cl.scope_reason || "")}">◌ Context only · not scored this cycle</span>`
+      : scope === "enabler" ? `<span class="mat-chip enab" title="Scored, carries no money weight by design">◇ Enabler · scored, no money weight</span>` : "";
     return `
     <div class="matrix-row">
       <div class="cluster-head">
@@ -416,8 +500,8 @@ function viewMatrix() {
         <span class="c-no" title="Stable ID — quote it in the other apps">${esc(cl.ref || ("CLUSTER " + cl.no))}</span>
         <span class="c-name">${esc(cl.name)}</span>
         <span class="c-desc">${esc(cl.desc)}</span>
-        ${matChip}
-        <span class="pm-chip"><span class="arrow">➜</span><span>${esc(cl.priority_move)}</span></span>
+        ${scope === "scored" ? matChip : scopeChip}
+        ${cl.priority_move ? `<span class="pm-chip"><span class="arrow">➜</span><span>${esc(cl.priority_move)}</span></span>` : ""}
       </div>
       ${state.lenses.map(l => cellHtml(cl, l)).join("")}
     </div>`;
@@ -459,6 +543,8 @@ function viewBoard() {
     const chips = state.lenses.map(l => {
       const cell = cl.cells[l.key];
       if (!cell) return "";
+      if (!cellAssessed(cell)) return `<button class="lens-chip unscored" data-cluster="${esc(cl.id)}" data-lens="${esc(l.key)}">
+        <span class="lc-top"><span>${esc(l.name)}</span></span><span class="lc-status">Not scored</span></button>`;
       return `<button class="lens-chip lv${cell.level}" data-cluster="${esc(cl.id)}" data-lens="${esc(l.key)}">
         <span class="lc-top"><span>${esc(l.name)} · L${cell.level}</span>${cell.level <= 2 ? '<span class="flag">ACTION</span>' : ""}</span>
         <span class="lc-status">${esc(cell.status)}</span></button>`;
@@ -467,14 +553,15 @@ function viewBoard() {
       <div class="bcard-top"><span class="rank">${i + 1}</span>
         <div><h3>${esc(cl.name)}</h3><p class="b-desc">${esc(cl.desc)}</p></div></div>
       <div class="b-stats">
-        <span class="b-avg">Avg ${fmt1(avg)} / 4</span>
+        <span class="b-avg">${avg === null ? "Not scored yet" : "Avg " + fmt1(avg) + " / 4"}</span>
+        ${avg !== null && clusterScoredCount(cl, state.lenses) < state.lenses.length ? `<span class="b-velocity">${clusterScoredCount(cl, state.lenses)} of ${state.lenses.length} lenses scored</span>` : ""}
         ${weak ? `<span class="b-flagpill">⚑ ${weak} ${weak > 1 ? "lenses need" : "lens needs"} action</span>` : ""}
         <span class="b-velocity">${ct.known ? `${ml.sym} ${ml.word} (${fmtSigned(ct.m)})` : "? direction unknown"}</span>
         ${exp.weight ? `<span class="b-exposure" title="Economic weight ${exp.weight}% × capability gap">◧ Exposure ${Math.round(exp.exposure)}</span>` : ""}
         ${(() => { const m = clusterMoney(state, cl); return m.hasValue ? `<span class="b-money" title="Amount at stake ${fmtMoney(state, m.stake)} × capability gap. ${m.validated ? "Validated by finance." : "An estimate until finance validates it."}">≈ ${fmtMoney(state, m.atRisk)} at risk${m.validated ? "" : " (est.)"}</span>` : ""; })()}
         ${cov.gaps.length ? `<span class="b-flagpill" title="${esc(cov.gaps.map(r => r.title).join('; '))}">⚑ ${cov.gaps.length} anchor seat${cov.gaps.length > 1 ? "s" : ""} ${cov.gaps.every(r => r.status === "absent") ? "absent" : "at risk"}</span>` : ""}
       </div>
-      <div class="pm-banner"><span class="arrow">➜</span><span>${esc(cl.priority_move)}</span></div>
+      ${cl.priority_move ? `<div class="pm-banner"><span class="arrow">➜</span><span>${esc(cl.priority_move)}</span></div>` : ""}
       ${bind ? `<div class="b-binding" title="The lowest-level cell that is not already improving — where intervention bites first">Binding constraint: <button class="b-bind-link" data-cluster="${esc(cl.id)}" data-lens="${esc(bind.lensKey)}">${esc(bind.lensName)} · L${bind.cell.level} ${bindLabel.sym} ${bindLabel.word}</button></div>` : ""}
       <div class="lens-chips">${chips}</div>
     </div>`;
@@ -528,6 +615,7 @@ function viewTrajectory() {
   const pos = v => (((v - 1) / 3) * 92 + 4) + "%";
   const rows = orderClustersForBoard(state, state.boardSort || "auto").clusters.map(cl => {
     const cur = clusterAvg(cl, state.lenses);
+    if (cur === null) return `<div class="traj-row"><div class="traj-name">${esc(cl.name)}<span class="t-sub">${inScope(cl) ? "Not scored yet: no level and no direction to show" : "Context only: not scored this cycle"}</span></div><div class="scale"></div><div class="traj-lenses"></div></div>`;
     const proj = clusterProjectedAvg(state, cl, state.lenses);
     const ct = clusterTrajectory(state, cl, state.lenses);
     const ml = trajectoryLabel(ct);
@@ -538,6 +626,7 @@ function viewTrajectory() {
       if (!cell) return "";
       const t = cellTrajectory(state, cl, l.key);
       const mm = trajectoryLabel(t);
+      if (!cellAssessed(cell)) return `<button class="tl-chip unscored" data-cluster="${esc(cl.id)}" data-lens="${esc(l.key)}" title="${esc(l.name)}: not scored">${esc(l.name)} · —</button>`;
       return `<button class="tl-chip lv${cell.level}" data-cluster="${esc(cl.id)}" data-lens="${esc(l.key)}" title="${esc(l.name)}: ${mm.word}${t.known ? " · " + t.confidence + " confidence" : ""}">${esc(l.name)} L${cell.level} ${mm.sym}</button>`;
     }).join("");
     return `<div class="traj-row">
@@ -893,6 +982,50 @@ function blankCells() {
   return cells;
 }
 
+/* ---------- Cluster scope, renames and the preset's example text ---------- */
+function presetPm(cl) {
+  const p = PRESETS.find(x => x.industry_id === state.industry_id);
+  const c = p && p.clusters.find(x => x.id === cl.id);
+  return c ? c.priority_move : "";
+}
+function pmExample(cl) {
+  return presetPm(cl) ? "Example from the preset: " + presetPm(cl) : "e.g. Why does labour per tonne differ between hubs of similar scale?";
+}
+/* Context only is ONE entry: it also becomes the Hand-off decision
+   "Not this cycle" with the same reason, so nothing is asked twice. */
+function setClusterScope(cl, scope, reason) {
+  const was = clusterScope(cl);
+  if (scope === "scored") delete cl.scope; else cl.scope = scope;
+  if (scope === "context") {
+    cl.scope_reason = reason;
+    state.pilots[cl.id] = Object.assign({ name: "", kpi: "" }, state.pilots[cl.id] || {}, { decision: "out", reason: "Context only: " + reason, fromScope: true });
+  } else {
+    delete cl.scope_reason;
+    if (was === "context" && state.pilots[cl.id] && state.pilots[cl.id].fromScope) delete state.pilots[cl.id];
+  }
+  if (was !== clusterScope(cl)) state.changeLog.push({ at: nowIso(), cluster: cl.name, lens: "—", from: 0, to: 0, rationale: "Scope set to " + SCOPE_META[clusterScope(cl)].label + (reason && scope === "context" ? ": " + reason : ""), by: state.actor || "You" });
+}
+/* Has this cluster's ID been used anywhere it would be read later? */
+function idTravelled(cl) {
+  if (Object.values(cl.cells || {}).some(cellAssessed)) return true;
+  if ((state.versions || []).some(v => versionHasScores(v) && v.snapshot.clusters.some(c => c.id === cl.id))) return true;
+  if (state.handedOffAt) return true;
+  return !!state.frameId && wsReadIndex().list.some(w => w.frameId === state.frameId && w.id !== state.workspaceId);
+}
+/* "A different capability": new internal id and a new public ID; the old
+   ID is retired with its history, never reused. Levers and pilots follow. */
+function reidentifyCluster(cl) {
+  const oldId = cl.id, oldRef = cl.ref, oldName = cl.name;
+  const newId = "cl_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  (state.valueChain.levers || []).forEach(l => { if (l.cluster_id === oldId) l.cluster_id = newId; });
+  if (state.pilots[oldId]) { state.pilots[newId] = state.pilots[oldId]; delete state.pilots[oldId]; delete state.pilots[newId].ref; }
+  if (state.pilotRefs && state.pilotRefs[oldId]) delete state.pilotRefs[oldId];
+  cl.id = newId; delete cl.ref; cl.cells = blankCells();
+  state.retiredRefs = (state.retiredRefs || []).concat([{ ref: oldRef || "", name: oldName, at: nowIso() }]);
+  ensureRefs(state);
+  state.changeLog.push({ at: nowIso(), cluster: oldName, lens: "—", from: 0, to: 0, rationale: "Retired " + (oldRef || "the old ID") + " as a different capability; now " + cl.ref, by: state.actor || "You" });
+}
+
 function renumberClusters() { state.clusters.forEach((c, i) => { c.no = i + 1; }); }
 
 function addCluster(name, desc, priorityMove, leverIds) {
@@ -901,7 +1034,7 @@ function addCluster(name, desc, priorityMove, leverIds) {
     id, no: state.clusters.length + 1,
     name: (name || "New capability cluster").slice(0, 60),
     desc: desc || "",
-    priority_move: priorityMove || "Score this cluster from evidence, then name the one move that matters.",
+    priority_move: priorityMove || "",
     cells: blankCells(), roles: []
   });
   (leverIds || []).forEach(lid => {
@@ -1584,6 +1717,10 @@ function viewDelta() {
     <div class="sig-brief-head" style="margin:18px 22px 6px 22px"><h2>What changed, and why</h2><span class="sig-meta">declines first, each with its logged rationale</span></div>
     <div class="delta-controls"><label class="head" style="font-weight:800;font-size:12px">Compare current state against:</label>
       <select id="delta-base">${opts}</select></div>
+    <details class="ho-preview ver-list" style="margin:0 22px 10px 22px"><summary>Saved versions (${state.versions.length}) — delete one that should not count</summary>
+      <table class="delta-table"><tbody>${state.versions.map((v, i) => `<tr><td><strong>${esc(v.version)}</strong> · ${esc(v.label)}</td>
+        <td>${new Date(v.savedAt).toLocaleDateString()}</td><td>${versionHasScores(v) ? "Holds scores" : "Empty: ignored by the trend"}</td>
+        <td><button class="mini-btn danger" data-ver-del="${i}">Delete</button></td></tr>`).join("")}</tbody></table></details>
     <section class="print-section"><table class="delta-table">
       <thead><tr><th style="width:200px">Cluster · Lens</th><th style="width:220px">Movement</th><th style="width:200px">Status now</th><th>Rationale</th></tr></thead>
       <tbody>${body}</tbody></table></section>`;
@@ -1599,6 +1736,20 @@ function bindViewEvents() {
   });
   const db = $("delta-base");
   if (db) db.addEventListener("change", renderView);
+  /* Manual override: delete a version. An empty one goes on a confirm;
+     one that holds scores needs a reason, which is logged. */
+  document.querySelectorAll("[data-ver-del]").forEach(b => b.addEventListener("click", () => {
+    const i = parseInt(b.dataset.verDel, 10), v = state.versions[i];
+    if (!v) return;
+    let reason = "Empty version";
+    if (versionHasScores(v)) {
+      reason = (prompt("Version " + v.version + " holds scores. Deleting it changes the trend and the scoreboard.\n\nWhy delete it? (required)") || "").trim();
+      if (!reason) { toast("Not deleted: a reason is required for a version that holds scores."); return; }
+    } else if (!confirm("Delete the empty version " + v.version + "?")) return;
+    state.versions.splice(i, 1);
+    state.changeLog.push({ at: nowIso(), cluster: "Versions", lens: "—", from: 0, to: 0, rationale: "Deleted version " + v.version + ": " + reason, by: state.actor || "You" });
+    renderAll(); toast("Version " + v.version + " deleted.");
+  }));
   const bs = $("board-sort");
   if (bs) bs.addEventListener("change", () => { state.boardSort = bs.value; renderAll(); });
   document.querySelectorAll("[data-goto]").forEach(el => el.addEventListener("click", () => {
@@ -1839,7 +1990,8 @@ function renderDrawer() {
       <div class="d-section">
         <h4>Maturity level</h4>
         <div class="level-picker" id="lvl-picker">
-          ${[1, 2, 3, 4].map(i => `<button class="lv${i} ${i === drawerCtx.pendingLevel ? "sel" : ""}" data-lvl="${i}">L${i} ${["", "Absent", "Early", "Emerging", "Established"][i]}</button>`).join("")}
+          ${!cellAssessed(cell) && !drawerCtx.levelPicked ? '<p class="d-unscored">Not scored yet. Choosing a level scores this cell; until then it counts nowhere.</p>' : ""}
+          ${[1, 2, 3, 4].map(i => `<button class="lv${i} ${(cellAssessed(cell) || drawerCtx.levelPicked) && i === drawerCtx.pendingLevel ? "sel" : ""}" data-lvl="${i}">L${i} ${["", "Absent", "Early", "Emerging", "Established"][i]}</button>`).join("")}
         </div>
         <p style="font-size:11.5px;color:var(--muted);margin:6px 0 0 0"><strong>Rubric — ${esc(lens.name)} L${drawerCtx.pendingLevel}:</strong> ${esc(rubricText)}</p>
         <p style="font-size:11px;color:var(--amber-deep);margin:5px 0 0 0"><strong>Scoring discipline:</strong> between two levels, take the lower. Announcements and approvals justify an improving trajectory — not a higher level. Levels score what is operating today.</p>
@@ -1851,7 +2003,11 @@ function renderDrawer() {
       <div class="d-field"><label>Intervention — imperative verb phrase</label>
         <input type="text" id="d-intervention" value="${esc(cell.intervention)}"></div>
       ${cell.intervention ? `<div class="d-callout amber">➜ ${esc(cell.intervention)}</div>` : ""}
-      <div class="d-callout navy">Cluster priority move: ${esc(cluster.priority_move)}</div>
+      <div class="d-field d-quick"><label><input type="checkbox" id="d-quick" ${cell.quick && cell.quick.on ? "checked" : ""}> Quick-win candidate — actionable now, without waiting for the redesign</label>
+        <div id="d-quick-fields" style="display:${cell.quick && cell.quick.on ? "flex" : "none"}">
+          <input type="text" id="d-quick-action" value="${esc((cell.quick || {}).action || "")}" placeholder="The action, in one line">
+          <input type="text" id="d-quick-owner" value="${esc((cell.quick || {}).owner || "")}" placeholder="Owner (a role, not a name)"></div></div>
+      ${cluster.priority_move ? `<div class="d-callout navy">Diagnostic question → priority move: ${esc(cluster.priority_move)}</div>` : ""}
       <div class="d-section">
         <h4>Leading indicators (drive the trajectory forecast)</h4>
         <div id="li-list">${liRows || '<p style="font-size:12px;color:var(--muted);margin:0">None yet. Add 1–3 forward-looking signals (e.g. hiring funnel, adoption rate, pulse trend).</p>'}</div>
@@ -1883,12 +2039,13 @@ function renderDrawer() {
         <div class="d-field"><textarea id="d-items" placeholder="One item per line">${esc((cell.items || []).join("\n"))}</textarea></div>
       </div>
       ${hist ? `<div class="d-section"><h4>Change history</h4><div class="d-history">${hist}</div></div>` : ""}
-      <div class="d-field" id="d-rationale-req" style="display:${drawerCtx.pendingLevel !== cell.level ? "block" : "none"}">
+      <div class="d-field" id="d-rationale-req" style="display:${cellAssessed(cell) && drawerCtx.pendingLevel !== cell.level ? "block" : "none"}">
         <label>Change rationale (required for a level change)</label>
         <input type="text" id="d-change-rationale" placeholder="Why did the level change? Cite the evidence.">
       </div>
       <div class="d-save-row">
-        <button class="btn-save" id="d-save">Save changes</button>
+        <button class="btn-save" id="d-save">${cellAssessed(cell) || drawerCtx.levelPicked ? "Save changes" : "Save notes (not scored)"}</button>
+        ${cellAssessed(cell) ? '<button class="btn-plain" id="d-clear" title="Back to Not scored">Clear score</button>' : ""}
         <span class="d-save-note">Saved locally · logged with timestamp and rationale · updated ${new Date(cell.last_updated).toLocaleDateString()} by ${esc(cell.updated_by)}</span>
       </div>
     </div>`;
@@ -1897,6 +2054,7 @@ function renderDrawer() {
   document.querySelectorAll("#lvl-picker button").forEach(b => {
     b.addEventListener("click", () => {
       drawerCtx.pendingLevel = parseInt(b.dataset.lvl, 10);
+      drawerCtx.levelPicked = true;
       persistDrawerFields(cluster, cell, false);
       renderDrawer();
     });
@@ -1932,6 +2090,8 @@ function renderDrawer() {
     cell.evidence.splice(parseInt(b.dataset.evDel, 10), 1); renderDrawer();
   }));
   $("d-save").addEventListener("click", () => saveDrawer(cluster, lens, cell));
+  if ($("d-clear")) $("d-clear").addEventListener("click", () => clearScore(cluster, lens, cell));
+  if ($("d-quick")) $("d-quick").addEventListener("change", () => { $("d-quick-fields").style.display = $("d-quick").checked ? "flex" : "none"; });
 }
 
 function persistDrawerFields(cluster, cell, includeLevel) {
@@ -1948,6 +2108,10 @@ function persistDrawerFields(cluster, cell, includeLevel) {
     if (v) cell.evidence[parseInt(inp.dataset.evRef, 10)].ref = v; else delete cell.evidence[parseInt(inp.dataset.evRef, 10)].ref;
   });
   if ($("d-grade")) cell.grade = $("d-grade").value;
+  if ($("d-quick")) {
+    if ($("d-quick").checked) cell.quick = { on: true, action: $("d-quick-action").value.trim(), owner: $("d-quick-owner").value.trim() };
+    else delete cell.quick;
+  }
   cell.watch = cell.watch || [];
   document.querySelectorAll("[data-w]").forEach(inp => { cell.watch[parseInt(inp.dataset.w, 10)] = inp.value.trim(); });
   cell.evidence = cell.evidence.filter(e => e.label || e.note);
@@ -1957,7 +2121,11 @@ function persistDrawerFields(cluster, cell, includeLevel) {
 }
 
 function saveDrawer(cluster, lens, cell) {
-  const levelChanged = drawerCtx.pendingLevel !== cell.level;
+  const wasScored = cellAssessed(cell);
+  /* Picking a level is the act of scoring. The first score is not a
+     "change", so it needs no change rationale. */
+  const firstScore = !wasScored && drawerCtx.levelPicked;
+  const levelChanged = wasScored && drawerCtx.pendingLevel !== cell.level;
   let rationale = "";
   if (levelChanged) {
     rationale = $("d-change-rationale").value.trim();
@@ -1969,8 +2137,14 @@ function saveDrawer(cluster, lens, cell) {
   }
   const from = cell.level;
   persistDrawerFields(cluster, cell, true);
+  if (firstScore && cell.status === "Not yet assessed") cell.status = ["", "Absent", "Early", "Emerging", "Established"][cell.level];
   cell.last_updated = nowIso();
   cell.updated_by = state.actor || "You";
+  if (firstScore && cellAssessed(cell)) {
+    cell.history = cell.history || [];
+    cell.history.push({ at: cell.last_updated, from: 0, to: cell.level, rationale: "First score", by: cell.updated_by });
+    state.changeLog.push({ at: cell.last_updated, cluster: cluster.name, lens: lens.name, from: 0, to: cell.level, rationale: "First score", by: cell.updated_by });
+  }
   if (levelChanged) {
     cell.history = cell.history || [];
     cell.history.push({ at: cell.last_updated, from, to: cell.level, rationale, by: cell.updated_by });
@@ -1978,7 +2152,19 @@ function saveDrawer(cluster, lens, cell) {
   }
   closeDrawer();
   renderAll();
-  toast("Cell saved" + (levelChanged ? " — level change logged." : "."));
+  toast(firstScore ? "Scored — it now counts in every total." : "Cell saved" + (levelChanged ? " — level change logged." : "."));
+}
+
+/* Manual override: return a cell to "not scored" (logged). */
+function clearScore(cluster, lens, cell) {
+  if (!confirm("Clear the score on " + cluster.name + " · " + lens.name + "?\n\nThe cell goes back to “Not scored” and stops counting in every total. Its notes and evidence stay.")) return;
+  const from = cell.level;
+  cell.status = "Not yet assessed"; cell.level = 1; cell.grade = "";
+  cell.last_updated = nowIso(); cell.updated_by = state.actor || "You";
+  cell.history = cell.history || [];
+  cell.history.push({ at: cell.last_updated, from, to: 0, rationale: "Score cleared", by: cell.updated_by });
+  state.changeLog.push({ at: cell.last_updated, cluster: cluster.name, lens: lens.name, from, to: 0, rationale: "Score cleared", by: cell.updated_by });
+  closeDrawer(); renderAll(); toast("Score cleared. The cell is “Not scored” again.");
 }
 
 /* ============================================================
@@ -2066,8 +2252,12 @@ function openClusterModal(clusterId) {
     <h2>Edit cluster</h2><p class="m-sub">Changes apply immediately across all views.</p>
     <div class="m-field"><label>Name</label><input type="text" id="cm-name" value="${esc(cl.name)}"></div>
     <div class="m-field"><label>One-line description</label><input type="text" id="cm-desc" value="${esc(cl.desc)}"></div>
-    <div class="m-field"><label>Priority move — the one sentence of what must be done next</label>
-      <textarea id="cm-pm">${esc(cl.priority_move)}</textarea></div>
+    <div class="m-field"><label>Diagnostic question → priority move <span class="m-opt">— before design, the question this cluster must answer; after design, the one move that matters</span></label>
+      <textarea id="cm-pm" placeholder="${esc(pmExample(cl))}">${esc(cl.priority_move)}</textarea>
+      ${presetPm(cl) && cl.priority_move === presetPm(cl) ? `<p class="cm-flag">⚑ This is the industry preset's suggested move, not yours. In a current-state analysis, replace it with the question this cluster must answer.</p>` : ""}</div>
+    <div class="m-field"><label>Scope this cycle</label>
+      <select id="cm-scope">${Object.keys(SCOPE_META).map(k => `<option value="${k}" ${clusterScope(cl) === k ? "selected" : ""}>${SCOPE_META[k].label} — ${esc(SCOPE_META[k].hint)}</option>`).join("")}</select>
+      <textarea id="cm-scope-reason" placeholder="Why it is context only this cycle (required), e.g. JV operations are context only in Phase 1" style="display:${clusterScope(cl) === "context" ? "block" : "none"};margin-top:6px">${esc(cl.scope_reason || "")}</textarea></div>
     <div class="cm-materiality">
       <strong>Economic weight: ${mat.weight}%${mat.mapped && mat.weight ? ` · ${mat.share}% of the mapped money · rank ${mat.rank} of ${mat.of}` : ""}</strong>
       <p>${mat.levers.length
@@ -2082,11 +2272,34 @@ function openClusterModal(clusterId) {
       <span class="grow"></span><button class="btn-navy" id="cm-save">Save cluster</button>
     </div>`);
   $("m-close").addEventListener("click", closeModal);
+  $("cm-scope").addEventListener("change", () => { $("cm-scope-reason").style.display = $("cm-scope").value === "context" ? "block" : "none"; });
   $("cm-save").addEventListener("click", () => {
-    cl.name = $("cm-name").value.trim() || cl.name;
-    cl.desc = $("cm-desc").value.trim();
-    cl.priority_move = $("cm-pm").value.trim();
-    closeModal(); renderAll(); toast("Cluster updated.");
+    const scope = $("cm-scope").value, reason = $("cm-scope-reason").value.trim();
+    if (scope === "context" && !reason) { toast("Say why this cluster is context only this cycle."); $("cm-scope-reason").focus(); return; }
+    const newName = $("cm-name").value.trim() || cl.name;
+    /* Read every field now: the rename question replaces this dialog. */
+    const newDesc = $("cm-desc").value.trim(), newPm = $("cm-pm").value.trim();
+    const apply = asNew => {
+      if (asNew) reidentifyCluster(cl);
+      cl.name = newName;
+      cl.desc = newDesc;
+      cl.priority_move = newPm;
+      setClusterScope(cl, scope, reason);
+      closeModal(); renderAll();
+      toast(asNew ? "Saved as a different capability with a new ID; " + (cl.ref || "") + " starts unscored." : "Cluster updated.");
+    };
+    const renamed = newName.toLowerCase().replace(/\s+/g, " ") !== cl.name.toLowerCase().replace(/\s+/g, " ");
+    if (!renamed || !idTravelled(cl)) { apply(false); return; }
+    /* The ID has travelled (scored, in a version, handed off or copied to
+       other units): ask whether this is the same capability. */
+    openModal(`<h2>Same capability, or a different one?</h2>
+      <p class="m-sub"><strong>${esc(cl.ref || "")}</strong> has already been used: it is scored, saved in a version, handed off, or copied to other units. Renaming “${esc(cl.name)}” to “${esc(newName)}”…</p>
+      <div class="m-row" style="flex-direction:column;align-items:stretch">
+        <button class="btn-navy" id="rn-same">Same capability, clearer name — keep ${esc(cl.ref || "the ID")} and its history</button>
+        <button class="btn-plain" id="rn-new">A different capability — give it a new ID and start it unscored (${esc(cl.ref || "the old ID")} is retired, never reused)</button>
+      </div>`);
+    $("rn-same").addEventListener("click", () => apply(false));
+    $("rn-new").addEventListener("click", () => apply(true));
   });
   const mergeBtn = $("cm-merge");
   if (mergeBtn) mergeBtn.addEventListener("click", () => {
@@ -2181,6 +2394,13 @@ function openSettings() {
 
 function openSaveVersion() {
   const next = "v" + (state.versions.length + 1) + ".0";
+  /* A version is a baseline only if it holds scores. Saving anyway is
+     allowed; the trend and the scoreboard then simply ignore it. */
+  const k = enterpriseKpis(state);
+  const sig = cls => JSON.stringify((cls || []).map(c => [c.id, Object.keys(c.cells || {}).map(lk => [lk, c.cells[lk].level, cellAssessed(c.cells[lk])])]));
+  const last = state.versions[state.versions.length - 1];
+  const warn = !k.scored ? "Nothing is scored yet, so this version would record nothing. The trend and the scoreboard will ignore it. Save once at least some cells are scored."
+    : (last && sig(last.snapshot.clusters) === sig(state.clusters) ? "Nothing has changed since " + last.version + ". A second identical version adds nothing to the trend." : "");
   openModal(`
     <button class="m-close" id="m-close">✕</button>
     <h2>Save a version snapshot</h2>
@@ -2188,7 +2408,8 @@ function openSaveVersion() {
     <div class="m-field"><label>Version tag</label><input type="text" id="sv-tag" value="${esc(next)}"></div>
     <div class="m-field"><label>Label — what moment does this capture?</label>
       <input type="text" id="sv-label" placeholder="e.g. Q3 2026 refresh after strategy offsite"></div>
-    <div class="m-row"><span class="grow"></span><button class="btn-navy" id="sv-save">Save snapshot</button></div>`);
+    ${warn ? `<p class="sv-warn">⚑ ${esc(warn)}</p>` : `<p class="m-sub" style="margin:0">${k.scored} of ${k.total} cells are scored; unscored cells are recorded as not scored.</p>`}
+    <div class="m-row"><span class="grow"></span><button class="btn-navy" id="sv-save">${warn ? "Save anyway" : "Save snapshot"}</button></div>`);
   $("m-close").addEventListener("click", closeModal);
   $("sv-save").addEventListener("click", () => {
     state.versions.push({
@@ -2222,6 +2443,7 @@ function importJson(file) {
       /* An imported file arrives as its own workspace, so it can never
          overwrite the diagnostic that happens to be on screen. */
       adoptNewState(parsed, parsed.workspaceName || parsed.orgName);
+      setTimeout(noteAutoScored, 2800);
       activeView = "journey";
       renderAll();
       toast("Imported as a new workspace — the file passed contract validation.");
@@ -2253,6 +2475,6 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("keydown", e => { if (e.key === "Escape") { closeDrawer(); closeModal(); } });
 
   state = loadState();
-  if (state) renderAll();
+  if (state) { renderAll(); setTimeout(noteAutoScored, 600); }
   else openWizard(false);
 });

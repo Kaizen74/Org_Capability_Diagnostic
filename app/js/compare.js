@@ -103,6 +103,8 @@ function frameCopy(src, country, code) {
   /* frameId and comparison are kept on purpose: they are what tie the
      countries together. */
   s.country = String(country || "").trim();
+  s.frameHomeId = src.frameHomeId || src.workspaceId || "";
+  s.unitTier = "mapped";
   s.workspaceName = (src.orgName || "Workspace") + " — " + s.country;
   s.clusters.forEach(cl => {
     Object.keys(cl.cells).forEach(lk => {
@@ -305,6 +307,7 @@ function readoutModel(home, frames) {
     const k = enterpriseKpis(f.state);
     let cells = 0, assessed = 0, sum = 0, weak = 0, stake = 0, atRisk = 0, valued = false;
     f.state.clusters.forEach(cl => {
+      if (!inScope(cl)) return;   // context only: not part of this cycle's counts
       let clCells = 0, clDone = 0;
       f.state.lenses.forEach(l => {
         const c = cl.cells[l.key]; if (!c) return;
@@ -316,10 +319,12 @@ function readoutModel(home, frames) {
     });
     const vc = f.state.valueChain || {};
     return {
-      id: f.id, label: f.label, key: (f.state.charter || {}).engagementKey || "",
+      id: f.id, label: f.label, key: (f.state.charter || {}).engagementKey || "", tier: unitTier(f.state),
       cells, assessed, scoredPct: cells ? Math.round((assessed / cells) * 100) : 0,
       avg: assessed ? sum / assessed : null, weak: assessed ? weak : null, grounded: k.groundedPct,
       money: valued ? { atRisk, stake, text: fmtMoney(f.state, atRisk), unit: (vc.currency || "") + "|" + (vc.value_unit || "") } : null,
+      quickWins: f.state.clusters.reduce((a, cl) => a.concat(f.state.lenses.filter(l => (cl.cells[l.key] || {}).quick && cl.cells[l.key].quick.on)
+        .map(l => ({ ref: (cl.ref || "") + "." + l.key, cluster: cl.name, lens: l.name, action: cl.cells[l.key].quick.action || "", owner: cl.cells[l.key].quick.owner || "" }))), []),
       pilots: Object.keys(f.state.pilots || {}).filter(cid => f.state.pilots[cid].decision === "pilot")
         .map(cid => { const p = f.state.pilots[cid]; return { ref: p.ref || "", name: p.name || "", kpi: p.kpi || "" }; })
     };
@@ -337,4 +342,120 @@ function readoutModel(home, frames) {
     unscored: countries.filter(c => c.assessed === 0).map(c => c.label),
     partScored: countries.filter(c => c.assessed > 0 && c.assessed < c.cells).map(c => c.label + " (" + c.scoredPct + "% of cells)")
   };
+}
+
+/* ============================================================
+   Units to compare (owner review, 2026-11-21)
+
+   The unit can be a country, a station, an asset or a business unit.
+   The data field stays `country` (the other apps read it); only the
+   words on screen change. Each unit has a tier: scored and mapped, or
+   scored only (no process map by design).
+   ============================================================ */
+const UNIT_WORDS = {
+  Country: ["country", "countries"], Station: ["station", "stations"],
+  Asset: ["asset", "assets"], "Business unit": ["business unit", "business units"]
+};
+const UNIT_TIERS = {
+  mapped: { label: "Scored and mapped", hint: "Scored here, and its process is mapped in Process Map Studio" },
+  scored: { label: "Scored only", hint: "Scored here; no process map by design" }
+};
+function unitWordOf(state) {
+  const w = ((state && state.comparison) || {}).unitWord;
+  return UNIT_WORDS[w] ? w : "Country";
+}
+function unitWords(state) {
+  const w = UNIT_WORDS[unitWordOf(state)];
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  return { one: w[0], many: w[1], One: cap(w[0]), Many: cap(w[1]) };
+}
+function unitTier(state) { return state && UNIT_TIERS[state.unitTier] ? state.unitTier : "mapped"; }
+
+/* ---- Bringing frame changes into a unit ---------------------------
+   The frame is edited in the home unit only. A unit sees what differs
+   and chooses what to bring in. Only additions and renames are ever
+   applied: nothing is deleted, and scores, role statuses, weights and
+   amounts are never touched. */
+function charterCore(ch) {
+  ch = ch || {};
+  return JSON.stringify([ch.thesis, ch.principles, ch.refModel, ch.criteria, ch.gate, ch.rules, ch.amendments, ch.lockedAt]);
+}
+function frameDiff(home, unit) {
+  const items = [];
+  const uCl = {}; (unit.clusters || []).forEach(c => { uCl[c.id] = c; });
+  (home.clusters || []).forEach(hc => {
+    const uc = uCl[hc.id];
+    if (!uc) { items.push({ key: "cl+" + hc.id, kind: "Cluster added", label: (hc.ref ? hc.ref + " " : "") + hc.name }); return; }
+    if (uc.name !== hc.name || (uc.desc || "") !== (hc.desc || "") || clusterScope(uc) !== clusterScope(hc))
+      items.push({ key: "cl~" + hc.id, kind: "Cluster renamed or re-scoped", label: (uc.name !== hc.name ? uc.name + " → " : "") + hc.name + (clusterScope(uc) !== clusterScope(hc) ? " (" + SCOPE_META[clusterScope(hc)].label + ")" : "") });
+    const uRoles = {}; (uc.roles || []).forEach(r => { uRoles[r.ref || r.id] = r; });
+    (hc.roles || []).forEach(hr => {
+      const ur = uRoles[hr.ref || hr.id];
+      if (!ur) items.push({ key: "rl+" + hc.id + "|" + (hr.ref || hr.id), kind: "Role added", label: (hr.ref ? hr.ref + " " : "") + hr.title + " · " + hc.name });
+      else if (ur.title !== hr.title) items.push({ key: "rl~" + hc.id + "|" + (hr.ref || hr.id), kind: "Role renamed", label: ur.title + " → " + hr.title });
+    });
+  });
+  const hIds = {}; (home.clusters || []).forEach(c => { hIds[c.id] = true; });
+  (unit.clusters || []).forEach(uc => { if (!hIds[uc.id]) items.push({ key: "cl-" + uc.id, kind: "No longer in the frame", label: uc.name + " (kept here; remove it by hand if it should go)", info: true }); });
+  const uLv = {}; ((unit.valueChain || {}).levers || []).forEach(l => { uLv[l.id] = l; });
+  ((home.valueChain || {}).levers || []).forEach(hl => {
+    const ul = uLv[hl.id];
+    if (!ul) items.push({ key: "lv+" + hl.id, kind: "Lever added", label: (hl.ref ? hl.ref + " " : "") + hl.name + " (weight 0 until set here)" });
+    else if (ul.name !== hl.name || (ul.capability || "") !== (hl.capability || "") || ul.cluster_id !== hl.cluster_id)
+      items.push({ key: "lv~" + hl.id, kind: "Lever renamed or re-mapped", label: hl.name });
+  });
+  if (home.charter && unit.charter && charterCore(home.charter) !== charterCore(unit.charter))
+    items.push({ key: "charter", kind: "Charter amended", label: "Thesis, principles, criteria, gate or rules differ from the home unit" });
+  return items;
+}
+function blankCellLike() {
+  return { level: 1, status: "Not yet assessed", rationale: "", intervention: "", items: [], evidence: [], leading: [], watch: [], history: [], grade: "", last_updated: new Date().toISOString(), updated_by: "—" };
+}
+function applyFrameChanges(unit, home, keys) {
+  const want = {}; (keys || []).forEach(k => { want[k] = true; });
+  const copy = o => JSON.parse(JSON.stringify(o));
+  (home.clusters || []).forEach(hc => {
+    let uc = unit.clusters.find(c => c.id === hc.id);
+    if (!uc && want["cl+" + hc.id]) {
+      uc = copy(hc);
+      Object.keys(uc.cells).forEach(k => { uc.cells[k] = blankCellLike(); });
+      (uc.roles || []).forEach(r => { r.status = "exists"; r.unconfirmed = true; });
+      unit.clusters.push(uc);
+      return;
+    }
+    if (!uc) return;
+    if (want["cl~" + hc.id]) {
+      uc.name = hc.name; uc.desc = hc.desc || "";
+      if (hc.scope) uc.scope = hc.scope; else delete uc.scope;
+      if (hc.scope === "context") {
+        uc.scope_reason = hc.scope_reason;
+        unit.pilots = unit.pilots || {};
+        unit.pilots[uc.id] = { decision: "out", reason: "Context only: " + hc.scope_reason, name: "", kpi: "", fromScope: true };
+      } else {
+        delete uc.scope_reason;
+        if (unit.pilots && unit.pilots[uc.id] && unit.pilots[uc.id].fromScope) delete unit.pilots[uc.id];
+      }
+    }
+    (hc.roles || []).forEach(hr => {
+      const k = hc.id + "|" + (hr.ref || hr.id);
+      const ur = (uc.roles || []).find(r => (r.ref || r.id) === (hr.ref || hr.id));
+      if (!ur && want["rl+" + k]) { const nr = copy(hr); nr.status = "exists"; nr.unconfirmed = true; uc.roles = (uc.roles || []).concat([nr]); }
+      else if (ur && want["rl~" + k]) ur.title = hr.title;
+    });
+  });
+  unit.valueChain = unit.valueChain || { levers: [] };
+  ((home.valueChain || {}).levers || []).forEach(hl => {
+    const ul = unit.valueChain.levers.find(l => l.id === hl.id);
+    if (!ul && want["lv+" + hl.id]) {
+      const nl = copy(hl); nl.share_pct = 0; nl.figure = ""; delete nl.value_at_stake; nl.validated = false;
+      unit.valueChain.levers.push(nl);
+    } else if (ul && want["lv~" + hl.id]) { ul.name = hl.name; ul.capability = hl.capability || ""; ul.cluster_id = hl.cluster_id; }
+  });
+  if (want.charter && home.charter) {
+    ["thesis", "principles", "refModel", "criteria", "gate", "rules", "amendments", "lockedAt", "lockedBy"].forEach(k => { unit.charter[k] = copy(home.charter[k]); });
+  }
+  /* Keep the ID counters ahead of everything brought in. */
+  unit.idSeq = unit.idSeq || {};
+  Object.keys(home.idSeq || {}).forEach(p => { unit.idSeq[p] = Math.max(unit.idSeq[p] || 0, home.idSeq[p]); });
+  return unit;
 }

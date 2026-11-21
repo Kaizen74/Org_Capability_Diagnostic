@@ -1194,3 +1194,34 @@ select.to-confirm { border-color: var(--amber); background: var(--amber-bg); col
 .cs-why.why-inherited { background: var(--amber-bg); color: var(--amber-deep); border-color: var(--amber); }
 .cs-why.why-unknown { background: #fff; color: var(--muted); border-style: dashed; }
 .cs-vs { font-size: 11px; color: var(--muted); font-weight: 600; margin-right: 4px; }
+
+/* ---------- Not scored is not Level 1 ---------- */
+.cell.unscored, .lens-chip.unscored, .tl-chip.unscored {
+  background: repeating-linear-gradient(45deg, #FFFFFF, #FFFFFF 6px, #F1F3F8 6px, #F1F3F8 9px);
+  color: var(--muted); border: 1px dashed #B9C2D3; box-shadow: none;
+}
+.cell.unscored .status { color: var(--muted); }
+.d-unscored { font-size: 12px; color: var(--muted); background: #F3F5F9; border: 1px dashed #B9C2D3; border-radius: 8px; padding: 7px 10px; margin: 0 0 8px 0; }
+.sv-warn { background: var(--amber-bg); border: 1px solid #EED9B8; color: var(--amber-deep); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 12.5px; margin: 0; }
+
+/* ---------- Cluster scope and the diagnostic question ---------- */
+.mat-chip.ctx { background: #fff; color: var(--muted); border-style: dashed; }
+.mat-chip.enab { background: #fff; color: var(--navy); }
+.ctx-pill { display: inline-block; font-family: var(--head); font-weight: 800; font-size: 11px; color: var(--muted); border: 1px dashed var(--muted); border-radius: 999px; padding: 2px 9px; }
+.cm-flag { font-size: 12px; color: var(--amber-deep); background: var(--amber-bg); border: 1px solid #EED9B8; border-radius: 8px; padding: 6px 9px; margin: 6px 0 0 0; }
+
+/* ---------- Units to compare ---------- */
+.units-card .u-row, .units-card .u-add { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin: 6px 0 10px 0; }
+.units-card label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 800; font-family: var(--head); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.units-card input, .units-card select { border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; font-size: 13px; text-transform: none; letter-spacing: 0; font-weight: 400; font-family: var(--body); color: var(--ink); background: #FBFCFE; }
+.units-card #u-code { width: 70px; }
+.u-home { background: #EEF2F9; border-radius: 8px; padding: 9px 12px; font-size: 12.5px; margin-bottom: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.u-diff { color: var(--amber-deep); font-weight: 700; } .u-same { color: var(--navy); font-weight: 700; }
+.fr-list { display: grid; gap: 6px; max-height: 50vh; overflow-y: auto; }
+.fr-item { display: flex; gap: 9px; align-items: flex-start; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+.fr-item.info { background: #F3F5F9; color: var(--muted); }
+
+/* ---------- Quick-win candidates ---------- */
+.d-quick label { display: flex; gap: 8px; align-items: center; text-transform: none; letter-spacing: 0; font-size: 12.5px; font-weight: 700; color: var(--ink); }
+#d-quick-fields { gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+#d-quick-fields input { flex: 1 1 180px; border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; font-size: 13px; }

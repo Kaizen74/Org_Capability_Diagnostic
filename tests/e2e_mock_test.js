@@ -42,6 +42,7 @@ function makeTextPdf(lines) {
 }
 
 let failures = 0;
+function buildHandoffOk(p) { return !!p && p.format === "compass-handoff" && p.clusters.some(c => c.cells.some(x => x.quick_win)); }
 function check(name, cond) {
   console.log(`${cond ? "✓" : "✗"} ${name}`);
   if (!cond) failures++;
@@ -909,12 +910,42 @@ function check(name, cond) {
   await page.click('.tab[data-view="matrix"]');
   await page.waitForTimeout(300);
   check("fresh diagnostic renders 24 cells", await page.locator(".cell").count() === 24);
-  check("fresh cells show '? Unknown' trajectory — never a guessed arrow",
-    await page.locator(".momo-unknown").count() === 24);
+  check("fresh cells read 'Not scored' — never a guessed Level 1 or an Action pill",
+    await page.locator(".cell.unscored").count() === 24 && await page.locator(".cell .action-pill").count() === 0 && await page.locator(".momo").count() === 0);
   const velKpi = await page.locator(".kpi").nth(2).textContent();
   check("velocity KPI honestly reports no trajectory evidence", velKpi.includes("? n/a"));
+  check("the headline counts scored cells only: 0 of 24, nothing needing action",
+    (await page.locator(".kpi").nth(0).textContent()).includes("0 of 24 cells scored") && (await page.locator(".kpi").nth(1).textContent()).includes("0"));
+  await page.click("#btn-save-version");
+  await page.waitForTimeout(300);
+  check("saving a version with nothing scored warns, and still allows Save anyway",
+    (await page.locator(".sv-warn").textContent()).includes("Nothing is scored yet") && (await page.locator("#sv-save").textContent()) === "Save anyway");
+  await page.click("#sv-save");
+  await page.waitForTimeout(400);
+  await page.click('.tab[data-view="delta"]');
+  await page.waitForTimeout(300);
+  check("an empty version is listed as ignored by the trend", (await page.locator(".ver-list").textContent()).includes("Empty: ignored by the trend"));
+  page.once("dialog", d => d.accept());
+  await page.locator(".ver-list summary").click();
+  await page.locator("[data-ver-del]").first().click();
+  await page.waitForTimeout(400);
+  check("an empty version can be deleted in one confirm, and the deletion is logged",
+    await page.evaluate(() => state.versions.length === 0 && /Deleted version v1.0: Empty version/.test(state.changeLog.slice(-1)[0].rationale)));
+  await page.click('.tab[data-view="matrix"]');
+  await page.waitForTimeout(300);
+  // Scoring is the act of picking a level: no status edit, no change rationale needed the first time
+  await page.locator(".cell").first().click();
+  await page.waitForTimeout(300);
+  check("an unscored cell's panel says it counts nowhere until a level is chosen", await page.locator(".d-unscored").count() === 1);
+  await page.click('#lvl-picker [data-lvl="2"]');
+  await page.waitForTimeout(200);
+  await page.click("#d-save");
+  await page.waitForTimeout(400);
+  check("picking a level scores the cell and labels it, with the first score logged",
+    await page.evaluate(() => { const c = state.clusters[0].cells[state.lenses[0].key]; return c.status === "Early" && c.level === 2 && c.history.slice(-1)[0].rationale === "First score"; }) &&
+    (await page.locator(".kpi").nth(0).textContent()).includes("1 of 24 cells scored") && await page.locator(".cell .action-pill").count() === 1);
   const evKpi = await page.locator(".kpi").nth(4).textContent();
-  check("evidence-gap finding surfaces when unknown > 25%", evKpi.includes("evidence gap"));
+  check("evidence-gap finding surfaces when unknown > 25% of scored cells", evKpi.includes("evidence gap"));
 
   // A fresh diagnostic ships the industry's money map STRUCTURE, no numbers.
   await page.click('.tab[data-view="valuechain"]');
@@ -1353,6 +1384,104 @@ function check(name, cond) {
       .every(k => !/apiKey|sk-ant/.test(localStorage.getItem(k)))));
   check("the hand-off packet from a country workspace still passes its contract",
     await page.evaluate(() => validateHandoffPacket(buildHandoffPacket(state)).length === 0 && buildHandoffPacket(state).engagement.country === "Belmar"));
+
+  // ---------- Owner review 2026-11-21: scope, rename, units, frame changes, quick wins, clear score ----------
+  const ardenId = await page.evaluate(() => wsReadIndex().list.find(w => w.country === "Arden").id);
+  await page.selectOption("#ws-switch", ardenId);
+  await page.waitForTimeout(600);
+  await page.click('.tab[data-view="matrix"]');
+  await page.waitForTimeout(300);
+  // Rename a cluster whose ID has travelled: asked, and "same capability" keeps the ID
+  const enRef = await page.evaluate(() => state.clusters.find(c => c.id === "enabling").ref);
+  await page.click('[data-editcluster="enabling"]');
+  await page.waitForTimeout(300);
+  await page.fill("#cm-name", "People & enabling functions");
+  await page.click("#cm-save");
+  await page.waitForTimeout(300);
+  check("renaming a cluster whose ID has travelled asks: same capability or a different one", await page.locator("#rn-same").count() === 1 && await page.locator("#rn-new").count() === 1);
+  await page.click("#rn-same");
+  await page.waitForTimeout(400);
+  check("'same capability' keeps the ID and the scores",
+    await page.evaluate(r => { const c = state.clusters.find(x => x.id === "enabling"); return c.name === "People & enabling functions" && c.ref === r && Object.values(c.cells).every(cellAssessed); }, enRef));
+  // Scope: context only needs a reason, and becomes the Hand-off decision
+  await page.click('[data-editcluster="leadership"]');
+  await page.waitForTimeout(300);
+  await page.selectOption("#cm-scope", "context");
+  await page.click("#cm-save");
+  await page.waitForTimeout(300);
+  check("context only is refused without a reason", (await page.locator("#toast").textContent()).includes("Say why"));
+  await page.fill("#cm-scope-reason", "Enterprise leadership is context only in Phase 1");
+  await page.click("#cm-save");
+  await page.waitForTimeout(400);
+  check("a context-only cluster is marked on the matrix and left out of the totals",
+    await page.locator(".mat-chip.ctx").count() === 1 && (await page.locator(".kpi").nth(0).textContent()).includes("of 20 cells scored"));
+  await page.click('.tab[data-view="handoff"]');
+  await page.waitForTimeout(300);
+  check("…and it is already the Hand-off decision, with its reason, so nothing is asked twice",
+    await page.locator(".ctx-pill").count() === 1 && await page.evaluate(() => state.pilots.leadership.decision === "out" && /context only in Phase 1/.test(state.pilots.leadership.reason)));
+  // Units card: unit word, and the frame now differs for Belmar
+  await page.click('.tab[data-view="charter"]');
+  await page.waitForTimeout(300);
+  check("the Charter has a 'Units to compare' card listing every unit in the family",
+    await page.locator(".units-card").count() === 1 && (await page.locator(".u-list").textContent()).includes("Belmar") && (await page.locator(".u-list").textContent()).includes("Caldera"));
+  await page.selectOption("#u-word", "Station");
+  await page.waitForTimeout(400);
+  await page.click('.tab[data-view="current"]');
+  await page.click('[data-cs-tab="compare"]');
+  await page.waitForTimeout(300);
+  check("choosing 'Station' changes the app's own words, not the data field",
+    (await page.locator(".cs-tab").first().textContent()).includes("Compare stations") && await page.evaluate(() => state.country === "Arden" && state.comparison.unitWord === "Station"));
+  const beId2 = await page.evaluate(() => wsReadIndex().list.find(w => w.country === "Belmar").id);
+  await page.selectOption("#ws-switch", beId2);
+  await page.waitForTimeout(600);
+  check("the unit word is shared by every unit of the frame", await page.evaluate(() => state.comparison.unitWord === "Station"));
+  await page.click('.tab[data-view="charter"]');
+  await page.waitForTimeout(300);
+  check("a unit sees that the frame has changed since it was built", await page.locator(".u-diff").count() === 1);
+  const beforeFrame = await page.evaluate(() => JSON.stringify(state.clusters.map(c => Object.values(c.cells).map(x => [x.level, x.status]))));
+  await page.click("#u-review");
+  await page.waitForTimeout(300);
+  check("the review lists the rename and the context-only change, each ticked",
+    (await page.locator(".fr-list").textContent()).includes("People & enabling functions") && (await page.locator(".fr-list").textContent()).includes("Context only") &&
+    await page.locator("[data-fr]:checked").count() >= 2);
+  await page.click("#fr-apply");
+  await page.waitForTimeout(500);
+  check("bringing the changes in renames and re-scopes, and touches no score",
+    await page.evaluate(b => state.clusters.find(c => c.id === "enabling").name === "People & enabling functions" && state.clusters.find(c => c.id === "leadership").scope === "context" &&
+      JSON.stringify(state.clusters.map(c => Object.values(c.cells).map(x => [x.level, x.status]))) === b, beforeFrame) &&
+    await page.locator(".u-same").count() === 1);
+  // Quick win and Clear score, in Belmar
+  await page.click('.tab[data-view="matrix"]');
+  await page.waitForTimeout(300);
+  await page.click('[data-cluster="gateway"][data-lens="Process"]');
+  await page.waitForTimeout(300);
+  await page.check("#d-quick");
+  await page.fill("#d-quick-action", "Retire the second load-planning system at the hub");
+  await page.fill("#d-quick-owner", "Station GM");
+  await page.click("#d-save");
+  await page.waitForTimeout(400);
+  check("a cell can be flagged as a quick-win candidate with an action and an owner",
+    await page.evaluate(() => { const q = state.clusters.find(c => c.id === "gateway").cells.Process.quick; return q.on && q.owner === "Station GM"; }) &&
+    buildHandoffOk(await page.evaluate(() => buildHandoffPacket(state))));
+  await page.click('[data-cluster="food"][data-lens="Culture"]');
+  await page.waitForTimeout(300);
+  page.once("dialog", d => d.accept());
+  await page.click("#d-clear");
+  await page.waitForTimeout(400);
+  check("Clear score returns a cell to Not scored, logged, and the totals follow",
+    await page.evaluate(() => { const c = state.clusters.find(x => x.id === "food").cells.Culture; return c.status === "Not yet assessed" && state.changeLog.slice(-1)[0].rationale === "Score cleared"; }) &&
+    await page.locator('.cell.unscored[data-cluster="food"][data-lens="Culture"]').count() === 1);
+  await page.click('.tab[data-view="current"]');
+  await page.click('[data-cs-tab="readout"]');
+  await page.waitForTimeout(400);
+  check("readout page 6 lists the quick win under 'Act now'",
+    (await page.locator(".ro-page").nth(5).textContent()).includes("Act now") && (await page.locator(".ro-page").nth(5).textContent()).includes("Retire the second load-planning system"));
+  await page.emulateMedia({ media: "print" });
+  const pdf2 = await page.pdf({ format: "A4", landscape: true, printBackground: true });
+  check("with quick wins and a context-only cluster, the readout still prints on six pages", (pdf2.toString("latin1").match(/\/Type\s*\/Page\b(?!s)/g) || []).length === 6);
+  await page.emulateMedia({ media: "screen" });
+  check("every workspace still passes the shared contract",
+    await page.evaluate(() => validateState(state).length === 0 && wsReadIndex().list.every(w => { const p = wsPeek(w.id); return !p || validateState(migrateState(p)).length === 0; })));
 
   const realErrors = jsErrors.filter(e => !e.includes("ERR_TUNNEL") && !e.includes("Failed to load resource"));
   check("no JavaScript errors during the whole run", realErrors.length === 0);

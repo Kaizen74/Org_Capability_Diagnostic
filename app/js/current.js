@@ -229,7 +229,9 @@ function roFindingList(list, n, empty) {
 }
 
 function roPerCountry(m, pick, n, emptyFor) {
-  return `<div class="ro-cols">${m.finds.per.map(p => `<div class="ro-col"><h4>${esc(p.label)}</h4>${roFindingList(pick(p), n, emptyFor)}</div>`).join("")}</div>`;
+  const tierOf = id => (m.countries.find(c => c.id === id) || {}).tier;
+  return `<div class="ro-cols">${m.finds.per.map(p => `<div class="ro-col"><h4>${esc(p.label)}</h4>${
+    !pick(p).length && tierOf(p.id) === "scored" ? `<p class="ro-empty">Scored only: not mapped, by design.</p>` : roFindingList(pick(p), n, emptyFor)}</div>`).join("")}</div>`;
 }
 
 function csReadout(ctx) {
@@ -247,7 +249,7 @@ function csReadout(ctx) {
   if (m.partScored.length) gaps.push("Only partly scored: " + m.partScored.join(", ") + ". The unscored cells are left out, not counted as weak.");
   const unclassedMaterial = m.byClass.unclassified.filter(d => d.material).length;
   if (unclassedMaterial) gaps.push(unclassedMaterial + " material difference(s) not yet classed as Required, Chosen or Inherited.");
-  const noFinds = m.finds.per.filter(p => !p.total).map(p => p.label);
+  const noFinds = m.finds.per.filter(p => !p.total && (m.countries.find(c => c.id === p.id) || {}).tier !== "scored").map(p => p.label);
   if (noFinds.length) gaps.push("No findings imported for " + noFinds.join(", ") + ", so pages 3 to 5 are thin there.");
   if (!(cmp.verdict || "").trim()) gaps.push("The one-line verdict on page 1 is not written.");
 
@@ -298,11 +300,13 @@ function csReadout(ctx) {
       ${list.length ? `<ul>${list.slice(0, 8).map(d => `<li><span class="ref-chip">${esc(d.ref)}</span> <strong>${esc(d.cluster)}</strong> · ${esc(d.lens)} <span class="ro-detail">${esc(d.high.join(", "))} L${d.hi} · ${esc(d.low.join(", "))} L${d.lo}${d.note ? " — " + esc(d.note) : ""}</span></li>`).join("")}</ul>${list.length > 8 ? `<p class="ro-more">and ${list.length - 8} more</p>` : ""}`
         : `<p class="ro-empty">Nothing classed here yet.</p>`}</div>`;
   };
+  const quick = m.countries.filter(c => c.quickWins.length).map(c => `<li><strong>${esc(c.label)}</strong>: ${c.quickWins.slice(0, 4).map(q => `<span class="ref-chip">${esc(q.ref)}</span> ${esc(q.action || q.cluster + " · " + q.lens)}${q.owner ? " (" + esc(q.owner) + ")" : ""}`).join("; ")}${c.quickWins.length > 4 ? "; and " + (c.quickWins.length - 4) + " more" : ""}</li>`).join("");
   const pilots = m.countries.filter(c => c.pilots.length).map(c => `<li><strong>${esc(c.label)}</strong>: ${c.pilots.map(p => `<span class="ref-chip">${esc(p.ref)}</span> ${esc(p.name || "pilot not named")}${p.kpi ? " (" + esc(p.kpi) + ")" : ""}`).join("; ")}</li>`).join("");
   const p6 = page(6, "What we ask you to decide", "Every difference lands in one of three places.",
     `<div class="ro-asks">${["inherited", "chosen", "required"].map(askCol).join("")}</div>
     ${unclassedMaterial ? `<p class="ro-call">⚑ ${unclassedMaterial} material difference${unclassedMaterial > 1 ? "s are" : " is"} still to classify and ${unclassedMaterial > 1 ? "are" : "is"} not part of this ask.</p>` : ""}
     ${m.byClass.unclassified.length - unclassedMaterial ? `<p class="ro-foot">${m.byClass.unclassified.length - unclassedMaterial} smaller difference${m.byClass.unclassified.length - unclassedMaterial > 1 ? "s" : ""} (one level apart) ${m.byClass.unclassified.length - unclassedMaterial > 1 ? "are" : "is"} not classed and not part of this ask.</p>` : ""}
+    ${quick ? `<h3 class="ro-sub">Act now: quick-win candidates</h3><ul class="ro-pilots">${quick}</ul>` : ""}
     ${pilots ? `<h3 class="ro-sub">Where we would pilot the design</h3><ul class="ro-pilots">${pilots}</ul>` : ""}
     <div class="ro-own"><label for="ro-asks">The ask <span class="no-print">— what you need EXCO to agree to move to design</span></label>
       <textarea id="ro-asks" class="no-print" placeholder="For example: Agree to harmonise the three inherited differences; confirm the two chosen ones stay local for now; approve the export cargo pilot in Thailand.">${esc(cmp.asks || "")}</textarea>

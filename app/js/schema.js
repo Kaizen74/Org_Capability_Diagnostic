@@ -52,6 +52,7 @@ function _isObj(v) { return v !== null && typeof v === "object" && !Array.isArra
 /* Validate one cell. Returns error strings (empty = valid). */
 function validateCell(cell, where) {
   var errs = [];
+  if (cell && cell.quick !== undefined && (!_isObj(cell.quick) || typeof cell.quick.on !== "boolean")) errs.push(where + ": quick must be { on, action, owner }");
   if (!_isObj(cell)) return [where + ": cell is not an object"];
   if (!(cell.level >= 1 && cell.level <= 4)) errs.push(where + ": level must be 1-4");
   if (!_isStr(cell.status)) errs.push(where + ": status must be a string");
@@ -90,6 +91,8 @@ function validateState(s) {
   (s.clusters || []).forEach(function (c, i) {
     if (!_isStr(c.id)) errs.push("clusters[" + i + "]: id required");
     if (!_isStr(c.name)) errs.push("clusters[" + i + "]: name required");
+    if (c.scope !== undefined && ["scored", "enabler", "context"].indexOf(c.scope) === -1) errs.push("clusters[" + i + "]: scope must be scored, enabler or context");
+    if (c.scope === "context" && !(_isStr(c.scope_reason) && c.scope_reason.trim())) errs.push("clusters[" + i + "]: a context-only cluster needs a reason");
     if (c.roles !== undefined) {
       if (!_isArr(c.roles)) errs.push("clusters[" + i + "].roles must be an array");
       else c.roles.forEach(function (r, ri) {
@@ -139,6 +142,8 @@ function validateState(s) {
   }
   if (s.country !== undefined && !_isStr(s.country)) errs.push("country must be a string");
   if (s.frameId !== undefined && !_isStr(s.frameId)) errs.push("frameId must be a string");
+  if (s.unitTier !== undefined && ["mapped", "scored"].indexOf(s.unitTier) === -1) errs.push("unitTier must be mapped or scored");
+  if (s.frameHomeId !== undefined && !_isStr(s.frameHomeId)) errs.push("frameHomeId must be a string");
   if (s.pilotRefs !== undefined && s.pilotRefs !== null) {
     if (!_isObj(s.pilotRefs)) errs.push("pilotRefs must be an object keyed by cluster id");
     else Object.keys(s.pilotRefs).forEach(function (cid) {

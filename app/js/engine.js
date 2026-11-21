@@ -24,16 +24,38 @@ const SIGNAL_VALUE = { improving: 1, stable: 0, declining: -1 };
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
+/* A cell is scored once someone has assessed it. "Not yet assessed" is
+   not Level 1: it is the absence of a judgement, and it is left out of
+   every count, average, ranking and money figure. */
+function cellAssessed(cell) { return !!cell && cell.status !== "Not yet assessed"; }
+
+/* Cluster scope. Scored (default): scored and ranked. Enabler: scored,
+   carries no money weight by design. Context only: not scored this cycle,
+   with a stated reason; left out of every aggregate. */
+const SCOPE_META = {
+  scored: { label: "Scored", hint: "Scored and ranked by the money it carries." },
+  enabler: { label: "Enabler", hint: "Scored, but carries no money weight by design (for example leadership or a support function)." },
+  context: { label: "Context only", hint: "Not scored this cycle. A reason is required, and it becomes this cluster's Hand-off decision." }
+};
+function clusterScope(cl) { return (cl && SCOPE_META[cl.scope]) ? cl.scope : "scored"; }
+function inScope(cl) { return clusterScope(cl) !== "context"; }
+
+function versionHasScores(v) {
+  return !!v && !!v.snapshot && (v.snapshot.clusters || []).some(c => Object.values(c.cells || {}).some(cellAssessed));
+}
+/* The baseline is the latest version that actually holds scores: a
+   snapshot saved before anything was scored records nothing. */
 function latestVersion(state) {
-  if (!state.versions || state.versions.length === 0) return null;
-  return state.versions[state.versions.length - 1];
+  const vs = state.versions || [];
+  for (let i = vs.length - 1; i >= 0; i--) if (versionHasScores(vs[i])) return vs[i];
+  return null;
 }
 
 function priorLevel(state, clusterId, lensKey) {
   const v = latestVersion(state);
   if (!v) return null;
   const cl = v.snapshot.clusters.find(c => c.id === clusterId);
-  if (!cl || !cl.cells[lensKey]) return null;
+  if (!cl || !cl.cells[lensKey] || !cellAssessed(cl.cells[lensKey])) return null;
   return cl.cells[lensKey].level;
 }
 
@@ -45,6 +67,7 @@ function priorLevel(state, clusterId, lensKey) {
    basis      human-readable one-liner of what the call rests on */
 function cellTrajectory(state, cluster, lensKey) {
   const cell = cluster.cells[lensKey];
+  if (!cellAssessed(cell)) return { m: 0, known: false, confidence: "None", basis: "not scored yet" };
   const prev = priorLevel(state, cluster.id, lensKey);
   const hasHist = prev !== null && prev !== undefined;
   const hist = hasHist ? clamp(cell.level - prev, -1, 1) : 0;
@@ -139,14 +162,18 @@ function cellConfidence(cell) {
 
 /* ---------- Aggregates ---------- */
 
+/* Average over SCORED cells only; null when nothing is scored yet. */
 function clusterAvg(cluster, lenses) {
-  const lv = lenses.map(l => (cluster.cells[l.key] ? cluster.cells[l.key].level : null)).filter(v => v !== null);
-  if (!lv.length) return 0;
+  const lv = lenses.map(l => cluster.cells[l.key]).filter(cellAssessed).map(c => c.level);
+  if (!lv.length) return null;
   return lv.reduce((a, b) => a + b, 0) / lv.length;
+}
+function clusterScoredCount(cluster, lenses) {
+  return lenses.filter(l => cellAssessed(cluster.cells[l.key])).length;
 }
 
 function clusterWeakCount(cluster, lenses) {
-  return lenses.filter(l => cluster.cells[l.key] && cluster.cells[l.key].level <= 2).length;
+  return lenses.filter(l => cellAssessed(cluster.cells[l.key]) && cluster.cells[l.key].level <= 2).length;
 }
 
 /* Cluster trajectory: averaged over cells with KNOWN direction only. */
@@ -165,10 +192,10 @@ function clusterMomentum(state, cluster, lenses) { return clusterTrajectory(stat
 function clusterProjectedAvg(state, cluster, lenses) {
   const lv = lenses.map(l => {
     const cell = cluster.cells[l.key];
-    if (!cell) return null;
+    if (!cellAssessed(cell)) return null;
     return projectedLevel(cell, cellTrajectory(state, cluster, l.key));
   }).filter(v => v !== null);
-  if (!lv.length) return 0;
+  if (!lv.length) return null;
   return lv.reduce((a, b) => a + b, 0) / lv.length;
 }
 
@@ -180,7 +207,7 @@ function bindingConstraint(state, cluster, lenses) {
   let best = null;
   lenses.forEach(l => {
     const cell = cluster.cells[l.key];
-    if (!cell) return;
+    if (!cellAssessed(cell)) return;
     const t = cellTrajectory(state, cluster, l.key);
     const moving = t.known && t.m >= 0.25;
     const cand = { lensKey: l.key, lensName: l.name, cell, t, moving };
@@ -444,8 +471,10 @@ function hasValueChain(state) {
 /* Exposure index 0-100: economic weight × capability gap fraction. */
 function clusterValueExposure(state, cluster, lenses) {
   const weight = clusterEconomicWeight(state, cluster.id);
-  const gap = Math.max(0, (4 - clusterAvg(cluster, lenses)) / 3);
-  return { weight, gap, exposure: weight * gap };
+  const avg = clusterAvg(cluster, lenses);
+  /* Unscored: the gap is unknown, not maximal. */
+  const gap = avg === null ? 0 : Math.max(0, (4 - avg) / 3);
+  return { weight, gap, exposure: weight * gap, scored: avg !== null };
 }
 
 /* ============================================================
@@ -522,6 +551,7 @@ function calibrateClusters(state) {
   if (cov.mapped > 0) {
     state.clusters.forEach(c => {
       if (clusterEconomicWeight(state, c.id) > 0) return;
+      if (clusterScope(c) !== "scored") return;  // an enabler or context-only cluster carries no money by design
       out.push({
         key: "unweighted-cluster", severity: "medium", clusterId: c.id, action: "review-cluster",
         title: "“" + c.name + "” carries no economic weight",
@@ -595,9 +625,12 @@ function calibrationSummary(state) {
 
 /* Weakest-first sort for the Priority Board:
    avg level ascending, tie-break by count of L<=2 descending. */
+/* Unscored clusters sort after every scored one. */
+function avgOrLast(cl, lenses) { const v = clusterAvg(cl, lenses); return v === null ? 99 : v; }
+
 function sortWeakestFirst(clusters, lenses) {
   return [...clusters].sort((a, b) => {
-    const d = clusterAvg(a, lenses) - clusterAvg(b, lenses);
+    const d = avgOrLast(a, lenses) - avgOrLast(b, lenses);
     if (Math.abs(d) > 1e-9) return d;
     return clusterWeakCount(b, lenses) - clusterWeakCount(a, lenses);
   });
@@ -610,7 +643,7 @@ function sortByExposure(state, clusters, lenses) {
     const ea = clusterValueExposure(state, a, lenses).exposure;
     const eb = clusterValueExposure(state, b, lenses).exposure;
     if (Math.abs(ea - eb) > 1e-9) return eb - ea;
-    return clusterAvg(a, lenses) - clusterAvg(b, lenses);
+    return avgOrLast(a, lenses) - avgOrLast(b, lenses);
   });
 }
 
@@ -643,7 +676,8 @@ function detectCrossLensPatterns(state) {
       });
     }
     const cells = cl.cells;
-    const people = cells.People, process = cells.Process, structure = cells.Structure, culture = cells.Culture;
+    const sc = c => (cellAssessed(c) ? c : null);
+    const people = sc(cells.People), process = sc(cells.Process), structure = sc(cells.Structure), culture = sc(cells.Culture);
     if (people && process && people.level <= 2 && process.level >= 3) {
       out.push({
         clusterId: cl.id, cluster: cl.name, key: "bench-starves-rollout",
@@ -676,12 +710,15 @@ function detectCrossLensPatterns(state) {
 /* Enterprise KPIs for the header strip. */
 function enterpriseKpis(state) {
   const { clusters, lenses } = state;
-  let sum = 0, n = 0, weak = 0, grounded = 0, msum = 0, knownCount = 0, laggingOnly = 0;
+  let sum = 0, n = 0, weak = 0, grounded = 0, msum = 0, knownCount = 0, laggingOnly = 0, total = 0;
   const alerts = { erosion: [], breakout: [], stalled: [], critical: [], unassessed: [] };
   clusters.forEach(cl => {
+    if (!inScope(cl)) return;
     lenses.forEach(l => {
       const cell = cl.cells[l.key];
       if (!cell) return;
+      total++;
+      if (!cellAssessed(cell)) return;  // not scored: no level, no weakness, no direction
       n++;
       sum += cell.level;
       if (cell.level <= 2) weak++;
@@ -705,6 +742,7 @@ function enterpriseKpis(state) {
   return {
     avg: n ? sum / n : 0,
     cells: n,
+    total, scored: n, unscored: total - n,
     weak,
     velocity: knownCount ? msum / knownCount : 0,
     velocityKnown: knownCount > 0,

@@ -1108,5 +1108,103 @@ checkOk("sample returns land on the right readout pages: who decides, roles, how
 checkOk("sample returns: every cell they point at exists in the Belmar workspace",
   [omS, pmsS].every(f => f.findings.every(x => (x.relates_to || []).filter(r => /\./.test(r)).every(r => run("findingCells(__sw, " + JSON.stringify({ relates_to: [r] }) + ")").length === 1))));
 
+// ---- 45. Not scored is not Level 1 (owner review, 2026-11-21) ----
+const ns = wfDemo();
+ns.clusters[0].cells.Culture.status = "Not yet assessed";        // gateway Culture was L2, weak
+ns.clusters[1].cells = JSON.parse(JSON.stringify(ns.clusters[1].cells));
+Object.values(ns.clusters[1].cells).forEach(c => { c.status = "Not yet assessed"; });  // food: nothing scored
+put("__ns", ns);
+const nk = run("enterpriseKpis(__ns)");
+checkOk("unscored cells are left out of the averages and the weak count",
+  nk.total === 24 && nk.scored === 19 && nk.unscored === 5 && nk.weak === run("enterpriseKpis(__wd)").weak - 2);
+checkOk("a cluster with nothing scored has no average, no gap and no money at risk",
+  run("clusterAvg(__ns.clusters[1], __ns.lenses)") === null && run("clusterValueExposure(__ns, __ns.clusters[1], __ns.lenses)").gap === 0 &&
+  run("clusterMoney(__ns, __ns.clusters[1], __ns.lenses)").hasValue === false);
+checkOk("an unscored cell has no direction, whatever its leading indicators say",
+  run("cellTrajectory(__ns, __ns.clusters[0], 'Culture')").known === false);
+checkOk("an unscored cluster sorts after every scored one on the board",
+  run("orderClustersForBoard(__ns, 'weakest').clusters.slice(-1)[0].id") === "food");
+checkOk("the hand-off file says which cells are scored, without changing its shape",
+  run("buildHandoffPacket(__ns)").clusters[1].avg_level === null && run("buildHandoffPacket(__ns)").clusters[1].cells.every(c => c.scored === false && c.level_label === "Not scored") &&
+  schema.validateHandoffPacket(run("buildHandoffPacket(__ns)")).length === 0);
+checkOk("the Stage 1 gate still requires every in-scope cell scored", run('stage1Readiness(__ns).checks.find(c => c.key === "scored")').ok === false);
+// Versions with no scores record nothing
+const ev = wfDemo(); const emptySnap = JSON.parse(JSON.stringify(ev.clusters));
+emptySnap.forEach(c => Object.values(c.cells).forEach(x => { x.status = "Not yet assessed"; x.level = 1; }));
+ev.versions.push({ version: "v2.0", label: "empty", savedAt: "2026-11-20T00:00:00Z", snapshot: { clusters: emptySnap, patterns: [] } });
+put("__ev", ev);
+checkOk("an empty version is not a baseline: trends and calls still read the last version with scores",
+  run("latestVersion(__ev)").version === "v1.0" && run("versionTrend(__ev)").points.length === 2 && run("forecastCheck(__ev)").baseline === "v1.0" &&
+  JSON.stringify(run("enterpriseKpis(__ev)").velocity) === JSON.stringify(run("enterpriseKpis(__wd)").velocity));
+const onlyEmpty = wfDemo(); onlyEmpty.versions = [{ version: "v1.0", label: "empty", savedAt: "2026-11-20T00:00:00Z", snapshot: { clusters: emptySnap, patterns: [] } }];
+put("__oe", onlyEmpty);
+checkOk("with only empty versions there is no baseline, no false 'Improving', and the gate says so",
+  run("latestVersion(__oe)") === null && run("enterpriseKpis(__oe)").alerts.breakout.length === run("enterpriseKpis(Object.assign({}, __oe, { versions: [] }))").alerts.breakout.length &&
+  run("forecastCheck(__oe)") === null && run('stage1Readiness(__oe).checks.find(c => c.key === "baseline")').ok === false);
+
+// ---- 46. Cluster scope: Scored, Enabler, Context only ----
+const sc = wfDemo(); sc.valueChain.levers = sc.valueChain.levers.filter(l => l.cluster_id !== "leadership" && l.cluster_id !== "enabling");
+put("__sc0", sc);
+checkOk("without a scope, a cluster with no lever is flagged by calibration",
+  run("calibrateClusters(__sc0)").some(f => f.key === "unweighted-cluster" && f.clusterId === "leadership"));
+sc.clusters.find(c => c.id === "leadership").scope = "enabler";
+const ctxCl = sc.clusters.find(c => c.id === "enabling"); ctxCl.scope = "context"; ctxCl.scope_reason = "Support functions are context only in Phase 1";
+Object.values(ctxCl.cells).forEach(c => { c.status = "Not yet assessed"; });
+sc.pilots.enabling = { decision: "out", reason: "Context only: Support functions are context only in Phase 1", name: "", kpi: "", fromScope: true };
+put("__sc", sc);
+checkOk("an enabler or context-only cluster is not flagged for carrying no money", !run("calibrateClusters(__sc)").some(f => f.key === "unweighted-cluster"));
+checkOk("context-only cells are left out of every total and of the Stage 1 'every cell scored' check",
+  run("enterpriseKpis(__sc)").total === 20 && run('stage1Readiness(__sc).checks.find(c => c.key === "scored")').ok === true &&
+  run('stage1Readiness(__sc).checks.find(c => c.key === "decisions")').ok === true);
+checkOk("the hand-off says each cluster's scope and still validates",
+  run("buildHandoffPacket(__sc)").clusters.find(c => c.name === ctxCl.name).scope === "context" &&
+  run("buildHandoffPacket(__sc)").exclusions.some(e => /Context only/.test(e.reason)) && schema.validateHandoffPacket(run("buildHandoffPacket(__sc)")).length === 0);
+check("a workspace with scoped clusters conforms to the contract", schema.validateState(sc));
+checkOk("a context-only cluster without a reason is refused",
+  schema.validateState(Object.assign({}, sc, { clusters: sc.clusters.map(c => c.id === "enabling" ? Object.assign({}, c, { scope_reason: "" }) : c) })).length === 1);
+
+// ---- 47. Units to compare: words, tiers, frame changes ----
+checkOk("the unit word changes the words, and 'Country' keeps today's wording",
+  run('unitWords({ comparison: {} })').many === "countries" && run('unitWords({ comparison: { unitWord: "Station" } })').one === "station" &&
+  run('unitWords({ comparison: { unitWord: "Business unit" } })').Many === "Business units" && run('unitWords({ comparison: { unitWord: "Nonsense" } })').one === "country");
+const fh = wfDemo(); fh.country = "SIN"; fh.workspaceId = "ws_sin"; fh.frameId = "fr_x"; fh.comparison = run("defaultComparison()"); fh.returns = [];
+put("__fh", fh);
+const fu = run('ensureRefs(frameCopy(__fh, "LHR", "LHR"))');
+checkOk("a unit remembers its home and starts as 'scored and mapped'", fu.frameHomeId === "ws_sin" && fu.unitTier === "mapped");
+put("__fu0", fu);
+checkOk("a fresh unit has nothing to bring in from the frame", run("frameDiff(__fh, __fu0)").length === 0);
+// The home changes its frame: a cluster added, one renamed and set to context, a role and a lever added, the charter amended
+const fh2 = JSON.parse(JSON.stringify(fh));
+fh2.clusters.push({ id: "newcl", ref: "CAP-07", no: 7, name: "Network products", desc: "", priority_move: "", cells: JSON.parse(JSON.stringify(fh.clusters[0].cells)), roles: [] });
+fh2.clusters[5].name = "Human Capital (enabler)"; fh2.clusters[4].scope = "context"; fh2.clusters[4].scope_reason = "JV context only";
+fh2.clusters[0].roles.push({ id: "r-new", ref: "RL-020", title: "Load planning lead", status: "exists", axisA: { consequence: 4, scarcity: 4, trend: 3 }, tki: { time: 4, locked: 4, relationship: 2 }, note: "" });
+fh2.valueChain.levers.push({ id: "lv_new", ref: "LV-08", name: "Energy pass-through", share_pct: 9, capability: "Pricing", cluster_id: "commercial", value_at_stake: 40, validated: true });
+fh2.charter.amendments = [{ at: "2026-11-21T00:00:00Z", reason: "Added P7", by: "You" }];
+fh2.idSeq = Object.assign({}, fh2.idSeq, { CAP: 7, RL: 20, LV: 8 });
+// The unit has scored a cell and set a lever weight; those must survive
+const fu2 = JSON.parse(JSON.stringify(fu)); fu2.clusters[0].cells.Process.status = "Running well"; fu2.clusters[0].cells.Process.level = 4; fu2.valueChain.levers[0].share_pct = 33;
+put("__fh2", fh2); put("__fu2", fu2);
+const fd = run("frameDiff(__fh2, __fu2)");
+checkOk("the unit sees each frame change by kind",
+  ["cl+newcl", "cl~" + fh.clusters[5].id, "cl~" + fh.clusters[4].id, "rl+gateway|RL-020", "lv+lv_new", "charter"].every(k => fd.some(x => x.key === k)));
+const keys = fd.filter(x => x.key !== "cl~" + fh.clusters[5].id).map(x => x.key);   // one rename deliberately left out
+put("__fk", keys);
+const fa = run("ensureRefs(applyFrameChanges(JSON.parse(JSON.stringify(__fu2)), __fh2, __fk))");
+check("a unit with frame changes brought in still conforms to the contract", schema.validateState(fa));
+checkOk("additions arrive blank: new cluster unscored, new role 'to confirm', new lever weight 0 with no amount",
+  fa.clusters.find(c => c.id === "newcl").ref === "CAP-07" && Object.values(fa.clusters.find(c => c.id === "newcl").cells).every(c => c.status === "Not yet assessed") &&
+  fa.clusters[0].roles.find(r => r.ref === "RL-020").unconfirmed === true &&
+  fa.valueChain.levers.find(l => l.id === "lv_new").share_pct === 0 && fa.valueChain.levers.find(l => l.id === "lv_new").value_at_stake === undefined);
+checkOk("the unit's own scores and weights are untouched, and an unticked change is not applied",
+  fa.clusters[0].cells.Process.level === 4 && fa.clusters[0].cells.Process.status === "Running well" && fa.valueChain.levers[0].share_pct === 33 &&
+  fa.clusters[5].name === fu.clusters[5].name);
+checkOk("a context-only change becomes the unit's Hand-off decision too",
+  fa.clusters[4].scope === "context" && fa.pilots[fa.clusters[4].id].decision === "out" && /JV context only/.test(fa.pilots[fa.clusters[4].id].reason));
+checkOk("nothing is ever deleted: a cluster no longer in the frame is only flagged",
+  (() => { const u = JSON.parse(JSON.stringify(fu)); u.clusters.push({ id: "local", name: "Local only", desc: "", cells: {}, roles: [] }); put("__fu3", u);
+    const d = run("frameDiff(__fh, __fu3)"); return d.length === 1 && d[0].info === true && run("applyFrameChanges(JSON.parse(JSON.stringify(__fu3)), __fh, ['cl-local'])").clusters.some(c => c.id === "local"); })());
+checkOk("after bringing changes in, the ID counters stay ahead, so no ID is ever reused", fa.idSeq.CAP >= 7 && fa.idSeq.RL >= 20 && fa.idSeq.LV >= 8);
+checkOk("a unit's tier is checked by the contract", schema.validateState(Object.assign({}, fu, { unitTier: "maybe" })).length === 1);
+
 console.log(failures ? `\n${failures} CONTRACT FAILURE(S)` : "\nAll contract checks passed.");
 process.exit(failures ? 1 : 0);
