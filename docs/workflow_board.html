@@ -213,14 +213,14 @@ footer{color:var(--muted);font-size:12px;margin-top:26px}
     <div class="card"><table id="exco"></table></div>
     <h3 class="sec">Before you present</h3>
     <div class="card"><ul style="margin:0;padding-left:18px">
-      <li>Every country fully scored. An unscored cell reads "Not scored"; it is never counted as weak.</li>
+      <li>Every in-scope cluster scored in every country. An unscored cell reads "Not scored" and is never counted as weak; context-only clusters are left out by a stated reason.</li>
       <li>Every material difference (two levels or more) classed Required, Chosen or Inherited, with a one-line reason.</li>
       <li>Findings imported for each country, or pages 3 to 5 will say plainly that they are empty.</li>
       <li>Country leads have looked at each other's evidence for the widest gaps. Different people score different countries, and one may simply be stricter.</li>
       <li>If you ran Narrative Lens, its patterns are cited as Indicated evidence behind a score. They are never a finding on their own.</li>
       <li>Money at risk is an estimate until finance validates it, and is only totalled when the countries share a currency.</li></ul></div>
   </section>
-  <footer>Built for the six-stage workflow. Reviewed against all five apps on 17 November 2026: every screen named here exists today. Narrative Lens is the app in the TESSA-Sensemaking repository.</footer>
+  <footer>Built for the six-stage workflow. Reviewed against all five apps on 17 November 2026 and updated on 21 November 2026: every screen named here exists today. Narrative Lens is the app in the TESSA-Sensemaking repository.</footer>
 </main>
 
 <script>
@@ -235,13 +235,13 @@ const STEPS=[
  {phase:"Frame it",t:"Build the frame in one country",app:"compass",where:"Compass → Value Chain, Roles",
   q:"What exactly will every country be measured against?",
   bring:["The capability clusters or value streams","Where the money is made and lost","The anchor roles the model depends on"],
-  doit:["In your home country's workspace, settle the clusters (or value streams).","On Value Chain, list the money levers and act on the calibration panel: it tests whether these are the right clusters for the money.","On Roles, list the anchor roles and score them."],
+  doit:["In your home country's workspace, settle the clusters (or value streams).","Give each cluster a scope (Edit cluster): Scored, Enabler (scored, no money weight) or Context only (not scored this cycle, with a reason).","Write each cluster's diagnostic question: what this analysis must find out. Leave the solution for the design.","On Value Chain, list the money levers and act on the calibration panel: it tests whether these are the right clusters for the money.","On Roles, list the anchor roles and score them."],
   get:["A frame: clusters, levers and roles, each with a permanent ID"],done:"The calibration panel shows no high-severity finding; every cluster has roles.",
-  watch:"Get the frame right before copying it. A cluster added later in one country will not line up with the others."},
- {phase:"Frame it",t:"Add each country",app:"compass",where:"Compass → Workspace box → Rename or delete this one… → Add another country",
+  watch:"Get the frame right before copying it. Later changes made here can be brought into each country (additions and renames only; scores never move), but a frame that keeps changing makes the comparison harder to read."},
+ {phase:"Frame it",t:"Add each country",app:"compass",where:"Compass → Charter → Units to compare (once the charter is locked)",
   q:"How do we make sure the same ID means the same thing everywhere?",
   bring:["Each country's name and a two- or three-letter code"],
-  doit:["Say which country the current workspace covers.","Add each other country. It gets the same clusters, levers, roles, charter and IDs, with every score, piece of evidence and amount blank.","To let a country lead do the scoring: open that country, Export, send the file, and Import what comes back."],
+  doit:["Choose what you are comparing (country, station, asset or business unit) and say which one this workspace covers.","Add each other unit with its tier: scored and mapped, or scored only. It gets the same clusters, levers, roles, charter and IDs, with every score, piece of evidence and amount blank. You stay where you are.","If the frame changes later, open each unit and use Review frame changes.","To let a country lead do the scoring: open that country, Export, send the file, and Import what comes back."],
   get:["One workspace per country, comparable line by line"],done:"Every country in scope has a workspace.",
   watch:"Roles copied to a new country show \"To confirm\". Someone there must say whether each exists, is thin, or is absent."},
  {phase:"Gather the evidence",t:"Score each country from its own evidence",app:"compass",where:"Compass → Roles, Evidence, Signal Matrix (in each country)",
@@ -249,7 +249,7 @@ const STEPS=[
   bring:["Each country's documents: org charts, strategy papers, survey results, workforce files"],
   doit:["Confirm every role's status.","Upload documents under Evidence and analyse them.","Score every cell on the Signal Matrix. Cite a source and choose an evidence grade for each.","Fill in that country's money weights. Save a version."],
   get:["A scored, sourced baseline per country"],done:"Every cell scored and graded in every country; a version saved.",
-  watch:"Leave a cell unscored rather than guess. \"Not scored\" is honest; a guessed Level 1 becomes a false finding."},
+  watch:"Leave a cell unscored rather than guess: it is left out of every total. Choosing a level is what scores a cell, and Clear score undoes it. Save a version only after scoring; an empty one is ignored."},
  {phase:"Gather the evidence",t:"Choose what to examine closely, and hand off",app:"compass",where:"Compass → Hand-off (in each country)",
   q:"Which value stream do we map in detail, and what do the other apps need to start?",
   bring:["The Priority Board ranking: money at risk, weak cells, missing roles"],
@@ -283,7 +283,7 @@ const STEPS=[
  {phase:"Bring it together",t:"Take six pages to EXCO",app:"compass",where:"Compass → Current State → EXCO readout",
   q:"What do we ask EXCO to decide so that design can start?",
   bring:["Your verdict in one or two sentences","Your ask"],
-  doit:["Clear the \"Before you present\" list at the top of the readout.","Write the verdict and the ask.","Print or save as PDF: six pages.","Record EXCO's decisions in the Charter's decision log."],
+  doit:["Flag quick-win candidates on the cells where you found them (cell panel). They appear on page 6 as \"Act now\".","Clear the \"Before you present\" list at the top of the readout.","Write the verdict and the ask.","Print or save as PDF: six pages. Printed at week 6, it is your early read.","Record EXCO's decisions in the Charter's decision log."],
   get:["The EXCO readout","A decision on what to harmonise, what to leave local, and where to pilot the design"],done:"EXCO has decided; the decision is logged.",
   watch:"The readout only assembles. If a page looks thin, the evidence is thin: say so rather than fill it."}
 ];

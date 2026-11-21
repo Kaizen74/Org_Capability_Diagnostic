@@ -2277,11 +2277,13 @@ function openClusterModal(clusterId) {
     const scope = $("cm-scope").value, reason = $("cm-scope-reason").value.trim();
     if (scope === "context" && !reason) { toast("Say why this cluster is context only this cycle."); $("cm-scope-reason").focus(); return; }
     const newName = $("cm-name").value.trim() || cl.name;
+    /* Read every field now: the rename question replaces this dialog. */
+    const newDesc = $("cm-desc").value.trim(), newPm = $("cm-pm").value.trim();
     const apply = asNew => {
       if (asNew) reidentifyCluster(cl);
       cl.name = newName;
-      cl.desc = $("cm-desc").value.trim();
-      cl.priority_move = $("cm-pm").value.trim();
+      cl.desc = newDesc;
+      cl.priority_move = newPm;
       setClusterScope(cl, scope, reason);
       closeModal(); renderAll();
       toast(asNew ? "Saved as a different capability with a new ID; " + (cl.ref || "") + " starts unscored." : "Cluster updated.");

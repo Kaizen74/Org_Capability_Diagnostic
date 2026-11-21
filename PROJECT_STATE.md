@@ -78,7 +78,17 @@ Owner approved seven changes after reviewing a real SG Hub workspace (2026-11-21
 - [x] R2 — Cluster scope (Scored / Enabler / Context only, context synced to the Hand-off decision); rename asks keep-or-new-ID once the ID has travelled.
 - [x] R3 — Units to compare: unit word, tier, a Charter card that creates units from the locked frame, and bringing frame changes into a unit (additions and renames only).
 - [x] R4 — Diagnostic question relabel (no preset solutions seeded); quick-win candidates on cells, listed on readout page 6.
-- [ ] R5 — Workflow board, guide, decisions; full mock test plus a check on a copy of the owner's workspace (not committed).
+- [x] R5 — Workflow board, guide, decisions; full mock test plus a check on a copy of the owner's workspace (not committed).
+
+## Done in this session (2026-11-21)
+
+1. Not scored is not Level 1, everywhere; picking a level scores a cell; Clear score; already-scored cells marked on load.
+2. Versions must hold scores to count; warn on save; delete a version.
+3. Cluster scope (Scored, Enabler, Context only); keep-or-new-ID on rename once the ID has travelled.
+4. Units to compare on the Charter: unit word, tier, units created from the frame, frame changes brought in (additions and renames only).
+5. Diagnostic question relabel; quick-win candidates on readout page 6.
+6. Found by the new browser checks and fixed: "same capability" on rename did not save the description and question.
+7. Checked on a copy of the owner's SG Hub workspace (not committed): imports cleanly, 0 of 28 scored, no false Action pills, empty versions ignored, calibration clears once Enterprise Leadership is an Enabler.
 
 ## Done later on 2026-11-13: PRDs for the two sibling changes
 

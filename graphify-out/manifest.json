@@ -1,20 +1,20 @@
 {
   "app/js/app.js": {
-    "mtime": 1794531022.6330135,
-    "seen": 1794532125.1503756,
-    "ast_hash": "1ce5f99948216dd45c334e4b2c3b4acd",
+    "mtime": 1795232478.3679342,
+    "seen": 1795232657.0009253,
+    "ast_hash": "0172f622f35ecd0b7e94e047f8238748",
     "semantic_hash": ""
   },
   "app/js/engine.js": {
-    "mtime": 1794530582.4665387,
-    "seen": 1794530810.0142195,
-    "ast_hash": "b96f8eaedf3b1dda645f9fd9a2048b4e",
+    "mtime": 1795231328.3194988,
+    "seen": 1795232657.0009387,
+    "ast_hash": "51560d0f0343bbfa23d95fed25c97d5e",
     "semantic_hash": ""
   },
   "app/js/llm.js": {
-    "mtime": 1794396957.6241918,
-    "seen": 1794438169.8531618,
-    "ast_hash": "6862a95045c5b900e8221cb86a579e3a",
+    "mtime": 1795231394.731724,
+    "seen": 1795232657.000943,
+    "ast_hash": "87bd323a844dd03317a6b7a746a1f67e",
     "semantic_hash": ""
   },
   "app/js/parsers.js": {
@@ -30,9 +30,9 @@
     "semantic_hash": ""
   },
   "app/js/schema.js": {
-    "mtime": 1794551794.6761572,
-    "seen": 1794552495.0687885,
-    "ast_hash": "9429ccd1f4ac90e3e881d9398c546e89",
+    "mtime": 1795232002.125291,
+    "seen": 1795232657.0009513,
+    "ast_hash": "2ece34e2a21fe2d964344ac21d32bc0c",
     "semantic_hash": ""
   },
   "run_checks.sh": {
@@ -42,15 +42,15 @@
     "semantic_hash": "bd1e53be41f71afd352144d5014c7980"
   },
   "tests/contract_test.js": {
-    "mtime": 1794552124.0109715,
-    "seen": 1794552495.0688028,
-    "ast_hash": "fcf5e0e0dad4ab57c4beddfc3eb09dae",
+    "mtime": 1795231974.857846,
+    "seen": 1795232657.000977,
+    "ast_hash": "fc014c5dafc53f04d3ebe517ee5995e6",
     "semantic_hash": ""
   },
   "tests/e2e_mock_test.js": {
-    "mtime": 1794551845.2135735,
-    "seen": 1794552495.068804,
-    "ast_hash": "5f0324c616df853d261e7eddb4331bb3",
+    "mtime": 1795232125.1167893,
+    "seen": 1795232657.0009792,
+    "ast_hash": "3313464d05d67ba993e5943c7c98c726",
     "semantic_hash": ""
   },
   ".claude/CLAUDE.md": {
@@ -66,21 +66,21 @@
     "semantic_hash": ""
   },
   "DECISIONS.md": {
-    "mtime": 1794552474.0288193,
-    "seen": 1794552495.0688088,
-    "ast_hash": "88d978354beab7c2eef08ec8783a12bf",
+    "mtime": 1795232624.552885,
+    "seen": 1795232657.0009856,
+    "ast_hash": "9df5cc00867b70659e64919a7be94772",
     "semantic_hash": ""
   },
   "GUIDE.md": {
-    "mtime": 1794552474.0302758,
-    "seen": 1794552495.0688097,
-    "ast_hash": "9e7cd9ddf5f34edae6119248752b9919",
+    "mtime": 1795232624.552487,
+    "seen": 1795232657.0009873,
+    "ast_hash": "befa7b5628fe53c067c5502407b2a6f5",
     "semantic_hash": ""
   },
   "PROJECT_STATE.md": {
-    "mtime": 1794552474.0296237,
-    "seen": 1794552495.068811,
-    "ast_hash": "4e5efd2ec40ef9f966049d4ca178ab22",
+    "mtime": 1795232624.553206,
+    "seen": 1795232657.0009894,
+    "ast_hash": "f9ddb04dfcf56f592cd342cb91d563c3",
     "semantic_hash": ""
   },
   "README.md": {
@@ -132,21 +132,21 @@
     "semantic_hash": ""
   },
   "app/js/handoff.js": {
-    "mtime": 1794551803.8011835,
-    "seen": 1794552495.0687816,
-    "ast_hash": "c645c45f8dcb41d9bf16c5555a3b5949",
+    "mtime": 1795231346.4194293,
+    "seen": 1795232657.0009408,
+    "ast_hash": "a2b045faa86c9a309383aa21fcb6cbd7",
     "semantic_hash": ""
   },
   "app/js/stages.js": {
-    "mtime": 1794551794.6751404,
-    "seen": 1794552495.06879,
-    "ast_hash": "037a377a15b8bdc2f36650e31256ee3f",
+    "mtime": 1795231981.4888706,
+    "seen": 1795232657.0009532,
+    "ast_hash": "8ec8aec4e49ca985ad269538fe71496d",
     "semantic_hash": ""
   },
   "app/js/workspaces.js": {
-    "mtime": 1794530582.466899,
-    "seen": 1794530810.0142362,
-    "ast_hash": "ed4d382341a8930ac478152c0543617c",
+    "mtime": 1795231877.5384903,
+    "seen": 1795232657.000955,
+    "ast_hash": "b3a7baf6097388ad72934e277f6d34fb",
     "semantic_hash": ""
   },
   "docs/HANDOFF_FORMAT.md": {
@@ -156,9 +156,9 @@
     "semantic_hash": ""
   },
   "app/js/compare.js": {
-    "mtime": 1794551794.6754513,
-    "seen": 1794552495.0687752,
-    "ast_hash": "3804744c9217274c352b58d15c3b85fd",
+    "mtime": 1795232002.124254,
+    "seen": 1795232657.0009332,
+    "ast_hash": "908dae3a6cb40a5e4127448174bae4d0",
     "semantic_hash": ""
   },
   "docs/samples/meridian_compass_handoff.json": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "app/js/current.js": {
-    "mtime": 1794551794.67669,
-    "seen": 1794552495.068778,
-    "ast_hash": "557c5210292988227c5235bea9703c08",
+    "mtime": 1795232002.1248755,
+    "seen": 1795232657.0009358,
+    "ast_hash": "768643b1703f8c874c480997d820ca16",
     "semantic_hash": ""
   },
   "docs/samples/meridian_exco_readout_demo.pdf": {
@@ -243,6 +243,12 @@
     "mtime": 1794552359.310807,
     "seen": 1794552495.0688236,
     "ast_hash": "66f1c0bfb6c82f0183c1a254cdac7402",
+    "semantic_hash": ""
+  },
+  "docs/workflow_board.html": {
+    "mtime": 1795232624.551817,
+    "seen": 1795232657.0010173,
+    "ast_hash": "8061d8c0f08ffc17dbc8508135702f33",
     "semantic_hash": ""
   }
 }

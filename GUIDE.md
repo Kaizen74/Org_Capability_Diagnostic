@@ -47,12 +47,21 @@ A workspace is one complete diagnostic. Use the **Workspace** box at the top to 
 
 When you create one you choose what its rows are: **capability clusters** (the industry preset's list, for an enterprise view) or **value streams** (you type the names, for one business segment end to end).
 
+## Scoring honestly (added 21 November 2026)
+
+- **A cell counts only once it is scored.** Choosing a level in the cell panel is what scores it. Until then it reads "Not scored" and is left out of every total, average, ranking and money figure. **Clear score** puts it back.
+- **Save a version after scoring.** A version that holds no scores is ignored by the trend and the scoreboard, and the app warns before saving one. You can delete a version on the Scoreboard (a version that holds scores needs a reason).
+- **Each cluster has a scope** (Edit cluster): *Scored*; *Enabler* (scored, carries no money weight by design, for example leadership); or *Context only* (not scored this cycle, with a reason, which also becomes its Hand-off decision).
+- **Diagnostic question, not a solution.** The field under each cluster holds the question this analysis must answer until the design stage. New workspaces no longer copy the preset's suggested moves.
+- **Renaming a cluster** whose ID has already been used asks whether it is the same capability (keep the ID) or a different one (new ID; the old one is retired).
+- **Quick-win candidates:** tick the box in the cell panel, write the action and an owner. They appear on readout page 6.
+
 ## Current state across countries
 
 Use this before any design work, to answer four questions: which roles exist, who really decides, how work really runs, and how all of that differs from one country to the next.
 
 **1. One workspace per country, built from one frame.**
-Finish the frame in one country first: the clusters, the money levers and the anchor roles. Then open the **Workspace** box, choose *Rename or delete this one…*, say which country this workspace covers, and use **Add another country**. The new workspace has the same clusters, levers, roles, charter and IDs, with every score, piece of evidence, weight and amount blank. Roles carried over show as **To confirm** until someone in that country says whether the role exists, is thin, or is absent.
+Finish the frame in one country first: the clusters, the money levers and the anchor roles. Then, once the charter is locked, open **Charter → Units to compare**: choose what you are comparing (country, station, asset or business unit), say which one this workspace covers, and add each other unit with its tier (*scored and mapped*, or *scored only*). You stay in the workspace you are in. If you change the frame later, open each unit and use **Review frame changes**: only additions and renames are brought in, and no score moves. (The Workspace box still offers *Add another country* too.) The new workspace has the same clusters, levers, roles, charter and IDs, with every score, piece of evidence, weight and amount blank. Roles carried over show as **To confirm** until someone in that country says whether the role exists, is thin, or is absent.
 
 Someone in the country can do the scoring: open that country, press **Export**, send them the file, and **Import** what they send back.
 
