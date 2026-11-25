@@ -1257,5 +1257,11 @@ const blankU = run("frameCopy(__exh, 'Dorne', 'DO')"); put("__blankU", blankU);
 const rmEx2 = run("readoutModel(__exh, [{ id: 'a', label: 'Arden', state: __exh }, { id: 'd', label: 'Dorne', state: __blankU }])");
 checkOk("a unit with no economics is listed as missing, not shown as zero", rmEx2.econMissing.join() === "Dorne" && rmEx2.countries[1].econ === null);
 
+put("__omS48", omS); put("__pmsS48", pmsS);
+checkOk("the Org Modeling sample carries its structure as numbers the Compass reads",
+  (() => { const st = run("unitStructure({ returns: [normaliseReturn(__omS48)] })"); return st && st.numeric && st.metrics.headcount === 26 && st.metrics.layers === 5 && st.metrics.total_cost === 2263000; })());
+checkOk("the Process Map Studio sample says who decides and who is accountable, and flags a contested one",
+  (() => { const fs2 = run("normaliseReturn(__pmsS48)").findings; return fs2.filter(f => f.decided_by && f.accountable).length === 2 && fs2.some(f => f.accountable_contested === true); })());
+
 console.log(failures ? `\n${failures} CONTRACT FAILURE(S)` : "\nAll contract checks passed.");
 process.exit(failures ? 1 : 0);

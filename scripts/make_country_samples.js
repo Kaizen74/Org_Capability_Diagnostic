@@ -121,11 +121,30 @@ const belmarRows = rows.filter(r => r.country === "Belmar");
 const layersIn = country => Math.max(...rows.filter(r => r.country === country).map(r => r.level));
 console.log("Layers: " + ["Arden", "Belmar", "Caldera"].map(c => c + " " + layersIn(c)).join(", "));
 const om = belmar.returns.find(r => r.source_app === "org-modeling");
+/* The numbers Org Modeling should send (2026-11-25), worked out here the same
+   way: a manager's span counts direct reports in any country; operational
+   managers are judged against 10–20 reports, every other manager against 5–10. */
+const structureOf = country => {
+  const people = rows.filter(r => r.country === country);
+  const reportsOf = r => rows.filter(x => x.mgr && x.mgr.id === r.id).length;
+  const managers = people.filter(r => reportsOf(r) > 0);
+  const spans = managers.map(reportsOf).sort((a, b) => a - b);
+  const band = r => r.workType === "Operational" ? [10, 20] : [5, 10];
+  const vs = { below: 0, within: 0, above: 0 };
+  managers.forEach(r => { const n = reportsOf(r), [lo, hi] = band(r); vs[n < lo ? "below" : n > hi ? "above" : "within"]++; });
+  const mid = spans.length ? (spans.length % 2 ? spans[(spans.length - 1) / 2] : (spans[spans.length / 2 - 1] + spans[spans.length / 2]) / 2) : 0;
+  return { headcount: people.length, managers: managers.length, manager_ratio_pct: Math.round(managers.length / people.length * 1000) / 10,
+    layers: layersIn(country), median_span: mid, spans_within: vs.within, spans_below: vs.below, spans_above: vs.above,
+    single_report_managers: spans.filter(x => x === 1).length, total_cost: people.reduce((a, r) => a + Number(r.salary || 0), 0) };
+};
+const bm = structureOf("Belmar");
+console.log("Belmar structure: " + JSON.stringify(bm));
 const omFile = Object.assign(header2("org-modeling"), {
   findings: [
-    { ref: "baseline.layers", kind: "structural_baseline", title: "Layers in the reporting chain (Belmar)", detail: "Counted from who reports to whom, for the people whose Country is Belmar. The chain starts at the group chief executive in Arden.", grade: "confirmed", figure: layersIn("Belmar") + " layers", relates_to: ["CAP-05.Structure"], source_note: "Computed from the uploaded org file (" + belmarRows.length + " people in Belmar)", topic: "role_presence" },
+    { ref: "baseline.layers", kind: "structural_baseline", title: "Layers in the reporting chain (Belmar)", detail: "Counted from who reports to whom, for the people whose Country is Belmar. The chain starts at the group chief executive in Arden.", grade: "confirmed", figure: layersIn("Belmar") + " layers", relates_to: ["CAP-05.Structure"], source_note: "Computed from the uploaded org file (" + belmarRows.length + " people in Belmar)", topic: "role_presence", metrics: bm },
+    { ref: "baseline.spans", kind: "structural_baseline", title: "Managers within their span benchmark (Belmar)", detail: bm.spans_below + " below, " + bm.spans_above + " above; " + bm.single_report_managers + " managers have one direct report. Median span " + bm.median_span + ". A manager's span counts reports in any country.", grade: "confirmed", figure: bm.spans_within + " of " + bm.managers + " managers", relates_to: ["CAP-05.Structure"], source_note: "Computed from the uploaded org file (" + belmarRows.length + " people in Belmar)", topic: "role_presence", metrics: bm },
     { ref: "RL-011", kind: "role_reason", title: "Why Head of Pricing / Revenue Management exists in Belmar", detail: "Created in 2023 when Belmar won its two largest renewal contracts; Arden has no such role and leaves pricing to finance.", grade: "indicated", figure: "1 person", relates_to: ["RL-011", "CAP-04", "CAP-04.People"], source_note: "Stated by the country manager; headcount from the uploaded org file.", topic: "role_reason", reason_class: "chosen", compared_with: "Arden" }
-  ].concat(om.findings.map(strip))
+  ].concat(om.findings.filter(f => f.kind !== "structural_baseline").map(strip))
 });
 const pms = belmar.returns.find(r => r.source_app === "process-map-studio");
 const pmsFile = Object.assign(header2("process-map-studio"), { findings: pms.findings.map(strip) });

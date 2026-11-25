@@ -18,7 +18,10 @@
         "CAP-01.Process"
       ],
       "source_note": "Rests on 1 document, 4 interviews, system records of 10 cases.",
-      "topic": "decision_right"
+      "topic": "decision_right",
+      "on_paper": "Certified load controller",
+      "decided_by": "Shift supervisor",
+      "accountable": "Certified load controller"
     },
     {
       "ref": "X2",
@@ -63,7 +66,11 @@
         "CAP-03.Process"
       ],
       "source_note": "Rests on 2 interviews.",
-      "topic": "decision_right"
+      "topic": "decision_right",
+      "on_paper": "Regional roster owner",
+      "decided_by": "Station manager",
+      "accountable": "Regional roster owner",
+      "accountable_contested": true
     }
   ]
 }

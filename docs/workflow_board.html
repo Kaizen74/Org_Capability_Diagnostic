@@ -275,12 +275,14 @@ footer{color:var(--muted);font-size:12px;margin-top:26px}
         <li>The frame key (each unit's key is built from it)</li>
         <li>Clusters and their IDs, scope (Scored, Enabler, Context only) and diagnostic question</li>
         <li>The list of money levers and the list of anchor roles</li>
-        <li>The unit word: country, station, asset or business unit</li></ul></div>
+        <li>The unit word: country, station, asset or business unit</li>
+        <li>The period and the volume measure for unit economics</li></ul></div>
       <div class="box"><h4>Filled in by each unit</h4><ul>
         <li>Evidence, scores, evidence grades and rationale</li>
         <li>Whether each anchor role exists, is thin or is absent there (they start as "To confirm")</li>
         <li>Money weights and amounts in that unit's currency</li>
         <li>Hand-off decisions and the value stream to examine (choose the same one across units)</li>
+        <li>Revenue, manpower and non-manpower cost, head-count and volume (unit economics)</li>
         <li>Quick-win candidates, findings from the other apps, saved versions</li></ul></div>
     </div>
 
@@ -319,9 +321,11 @@ footer{color:var(--muted);font-size:12px;margin-top:26px}
       <li>Findings imported for each country, or pages 3 to 5 will say plainly that they are empty.</li>
       <li>Country leads have looked at each other's evidence for the widest gaps. Different people score different countries, and one may simply be stricter.</li>
       <li>If you ran Narrative Lens, its patterns are cited as Indicated evidence behind a score. They are never a finding on their own.</li>
-      <li>Money at risk is an estimate until finance validates it, and is only totalled when the countries share a currency.</li></ul></div>
+      <li>Money at risk is an estimate until finance validates it, and is only totalled when the countries share a currency.</li>
+      <li>Unit economics entered for every unit, on the same period, head-count basis and volume measure, and validated by Finance (or shown as an estimate). Org Modeling's people cost is base salary only.</li>
+      <li>Every decision finding says who is accountable, not only who decides.</li></ul></div>
   </section>
-  <footer>Built for the six-stage workflow. Reviewed against all five apps on 17 November 2026 and updated on 21 November 2026 (scoring, scope, units): every screen named here exists today. Narrative Lens is the app in the TESSA-Sensemaking repository.</footer>
+  <footer>Built for the six-stage workflow. Reviewed against all five apps on 17 November 2026 and updated on 25 November 2026 (unit economics, spans and layers, accountability): every screen named here exists today. Narrative Lens is the app in the TESSA-Sensemaking repository.</footer>
 </main>
 
 <script>
@@ -336,7 +340,7 @@ const STEPS=[
  {phase:"Frame it",t:"Build the frame in your home unit",app:"compass",where:"Compass → Value Chain, Roles",
   q:"What exactly will every country be measured against?",
   bring:["The capability clusters or value streams","Where the money is made and lost","The anchor roles the model depends on"],
-  doit:["In your home country's workspace, settle the clusters (or value streams).","Give each cluster a scope (Edit cluster): Scored, Enabler (scored, no money weight) or Context only (not scored this cycle, with a reason).","Write each cluster's diagnostic question: what this analysis must find out. Leave the solution for the design.","On Value Chain, list the money levers and act on the calibration panel: it tests whether these are the right clusters for the money.","On Roles, list the anchor roles and score them."],
+  doit:["In your home country's workspace, settle the clusters (or value streams).","Give each cluster a scope (Edit cluster): Scored, Enabler (scored, no money weight) or Context only (not scored this cycle, with a reason).","Write each cluster's diagnostic question: what this analysis must find out. Leave the solution for the design.","On Value Chain, list the money levers and act on the calibration panel: it tests whether these are the right clusters for the money.","On Value Chain → Unit economics, set the period and the one volume measure every unit shares (agreed with Finance), and what counts as manpower cost.","On Roles, list the anchor roles and score them."],
   get:["A frame: clusters, levers and roles, each with a permanent ID"],done:"The calibration panel shows no high-severity finding; every cluster has roles.",
   watch:"Get the frame right before copying it. Later changes made here can be brought into each country (additions and renames only; scores never move), but a frame that keeps changing makes the comparison harder to read."},
  {phase:"Frame it",t:"Add each unit",app:"compass",where:"Compass → Charter → Units to compare (once the charter is locked)",
@@ -348,7 +352,7 @@ const STEPS=[
  {phase:"Gather the evidence",t:"Score each country from its own evidence",app:"compass",where:"Compass → Roles, Evidence, Signal Matrix (in each country)",
   q:"Where does each country really stand today?",
   bring:["Each country's documents: org charts, strategy papers, survey results, workforce files"],
-  doit:["Confirm every role's status.","Upload documents under Evidence and analyse them.","Score every cell on the Signal Matrix. Cite a source and choose an evidence grade for each.","Fill in that country's money weights. Save a version."],
+  doit:["Confirm every role's status.","Upload documents under Evidence and analyse them.","Score every cell on the Signal Matrix. Cite a source and choose an evidence grade for each.","Fill in that country's money weights. Save a version.","On Value Chain → Unit economics, enter the unit's revenue, manpower cost, non-manpower cost, head-count and volume for the agreed period. Head-count and base-salary cost can be taken from the Org Modeling file; ask Finance to validate."],
   get:["A scored, sourced baseline per country"],done:"Every cell scored and graded in every country; a version saved.",
   watch:"Leave a cell unscored rather than guess: it is left out of every total. Choosing a level is what scores a cell, and Clear score undoes it. Save a version only after scoring; an empty one is ignored."},
  {phase:"Gather the evidence",t:"Choose what to examine closely, and hand off",app:"compass",where:"Compass → Hand-off (in each country)",
@@ -366,19 +370,19 @@ const STEPS=[
  {phase:"Gather the evidence",t:"Which roles exist, and why",app:"org",where:"Org Modeling → upload the org file, import each country's packet, then By country and Compass roles",
   q:"Which roles and layers exist in each country, and why is each role there or missing?",
   bring:["An org file with a Country column","Each country's hand-off file"],
-  doit:["Upload the org file; review layers, spans and cost side by side by country.","Import each country's packet.","On the Compass roles screen, confirm which job titles match each anchor role.","For each role and country, record why it is there or missing: Required, Chosen or Inherited.","Export one findings file per country."],
+  doit:["Upload the org file; review layers, spans and cost side by side by country.","Import each country's packet.","On the Compass roles screen, confirm which job titles match each anchor role.","For each role and country, record why it is there or missing: Required, Chosen or Inherited.","Put the unit's name in the Country column (station or asset names work), so spans and layers are counted per unit.","Export one findings file per country."],
   get:["A findings file per country: structure, head-count per role, and the reason"],done:"Every role with nobody in it has a recorded reason, or is marked \"not known yet\".",
   watch:"Org Modeling never changes a Compass status. Where its head-count disagrees with the Compass (for example \"exists\" but nobody holds it), it flags the mismatch for you to settle in the Compass."},
  {phase:"Gather the evidence",t:"How work really runs, and who really decides",app:"pms",where:"Process Map Studio → new engagement from each country's packet; then More → Compare countries",
   q:"How is the work done in practice, who makes each decision, and how does that differ between countries?",
   bring:["Each country's hand-off file","Interviews and process documents from each country"],
-  doit:["Start one engagement per country from its packet, on the same value stream.","Add transcripts and documents; review and publish each map.","Review the gaps between documented and done, and who really decides.","Line up the two countries' maps, and class each difference Required, Chosen or Inherited.","Export the findings file for each country."],
+  doit:["Start one engagement per country from its packet, on the same value stream.","Add transcripts and documents; review and publish each map.","Review the gaps between documented and done, who really decides, and who holds A (accountable) on each decision.","Line up the two countries' maps, and class each difference Required, Chosen or Inherited.","Export the findings file for each country."],
   get:["A published map per country","A findings file per country, including differences between countries"],done:"A published map in at least two countries; findings exported.",
   watch:"Maps are compared two at a time against one reference country, so choose the reference with care. With many countries, start with the two you most expect to differ. If you ran Narrative Lens, use its clusters to decide which steps to probe in the interviews."},
  {phase:"Bring it together",t:"Compare the countries and explain the differences",app:"compass",where:"Compass → Current State → Compare countries, Findings",
   q:"Where do the countries differ, and which differences are ours to remove?",
   bring:["The findings files from the other apps"],
-  doit:["Open each country and import its findings files.","Cite the findings that matter on the cells they relate to; re-score where the evidence warrants.","On Compare countries, read the map: gaps of one level or more are flagged.","Class every material difference: Required, Chosen or Inherited, with a one-line reason."],
+  doit:["Open each country and import its findings files.","Cite the findings that matter on the cells they relate to; re-score where the evidence warrants.","On each decision finding, check or fill in who is named on paper, who decides in practice and who is accountable.","On Compare countries, read the map: gaps of one level or more are flagged.","Class every material difference: Required, Chosen or Inherited, with a one-line reason."],
   get:["A variation map","Every material difference explained"],done:"No material difference is left unclassed.",
   watch:"A small gap may be a stricter scorer, not a real difference. Have country leads check each other's evidence on the widest gaps."},
  {phase:"Bring it together",t:"Take six pages to EXCO",app:"compass",where:"Compass → Current State → EXCO readout",
@@ -404,7 +408,7 @@ const CELLS={
  "nl-5":["Hear it again","The same prompt, a cycle later.","Shows whether the installed system changed what people experience, not only what the scores say.","A before-and-after pattern, cited on the Scoreboard cycle"],
  "compass-5":["Scoreboard","Trend across versions; were last cycle's calls right?","Tells you whether the installed system is lifting capability, and holds the forecast to account.","The scoreboard"]
 };
-const EXCO=[["1","Where we stand","Your one-line verdict, then each country on one scale","Compass scores; money at risk where estimated; Narrative Lens patterns as cited evidence, if used"],["2","Where the countries differ","The variation map; how many differences are required, chosen or inherited","Compass → Compare countries"],["3","Who really decides","Decisions made by a different role from the one on paper","Process Map Studio findings"],["4","Which roles exist where, and why","Anchor roles by country, and the reasons","Compass roles; Org Modeling and Workbench findings"],["5","How work really runs","Where practice departs from the documents, and what it costs","Process Map Studio findings"],["6","What we ask you to decide","Harmonise, decide, or leave local; where to pilot; your ask","Your classifications"]];
+const EXCO=[["1","Where we stand","Your one-line verdict, each country on one scale, then cost and productivity side by side: revenue, manpower and non-manpower cost, manpower share, revenue and volume per head, cost per unit","Compass scores and unit economics (estimate until Finance validates); money at risk where estimated; Narrative Lens patterns as cited evidence, if used"],["2","Where the countries differ","The variation map; how many differences are required, chosen or inherited","Compass → Compare countries"],["3","Who really decides, and who is accountable","For each decision: on paper, decides in practice, accountable; mismatches counted and flagged","Process Map Studio findings, corrected by you where needed"],["4","Which roles exist where, and why","Anchor roles by country and the reasons, plus head-count, layers and spans per unit side by side","Compass roles; Org Modeling and Workbench findings"],["5","How work really runs","Where practice departs from the documents, and what it costs","Process Map Studio findings"],["6","What we ask you to decide","Harmonise, decide, or leave local; where to pilot; your ask","Your classifications"]];
 
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -540,7 +544,7 @@ function drawMock(){
   if($("mk-prev"))$("mk-prev").onclick=()=>{mk--;drawMock()};if($("mk-next"))$("mk-next").onclick=()=>{mk++;drawMock()};
 }
 drawMock();
-const FCHK=["Charter locked, with the organisation name, sponsor and co-sponsors","Frame key final","Every decision has an owner","Clusters final, with IDs","Each cluster's scope set (Context only has a reason)","Each cluster's diagnostic question written in your own words","Money levers listed; calibration panel clear","Anchor roles listed against their clusters","Unit word chosen and home unit named","Tier chosen for each unit","Home workspace exported as a backup"];
+const FCHK=["Charter locked, with the organisation name, sponsor and co-sponsors","Frame key final","Every decision has an owner","Clusters final, with IDs","Each cluster's scope set (Context only has a reason)","Each cluster's diagnostic question written in your own words","Money levers listed; calibration panel clear","Anchor roles listed against their clusters","Unit word chosen and home unit named","Tier chosen for each unit","Period, volume measure and what counts as manpower cost agreed with Finance","Home workspace exported as a backup"];
 const FKEY="four_apps_board_frame_v1";let fdone={};try{fdone=JSON.parse(localStorage.getItem(FKEY))||{}}catch(e){}
 function drawChk(){$("fchk").innerHTML=FCHK.map((t,i)=>`<li><input type="checkbox" data-f="${i}" ${fdone[i]?"checked":""} id="fc${i}"><label for="fc${i}">${esc(t)}</label></li>`).join("");
   document.querySelectorAll("[data-f]").forEach(c=>c.onchange=()=>{fdone[c.dataset.f]=c.checked;try{localStorage.setItem(FKEY,JSON.stringify(fdone))}catch(e){}})}

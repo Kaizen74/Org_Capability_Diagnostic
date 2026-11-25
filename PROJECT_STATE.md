@@ -86,7 +86,15 @@ Owner approved A, B and D (2026-11-25) after a review of the five questions (dec
 - [x] E1 — Unit economics on each unit (revenue, manpower and non-manpower cost, head-count, one volume measure; derived ratios; estimate until validated; head-count and people cost can be taken from an Org Modeling file, always overridable). Readout page 1 table.
 - [x] E2 — Structure table on readout page 4 from Org Modeling's structural findings (numbers read from an optional `metrics` object, else from the figure text).
 - [x] E3 — Accountable beside who decides on readout page 3 (optional `accountable` and `accountable_contested` on findings; owner can enter or correct it).
-- [ ] E4 — Contract and browser checks, HANDOFF_FORMAT, GUIDE, DECISIONS, workflow board; PRDs for Org Modeling and Process Map Studio.
+- [x] E4 — Contract and browser checks, HANDOFF_FORMAT, GUIDE, DECISIONS, workflow board; PRDs for Org Modeling and Process Map Studio.
+
+## Done in this session (2026-11-25)
+
+1. Unit economics on each unit (Value Chain); ratios worked out; Org Modeling head-count and base-salary cost offered; readout page 1 table.
+2. Spans-and-layers table per unit on readout page 4, from Org Modeling's numbers or, for older files, its wording.
+3. On paper, decides in practice and accountable on readout page 3; the owner can fill or correct them in the findings register.
+4. PRDs: `docs/sibling_prds/PRD_org_modeling_structure_numbers.md` and `docs/sibling_prds/PRD_process_map_studio_accountability.md`. Samples rebuilt with the new fields.
+5. Not done, by owner choice: step and handoff counts per unit (C) and role families across units (E).
 
 ## Done in this session (2026-11-21)
 

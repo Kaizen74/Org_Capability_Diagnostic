@@ -56,6 +56,18 @@ When you create one you choose what its rows are: **capability clusters** (the i
 - **Renaming a cluster** whose ID has already been used asks whether it is the same capability (keep the ID) or a different one (new ID; the old one is retired).
 - **Quick-win candidates:** tick the box in the cell panel, write the action and an owner. They appear on readout page 6.
 
+## Five questions EXCO asks of every unit (added 25 November 2026)
+
+| Question | Where it is answered | What you do |
+|---|---|---|
+| Who decides, and who is accountable? | Readout page 3 | Import Process Map Studio's findings. On each decision finding in the findings register, check or fill in **on paper**, **decides in practice** and **accountable**. ⚑ marks a mismatch. |
+| How many steps and handoffs? | Process Map Studio (leadership view) | Not yet sent to the Compass. Quote it from Process Map Studio for now. |
+| How many spans and layers? | Readout page 4, table per unit | Import each unit's Org Modeling findings file. ▲ and ▽ mark the highest and lowest. |
+| Which roles are common or unique, and why? | Readout page 4 | Anchor roles only, with Required, Chosen or Inherited. Roles outside the anchor list are not compared yet. |
+| Revenue, cost and productivity | Value Chain → **Unit economics**; readout page 1 | Per unit, enter revenue, manpower cost, non-manpower cost, head-count and one volume measure for one period. Ratios are worked out. Org Modeling can fill head-count and base-salary cost; a typed figure always wins. Tick "validated" once Finance agrees. |
+
+Agree the period, the volume measure and what counts as manpower cost with Finance **before** adding units: they are copied to each new unit.
+
 ## Current state across countries
 
 Use this before any design work, to answer four questions: which roles exist, who really decides, how work really runs, and how all of that differs from one country to the next.

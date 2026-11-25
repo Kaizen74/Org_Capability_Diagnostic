@@ -17,7 +17,44 @@
         "CAP-05.Structure"
       ],
       "source_note": "Computed from the uploaded org file (26 people in Belmar)",
-      "topic": "role_presence"
+      "topic": "role_presence",
+      "metrics": {
+        "headcount": 26,
+        "managers": 9,
+        "manager_ratio_pct": 34.6,
+        "layers": 5,
+        "median_span": 2,
+        "spans_within": 1,
+        "spans_below": 8,
+        "spans_above": 0,
+        "single_report_managers": 2,
+        "total_cost": 2263000
+      }
+    },
+    {
+      "ref": "baseline.spans",
+      "kind": "structural_baseline",
+      "title": "Managers within their span benchmark (Belmar)",
+      "detail": "8 below, 0 above; 2 managers have one direct report. Median span 2. A manager's span counts reports in any country.",
+      "grade": "confirmed",
+      "figure": "1 of 9 managers",
+      "relates_to": [
+        "CAP-05.Structure"
+      ],
+      "source_note": "Computed from the uploaded org file (26 people in Belmar)",
+      "topic": "role_presence",
+      "metrics": {
+        "headcount": 26,
+        "managers": 9,
+        "manager_ratio_pct": 34.6,
+        "layers": 5,
+        "median_span": 2,
+        "spans_within": 1,
+        "spans_below": 8,
+        "spans_above": 0,
+        "single_report_managers": 2,
+        "total_cost": 2263000
+      }
     },
     {
       "ref": "RL-011",
