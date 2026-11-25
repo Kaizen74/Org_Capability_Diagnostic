@@ -1,17 +1,17 @@
 # Graph Report - Org_Capability_Diagnostic  (2026-11-25)
 
 ## Corpus Check
-- 41 files · ~161,463 words
+- 41 files · ~164,914 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 4 file(s) not represented in the graph (top: (none) 2, .css 1, .csv 1)
 
 ## Summary
-- 906 nodes · 1420 edges · 40 communities (35 shown, 5 thin omitted)
+- 915 nodes · 1429 edges · 40 communities (35 shown, 5 thin omitted)
 - Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 75 edges (avg confidence: 0.83)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `0201d1d5`
+- Built from commit: `1801d283`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -64,10 +64,10 @@
 4. `Project State — Capability Compass` - 19 edges
 5. `nowIso()` - 17 edges
 6. `readoutModel()` - 17 edges
-7. `renderView()` - 16 edges
-8. `openClusterModal()` - 15 edges
-9. `validateState()` - 15 edges
-10. `Capability Compass — Plain-Language Guide` - 15 edges
+7. `Capability Compass — Plain-Language Guide` - 16 edges
+8. `renderView()` - 16 edges
+9. `openClusterModal()` - 15 edges
+10. `validateState()` - 15 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `How to resume` --references--> `renderAll()`  [INFERRED]
@@ -78,7 +78,7 @@
   docs/Capability_Compass_PRD_v3.md → app/js/schema.js
 - `7. Functional requirements` --references--> `proposeClusterCalibration()`  [INFERRED]
   docs/Capability_Compass_PRD_v3.md → app/js/llm.js
-- `migrateState()` --indirect_call--> `migrateRoleScores()`  [INFERRED]
+- `idTravelled()` --indirect_call--> `cellAssessed()`  [INFERRED]
   app/js/app.js → app/js/engine.js
 
 ## Import Cycles
@@ -91,12 +91,12 @@ Cohesion: 0.01
 Nodes (187): afterDelete, allIdx, allRefs, allTki, anaPrompt, anaPrompt2, appSrc, axA (+179 more)
 
 ### Community 1 - "engine.js"
-Cohesion: 0.07
-Nodes (52): avgOrLast(), AXIS_A_WEIGHTS, bindingConstraint(), calibrateClusters(), calibrationSummary(), cellAssessed(), cellConfidence(), cellMomentum() (+44 more)
+Cohesion: 0.08
+Nodes (51): avgOrLast(), AXIS_A_WEIGHTS, bindingConstraint(), calibrateClusters(), calibrationSummary(), cellAssessed(), cellConfidence(), cellMomentum() (+43 more)
 
 ### Community 2 - "app.js"
 Cohesion: 0.07
-Nodes (95): addCluster(), addCountryWorkspace(), addEvidenceFiles(), adoptNewState(), adoptSharedComparison(), afterPointer(), afterPointerQueue, applyCalibrationProposal() (+87 more)
+Nodes (96): addCluster(), addCountryWorkspace(), addEvidenceFiles(), adoptNewState(), adoptSharedComparison(), afterPointer(), afterPointerQueue, applyCalibrationProposal() (+88 more)
 
 ### Community 3 - "llm.js"
 Cohesion: 0.17
@@ -128,7 +128,7 @@ Nodes (6): decodeXmlEntities(), docxXmlToText(), extractDocxText(), extractPptxT
 
 ### Community 10 - "make_country_samples.js"
 Cohesion: 0.05
-Nodes (25): belmar, belmarRows, bm, ceo, fs, header, holders(), layersIn() (+17 more)
+Nodes (27): belmar, belmarRows, bf, bm, ceo, FAMILIES, fs, header (+19 more)
 
 ### Community 11 - "Capability Diagnostic Rubric — v4.4 (Industry-Agnostic, Predictive, Value-Calibrated)"
 Cohesion: 0.12
@@ -148,7 +148,7 @@ Nodes (8): Capability Dashboard Data-Viz Skill — v2, Chart-type selection, Int
 
 ### Community 16 - "Capability Compass — Plain-Language Guide"
 Cohesion: 0.12
-Nodes (15): A first real diagnostic, step by step, Before you present it, Capability Compass — Plain-Language Guide, Current state across countries, Five questions EXCO asks of every unit (added 25 November 2026), Handing off to the other three apps, Ideas worth understanding, If something goes wrong (+7 more)
+Nodes (16): A first real diagnostic, step by step, Before you present it, Capability Compass — Plain-Language Guide, Current state across countries, Five questions EXCO asks of every unit (added 25 November 2026), Handing off to the other three apps, Ideas worth understanding, If something goes wrong (+8 more)
 
 ### Community 17 - "Project State — Capability Compass"
 Cohesion: 0.10
@@ -195,12 +195,12 @@ Cohesion: 0.12
 Nodes (15): 1. Why this change, 2. What this app already has (read on 2026-11-13; check it), 3. The shared language (fixed; do not redesign), 4.1 Country column, 4.2 By-country view, 4.3 One hand-off packet per country, 4.4 Compass roles, by country (the new screen), 4.5 One findings file per country (+7 more)
 
 ### Community 32 - "PRD: Org Modeling, structure and people cost as numbers for the Compass"
-Cohesion: 0.13
-Nodes (14): 1. Why this change, 2. What this app already has (read on 2026-11-25; check it), 3. The shared language (fixed; do not redesign), 4.1 `metrics` on every exported `structural_baseline` finding, 4.2 People cost is base salary, said on screen, 4.3 A unit column, not only Country, 4.4 Tell me when the numbers would mislead, 4. What to build (+6 more)
+Cohesion: 0.11
+Nodes (17): 1. Why this change, 2. What this app already has (read on 2026-11-25; check it), 3. The shared language (fixed; do not redesign), 4.1 `metrics` on every exported `structural_baseline` finding, 4.2 People cost is base salary, said on screen, 4.3 A unit column, not only Country, 4.4 Tell me when the numbers would mislead, 4.5 Manager type: spans compared like for like *(added 2026-11-26)* (+9 more)
 
 ### Community 33 - "PRD: Process Map Studio, who decides and who is accountable, sent to the Compass"
-Cohesion: 0.12
-Nodes (15): 1. Why this change, 2. What this app already has (read on 2026-11-25; check it), 3. The shared language (fixed; do not redesign), 4.1 Send the fields on every decision-rights finding, 4.2 The decider "on paper", 4.3 Show it on the RACI view, 4.4 Who owns and updates each SOP, 4.5 Process owner and the process summary (+7 more)
+Cohesion: 0.11
+Nodes (17): 1. Why this change, 2. What this app already has (read on 2026-11-25; check it), 3. The shared language (fixed; do not redesign), 4.1 Send the fields on every decision-rights finding, 4.2 The decider "on paper", 4.3 Show it on the RACI view, 4.4 Who owns and updates each SOP, 4.5 Process owner and the process summary (+9 more)
 
 ### Community 34 - "econNum"
 Cohesion: 0.15
@@ -228,23 +228,23 @@ Nodes (4): econScale(), econSuggestions(), parseStructureText(), unitStructure()
 
 ## Knowledge Gaps
 - **1 isolated node(s):** `RFC-4180`
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 527 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 536 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
 - **5 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `cellAssessed()` connect `engine.js` to `make_country_samples.js`, `app.js`, `current.js`?**
-  _High betweenness centrality (0.181) - this node is a cross-community bridge._
+  _High betweenness centrality (0.179) - this node is a cross-community bridge._
 - **What connects `RFC-4180` to the rest of the system?**
   _1 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `contract_test.js` be split into smaller, more focused modules?**
   _Cohesion score 0.01020408163265306 - nodes in this community are weakly interconnected._
 - **Why does `idTravelled()` connect `app.js` to `engine.js`?**
-  _High betweenness centrality (0.102) - this node is a cross-community bridge._
+  _High betweenness centrality (0.101) - this node is a cross-community bridge._
 - **Should `engine.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.07467532467532467 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.07676767676767676 - nodes in this community are weakly interconnected._
 - **Why does `csCompare()` connect `current.js` to `engine.js`?**
   _High betweenness centrality (0.029) - this node is a cross-community bridge._
 - **Should `app.js` be split into smaller, more focused modules?**
-  _Cohesion score 0.070446735395189 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06921944035346098 - nodes in this community are weakly interconnected._

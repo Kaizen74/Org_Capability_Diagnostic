@@ -69,6 +69,19 @@ When you create one you choose what its rows are: **capability clusters** (the i
 
 Agree the period, the volume measure and what counts as manpower cost with Finance **before** adding units: they are copied to each new unit.
 
+## The four design choices (added 26 November 2026)
+
+The readout is organised around four design choices. Each page says which it serves, and ends with how strong its evidence is (Confirmed, Indicated, Hypothesis).
+
+| Design choice | Readout | Minimum evidence per unit |
+|---|---|---|
+| 1. Standardise or keep local | Pages 2, 5, 6 | One mapped value stream; every material difference classed; steps run differently from the reference (Findings → Value streams) |
+| 2. Spans and layers | Page 4 | An org file whose reporting lines work (page 4 flags supervisory roles with nobody reporting to them) |
+| 3. Decision rights, standards, unique roles | Pages 2, 3, 4, 5 | Decision findings (or decisions you add under Findings, e.g. who approves a local deviation and how many days it takes); SOP owners; role families |
+| 4. Data backbone | Pages 2, 5 | Findings → Data and systems: core cargo system, e-AWB share, ONE Record readiness; per value stream: systems, handoffs by hand, off-system steps, steps with no record |
+
+Ask each unit for its evidence pack on day one: the org file, one mapped value stream with its SOPs, Finance's revenue and cost for one snapshot date, and the three data-and-systems facts.
+
 ## Current state across countries
 
 Use this before any design work, to answer four questions: which roles exist, who really decides, how work really runs, and how all of that differs from one country to the next.

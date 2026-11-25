@@ -138,13 +138,32 @@ const structureOf = country => {
     single_report_managers: spans.filter(x => x === 1).length, total_cost: people.reduce((a, r) => a + Number(r.salary || 0), 0) };
 };
 const bm = structureOf("Belmar");
+/* Role families (2026-11-26): defined once for the whole org file, so an
+   RF ID means the same family in every unit; head-count 0 where nobody. */
+const FAMILIES = [
+  ["RF-01", "Load control", t => /^Load Control/.test(t)],
+  ["RF-02", "Ramp handling", t => /^(Ramp Agent|Shift Supervisor)$/.test(t)],
+  ["RF-03", "Pricing and revenue management", t => /Pricing/.test(t)],
+  ["RF-04", "Analytics and AI", t => /Analytics/.test(t)],
+  ["RF-05", "Disruption control", t => /Duty Controller/.test(t)],
+  ["RF-06", "Finance", t => /^Finance /.test(t)]
+];
+const familiesIn = country => FAMILIES.map(([ref, name, match]) => {
+  const people = rows.filter(r => r.country === country && match(r.title));
+  return { ref, name, headcount: people.length, job_titles: new Set(people.map(r => r.title)).size };
+});
+const bf = familiesIn("Belmar");
+console.log("Belmar families: " + bf.map(f => f.ref + " " + f.headcount).join(", "));
 console.log("Belmar structure: " + JSON.stringify(bm));
 const omFile = Object.assign(header2("org-modeling"), {
   findings: [
     { ref: "baseline.layers", kind: "structural_baseline", title: "Layers in the reporting chain (Belmar)", detail: "Counted from who reports to whom, for the people whose Country is Belmar. The chain starts at the group chief executive in Arden.", grade: "confirmed", figure: layersIn("Belmar") + " layers", relates_to: ["CAP-05.Structure"], source_note: "Computed from the uploaded org file (" + belmarRows.length + " people in Belmar)", topic: "role_presence", metrics: bm },
     { ref: "baseline.spans", kind: "structural_baseline", title: "Managers within their span benchmark (Belmar)", detail: bm.spans_below + " below, " + bm.spans_above + " above; " + bm.single_report_managers + " managers have one direct report. Median span " + bm.median_span + ". A manager's span counts reports in any country.", grade: "confirmed", figure: bm.spans_within + " of " + bm.managers + " managers", relates_to: ["CAP-05.Structure"], source_note: "Computed from the uploaded org file (" + belmarRows.length + " people in Belmar)", topic: "role_presence", metrics: bm },
     { ref: "RL-011", kind: "role_reason", title: "Why Head of Pricing / Revenue Management exists in Belmar", detail: "Created in 2023 when Belmar won its two largest renewal contracts; Arden has no such role and leaves pricing to finance.", grade: "indicated", figure: "1 person", relates_to: ["RL-011", "CAP-04", "CAP-04.People"], source_note: "Stated by the country manager; headcount from the uploaded org file.", topic: "role_reason", reason_class: "chosen", compared_with: "Arden" }
-  ].concat(om.findings.filter(f => f.kind !== "structural_baseline").map(strip))
+  ].concat(om.findings.filter(f => f.kind !== "structural_baseline" && f.kind !== "role_family").map(strip))
+   .concat(bf.map(f => Object.assign({ ref: f.ref, kind: "role_family", title: f.name, detail: f.ref === "RF-03" ? "Created in 2023 when Belmar won its two largest renewal contracts." : "",
+     grade: "confirmed", figure: f.headcount + (f.headcount === 1 ? " person" : " people"), relates_to: [], source_note: "Grouped from job titles in the uploaded org file (" + belmarRows.length + " people in Belmar).",
+     topic: "role_presence", metrics: { headcount: f.headcount, job_titles: f.job_titles } }, f.ref === "RF-03" ? { reason_class: "chosen", compared_with: "Arden" } : {})))
 });
 const pms = belmar.returns.find(r => r.source_app === "process-map-studio");
 const pmsFile = Object.assign(header2("process-map-studio"), { findings: pms.findings.map(strip) });

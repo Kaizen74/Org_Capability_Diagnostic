@@ -1,4 +1,4 @@
-# PRD: Process Map Studio, decision rights, SOP owners, process owner, steps and handoffs, sent to the Compass
+# PRD: Process Map Studio, decision rights, SOP owners, process owner, steps, handoffs and the data backbone, sent to the Compass
 
 *Paste this whole document into Claude Code inside the **Process Map Studio** repository. Section 9 lists the files to attach.*
 
@@ -26,7 +26,11 @@ I want this app to:
 - (c) show on screen, on the RACI view, where the one who decides is not the one accountable;
 - (d) record, for each SOP or manual in the sources, **its owner role, the role that updates it, its review dates and whether the copy in use is controlled**, and send one `sop` finding per SOP to the Compass, with how many steps it governs and how many of those are done differently.
 
-- (e) record the **process owner** (a role) in the engagement scope, and send one **`process_summary`** finding per published map: steps, decisions, approvals, handoffs, roles involved, rework loops, and work and waiting time.
+- (e) record the **process owner** (a role) in the engagement scope, and send one **`process_summary`** finding per published map: steps, decisions, approvals, handoffs, roles involved, rework loops, and work and waiting time;
+- (f) *(added 2026-11-26)* a light **data lens**: on each step, the **system of record**; at each handoff, **how the data moves** (system interface, re-keyed, email or spreadsheet, paper, verbal); and, in the summary, the counts that show how much of the process runs outside the systems;
+- (g) *(added 2026-11-26)* the **share of steps run differently from the reference unit**, from the existing comparison of two published maps.
+
+Why (f) and (g): my EXCO has endorsed four design choices. Choice 1 (standardise or keep local) needs one number per unit: the share of the value stream's steps it runs differently, read against the IATA audit scale (about 8% of procedures vary from the manual). Choice 4 (the data and system backbone) needs to see where data is re-keyed, sent by email or paper, kept off-system or not recorded. This app already holds most of the evidence (systems as lanes, D6 off-system, D11 no record, system logs); it just does not name the system of record per step or say how data moves at each handoff, and nothing reaches the Compass. **Keep it light:** no reliability score per handoff. The existing discrepancies (D4 rework, D6 off-system, D11 no record) are the evidence of unreliable data. The Compass shows these counts on readout page 2; today I type them in.
 
 For (e): the Compass now shows, on readout page 5, the same value stream side by side in each unit (process owner, steps, decisions and approvals, handoffs, roles, work and waiting time), marking the most and fewest. Today I type these in from your leadership view. The Compass's hand-off packet now carries `pilots[].process_owner` when I have named one; use it as the starting value.
 
@@ -100,6 +104,11 @@ Rules the Compass applies, so this app must respect them:
 | `metrics.roles` | number | Distinct lane roles with at least one step |
 | `metrics.rework_loops` | number | As the leadership view counts them |
 | `metrics.work_min`, `metrics.wait_min` | number | Sum of the steps' work and waiting minutes, where recorded |
+| `metrics.systems` | number | *(2026-11-26)* Distinct systems named as a system of record on the map's steps (4.6) |
+| `metrics.handoffs_manual` | number | Handoffs whose data moves re-keyed, by email or spreadsheet, on paper, or verbally |
+| `metrics.off_system_steps` | number | Steps carrying a **D6 off-system** discrepancy |
+| `metrics.no_record_steps` | number | Steps carrying a **D11 no record** discrepancy |
+| `metrics.steps_differing` | number | Steps with at least one difference from the reference unit's map (4.7). Leave it out for the reference unit itself, and when no comparison has been confirmed. |
 | `figure` | string | e.g. "11 steps, 6 handoffs" |
 | `detail` | string | One sentence with the counts, and "Times recorded on n of m steps" when not every step has a time |
 
@@ -140,6 +149,16 @@ The Compass flags an SOP with no owner, nobody named to update it, a review over
 - On the leadership view, show one line above the phases: "n steps · n decisions · n approvals · n handoffs between n roles · n rework loops · work n h, waiting n h · process owner: role (or "not named")".
 - On export, add the `process_summary` finding from the **published** version, as in section 3.
 
+### 4.6 A light data lens *(added 2026-11-26)*
+- On each step, an optional **System of record**: a choice from the engagement's systems (the roles marked as systems, plus "other system…" and "none: paper or memory"). It can be filled from cited passages and interviews like any other field, and is shown on the step panel.
+- On each **handoff** (an edge between steps in different lanes), an optional **How the data moves**: System interface · Re-keyed · Email or spreadsheet · Paper · Verbal · Not known. Default "Not known". Where a system log shows the receiving step, suggest "System interface"; never set it without my confirmation.
+- On the leadership view, one more line: "n systems · n of n handoffs by hand · n steps off-system · n steps with no record". Clicking a figure lists the steps behind it, as the existing figures do.
+- No new scoring of data quality. The discrepancy register stays the record of where data is unreliable.
+
+### 4.7 Steps run differently from the reference *(added 2026-11-26)*
+- On the existing comparison of two published maps, count the steps of **this** unit's map that carry at least one confirmed difference from the reference unit's map (any difference kind, including steps only on this map). Show it on the comparison screen as "n of m steps (x%) run differently from {reference}", beside the line "For scale: IATA audits find about 8% of procedures vary from the manual."
+- Send it as `metrics.steps_differing` on this unit's `process_summary`.
+
 ## 5. Rules that must hold
 - This app never changes a Compass ID, status or score.
 - No person's name ever appears in an exported file.
@@ -170,10 +189,12 @@ Build a small fictional fixture engagement (or extend an existing fixture) start
 9. Give the fixture a process owner "Country manager" and lanes so that the published map has 11 steps (2 decisions, 2 approvals), 6 handoffs between 5 roles and 1 rework loop, with work 840 and waiting 7,200 minutes. Export: one `process_summary` finding whose `ref`, `process_owner` and `metrics` match the attached sample's `VS-01` `process_summary` finding exactly, and whose handoff count equals the leadership view's total.
 10. A step with no recorded time is left out of `work_min` and `wait_min`, and the detail says "Times recorded on n of m steps".
 11. Starting an engagement from a packet whose pilot has `process_owner: "Country manager"` offers that role in the scope; nothing is set until I confirm.
-12. All existing tests still pass. No real AI calls in tests.
+12. *(Data lens.)* In the fixture, name three systems of record across the steps, mark two handoffs "Re-keyed" and "Email or spreadsheet" and the rest "System interface", and give one step a D6 discrepancy and none D11. The leadership view line reads "3 systems · 2 of 6 handoffs by hand · 1 step off-system · 0 steps with no record", and the `process_summary` metrics carry `systems: 3, handoffs_manual: 2, off_system_steps: 1, no_record_steps: 0`, matching the attached sample.
+13. *(Deviation share.)* Compare the fixture's map with a reference map so that 3 of its 11 steps carry a confirmed difference. The comparison screen shows "3 of 11 steps (27%) run differently", and `steps_differing: 3` is in the summary, matching the sample. The reference unit's own summary has no `steps_differing`.
+14. All existing tests still pass. No real AI calls in tests.
 
 ## 7. How to build it
-- Small increments: the three fields from the RACI on step findings; on discrepancy and variation findings; the on-paper field with its passage; the RACI view marks and count; the SOP fields in the source register; the `sop` findings on export; the process owner in the scope; the `process_summary` finding and the leadership view line. Test and commit each, and update the project state after each.
+- Small increments: the three fields from the RACI on step findings; on discrepancy and variation findings; the on-paper field with its passage; the RACI view marks and count; the SOP fields in the source register; the `sop` findings on export; the process owner in the scope; the `process_summary` finding and the leadership view line; system of record and how data moves (4.6); the deviation count (4.7). Test and commit each, and update the project state after each.
 - Record the new step field in DECISIONS.md before building it.
 - Extend this app's existing data contract and tests; do not add a second way of doing the same thing.
 - End with the full check suite green and a plain-language summary: what works, what you did not do, and why.
@@ -181,6 +202,7 @@ Build a small fictional fixture engagement (or extend an existing fixture) start
 ## 8. Out of scope
 - Changing the shared format, the ID scheme or the discrepancy types.
 - Decision rights outside the mapped value stream.
+- Scoring data quality per handoff, or a system inventory beyond the systems on the map. Station-level facts (core cargo system, e-AWB share, ONE Record readiness) are typed in the Compass.
 - Any change that makes Capability Compass a required dependency.
 
 ## 9. What to attach

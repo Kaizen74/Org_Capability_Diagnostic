@@ -41,9 +41,10 @@ An ID is a prefix and a number. The number is never reused inside a workspace, s
 | `H n` | Operating-model hypothesis | Org Modeling |
 | `V n` | Difference between two countries' published maps of the same process | Process Map Studio |
 | `SOP-nn` | An SOP or manual in an engagement's sources (added 2026-11-25) | Process Map Studio |
+| `RF-nn` | A role family, defined once for the whole org file, so the same in every unit (added 2026-11-26) | Org Modeling |
 | `T-nnn` | Task | Workbench |
 
-The last seven are reserved so the Compass never mints a clashing prefix. Process Map Studio already gives discrepancies codes that are never reused (`X1`, `X2`…).
+The last eight are reserved so the Compass never mints a clashing prefix. Process Map Studio already gives discrepancies codes that are never reused (`X1`, `X2`…).
 
 ## 2. One evidence grammar
 
@@ -166,10 +167,13 @@ Each of the other three apps exports what it found as one small file:
 | `on_paper`, `decided_by`, `accountable` *(optional, `decision_right` findings)* | Role names, at most 80 characters: the decider the documents name, the decider in practice, and the role holding A in the RACI ("X / Y" when two hold it). Never a person's name. |
 | `owner_role`, `updated_by`, `version_date`, `last_reviewed`, `review_due` *(optional, kind `sop`)* | The SOP's owner role, the role that keeps it current, and its dates as `YYYY`, `YYYY-MM` or `YYYY-MM-DD`. Roles only, never a person's name. |
 | `process_owner` *(optional, kind `process_summary`)* | The role accountable for the value stream end to end in this unit. |
-| `metrics` *(optional, kind `process_summary`)* | `steps`, `decisions`, `approvals`, `handoffs` (a step passing the work to a step in a different lane), `roles`, `rework_loops`, `work_min`, `wait_min`. Numbers of zero or more only. |
+| `metrics` *(optional, kind `process_summary`)* | `steps`, `decisions`, `approvals`, `handoffs` (a step passing the work to a step in a different lane), `roles`, `rework_loops`, `work_min`, `wait_min`; since 2026-11-26 also `systems`, `handoffs_manual` (re-keyed, email or spreadsheet, paper, verbal), `off_system_steps` (D6), `no_record_steps` (D11) and `steps_differing` (steps differing from the reference unit's map). Numbers of zero or more only. |
+| `metrics` *(optional, kind `role_family`)* | `headcount` (0 = absent in this unit) and `job_titles`. One finding per family per unit file, `ref` = `RF-nn`. |
 | `controlled_copy` *(optional, kind `sop`)* | `true` or `false`: whether the copy in use is the controlled one. |
 | `steps_governed`, `steps_departing` *(optional, kind `sop`)* | Numbers: steps on the published map that cite this SOP, and how many of those are done differently from it. |
 | `accountable_contested` *(optional)* | `true` when the sources disagree about who is accountable, or two roles hold A. Counts only when exactly `true`. |
+
+New kind (added 2026-11-26): **`role_family`** from Org Modeling. The Compass compares families by `RF-nn` across units (in every unit, in some, in one only) on readout page 2, with the reason class. `structural_baseline` metrics also gain `supervisors_no_reports`; the Compass flags broken reporting lines on page 4.
 
 New kind (added 2026-11-25): **`process_summary`** from Process Map Studio, one per published map, `ref` = the value stream's `VS-nn`. The Compass shows it per unit under Findings → Value streams (each figure can be typed over) and lines up the same value stream across units on readout page 5. The packet's `pilots[]` now also carries `process_owner` when the owner has named one.
 

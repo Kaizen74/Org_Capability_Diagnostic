@@ -76,7 +76,12 @@
         "roles": 5,
         "rework_loops": 1,
         "work_min": 840,
-        "wait_min": 7200
+        "wait_min": 7200,
+        "systems": 3,
+        "handoffs_manual": 2,
+        "off_system_steps": 1,
+        "no_record_steps": 0,
+        "steps_differing": 3
       }
     },
     {
