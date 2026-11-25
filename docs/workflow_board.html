@@ -129,7 +129,41 @@ footer{color:var(--muted);font-size:12px;margin-top:26px}
 .track .now{position:absolute;left:0;top:0;bottom:0;background:var(--l3);border-radius:999px}
 .track .mark{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--ink)}.track .amb{position:absolute;top:-4px;bottom:-4px;width:3px;background:var(--amber)}
 .legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted);margin-bottom:8px;flex-wrap:wrap}.legend b{display:inline-block;width:14px;height:8px;border-radius:2px;vertical-align:middle;margin-right:4px}
+.frame-body{overflow-x:auto}
+.mk-wrap>*{min-width:0}.frame{max-width:100%}
+.mk-ch{display:block;font-family:var(--head);font-weight:800;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.mk-h{font-size:13px;margin:14px 0 6px}
+.mk-ev{margin:12px 0 0;padding-top:6px;border-top:1px dashed var(--line);font-size:12px;color:var(--muted)}
+.mk-note{font-size:12px;color:var(--muted);margin:6px 0 0}
+.mk-warn{background:var(--amber-bg);border:1px solid #EED9B8;color:var(--amber-deep);border-radius:8px;padding:6px 10px;font-size:12.5px;margin:8px 0 0}
+.mk-list{margin:0;padding-left:18px;font-size:13px}.mk-list li{margin-bottom:3px}
+.mk-counts{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;margin-bottom:8px;color:var(--muted)}.mk-counts strong{color:var(--ink);font-size:15px}
+.hi{font-weight:900}
 @media(max-width:900px){.mk-wrap,.mk-notes,.tiles,.cols3{grid-template-columns:1fr}}
+
+/* ---- frame once, score each unit ---- */
+.fu-flow{display:grid;grid-template-columns:1fr 34px 1.5fr 34px 1fr 34px 1fr;gap:6px;align-items:stretch}
+.fu-step{border:1px solid var(--line);border-radius:12px;background:#fff;padding:12px 14px;border-top:5px solid var(--navy)}
+.fu-step.u{border-top-color:var(--l3)}.fu-step.t{border-top-color:var(--amber)}
+.fu-step h4{font-size:14px;margin:0 0 2px}.fu-step .when{font-size:11px;font-family:var(--head);font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.fu-step ul{margin:6px 0 0;padding-left:17px;font-size:12.5px}.fu-step li{margin-bottom:2px}
+.fu-arrow{display:grid;place-items:center;font-size:22px;color:var(--navy);font-weight:900}
+.units{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.unit{border:1px dashed var(--l3);border-radius:8px;padding:6px 8px;font-size:11.5px;background:#FBFCFE}.unit b{font-family:var(--head);display:block;font-size:12px}
+.unit.home{border:2px solid var(--navy)}
+.rules{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.rule{border:1px solid var(--line);border-left:5px solid var(--navy);border-radius:12px;background:#fff;padding:12px 14px}
+.rule b{font-family:var(--head);display:block;font-size:14px;margin-bottom:4px}
+.rule.a{border-left-color:var(--amber)}
+.chk{list-style:none;margin:0;padding:0;columns:2;column-gap:26px}
+.chk li{break-inside:avoid;padding:5px 0 5px 26px;position:relative;border-bottom:1px solid var(--line);font-size:13px}
+.chk input{position:absolute;left:0;top:7px}
+.faq details{border:1px solid var(--line);border-radius:10px;background:#fff;padding:10px 14px;margin-bottom:6px}
+.faq summary{font-family:var(--head);font-weight:800;cursor:pointer}
+.faq details p{margin:8px 0 2px;color:#333B4D}
+#p-units .card{overflow-x:auto}
+.yes{color:var(--navy);font-weight:700}.no{color:var(--amber-deep);font-weight:700}
+@media(max-width:900px){.fu-flow,.rules{grid-template-columns:1fr}.fu-arrow{transform:rotate(90deg)}.chk{columns:1}}
 </style>
 </head>
 <body>
@@ -140,7 +174,7 @@ footer{color:var(--muted);font-size:12px;margin-top:26px}
 </header>
 <main>
   <section class="panel" id="p-now">
-    <p class="lede"><strong>Your immediate need.</strong> Nine steps that frame the analysis, gather the evidence in each country, and end with six pages for EXCO, plus one optional step for hearing the shop floor. Click a step for exactly where to go and what "done" looks like. Ticks are remembered on this computer. <strong>Where an app says "country", type whatever unit you are comparing</strong>: a country, a station or an asset.</p>
+    <p class="lede"><strong>Your immediate need.</strong> Nine steps that frame the analysis, gather the evidence in each country, and end with six pages for EXCO, plus one optional step for hearing the shop floor. Click a step for exactly where to go and what "done" looks like. Ticks are remembered on this computer. New to multi-unit work? Read <a href="#" id="go-units">Frame once, score each unit</a> first. <strong>Where an app says "country", type whatever unit you are comparing</strong>: a country, a station or an asset.</p>
     <div class="cs-wrap">
       <div>
         <div class="progress"><span id="prog-t"></span><div class="bar"><i id="prog-b"></i></div><button class="btn ghost" id="reset" style="padding:4px 10px;font-size:11px">Reset</button></div>
@@ -151,7 +185,7 @@ footer{color:var(--muted);font-size:12px;margin-top:26px}
   </section>
 
   <section class="panel" id="p-out">
-    <p class="lede"><strong>What good looks like at the end of the current-state analysis.</strong> Seven mock-up screens of the outcomes you are working towards, and what each one hands to the design phase. All names and numbers are <strong>illustrative and fictional</strong> (a made-up group with three made-up countries: Arden, Belmar and Caldera).</p>
+    <p class="lede"><strong>What good looks like at the end of the current-state analysis.</strong> The six pages of the EXCO readout, as the Compass now prints them, plus the design brief they add up to. Each page says which of the four design choices it serves and how strong its evidence is. All names and numbers are <strong>illustrative and fictional</strong> (a made-up group with three made-up countries: Arden, Belmar and Caldera).</p>
     <div class="mk-wrap"><div class="mk-nav" id="mk-nav"></div><div id="mk-view"></div></div>
   </section>
 
@@ -202,15 +236,104 @@ footer{color:var(--muted);font-size:12px;margin-top:26px}
       <tr><td><span class="chip">CAP-03.People</span></td><td>One scored cell</td><td>Compass</td></tr>
       <tr><td><span class="chip">VS-01</span></td><td>A value stream chosen to examine. The same number in every country.</td><td>Compass</td></tr>
       <tr><td><span class="chip">RL-011</span> <span class="chip">LV-02</span></td><td>An anchor role; a money lever</td><td>Compass</td></tr>
-      <tr><td><span class="chip">S-05</span> <span class="chip">X3</span> <span class="chip">V1</span></td><td>A process step; a gap between documented and done; a difference between two countries' maps</td><td>Process Map Studio</td></tr>
+      <tr><td><span class="chip">S-05</span> <span class="chip">X3</span> <span class="chip">V1</span> <span class="chip">SOP-01</span></td><td>A process step; a gap between documented and done; a difference between two countries' maps; an SOP or manual in the sources</td><td>Process Map Studio</td></tr>
       <tr><td><span class="chip">H2</span></td><td>An operating-model hypothesis</td><td>Org Modeling</td></tr>
       <tr><td><span class="chip">T-014</span></td><td>A task</td><td>Workbench</td></tr></table>
       <p style="margin:10px 0 0;color:var(--muted);font-size:12.5px">Each country has its own key in front (for example a frame key plus a two-letter country code), so an ID quoted in a board paper always says which country it came from.</p></div>
   </section>
 
+  <section class="panel" id="p-units">
+    <p class="lede"><strong>Frame once, score each unit.</strong> You frame the organisation once, in one workspace. Every other unit (a country, station, asset or business unit) is copied from that frame, so the same ID means the same thing everywhere. Each unit is then scored and evidenced on its own. The units come back together for the comparison and the EXCO readout, and the design is done once, for the whole organisation. All examples here are fictional.</p>
+
+    <div class="fu-flow">
+      <div class="fu-step"><span class="when">Once · Stages 0 and 1</span><h4>Frame and Focus</h4>
+        <ul><li>Charter for the whole organisation</li><li>Clusters, scope, diagnostic questions</li><li>Money levers and anchor roles</li><li>Lock the charter</li></ul></div>
+      <div class="fu-arrow">→</div>
+      <div class="fu-step u"><span class="when">Each unit · Stages 2 and 3</span><h4>Find and score</h4>
+        <ul><li>Same frame, every score blank</li><li>Its own evidence, roles, scores and money</li><li>Mapped units go on to the other apps</li></ul>
+        <div class="units"><div class="unit home"><b>Arden</b>Home unit: holds the frame <em>and</em> is scored</div><div class="unit"><b>Belmar</b>Scored and mapped</div><div class="unit"><b>Caldera</b>Scored only</div></div></div>
+      <div class="fu-arrow">→</div>
+      <div class="fu-step t"><span class="when">Together · end of Stage 3</span><h4>Compare and report</h4>
+        <ul><li>Compare the units</li><li>Class each difference</li><li>Six pages to EXCO</li></ul></div>
+      <div class="fu-arrow">→</div>
+      <div class="fu-step"><span class="when">Once · Stages 4 and 5</span><h4>Design and deliver</h4>
+        <ul><li>One design for the organisation</li><li>Required differences stay local, chosen ones are decided, inherited ones harmonised</li></ul></div>
+    </div>
+
+    <h3 class="sec">Stage by stage: where each part is done</h3>
+    <div class="card"><table>
+      <tr><th>Stage</th><th>Done where</th><th>What happens</th><th>App</th></tr>
+      <tr><td><span class="chip">0 Frame</span></td><td><strong>Once</strong>, in your home workspace</td><td>The charter for the whole organisation: name, sponsor, thesis, scope, design criteria, decisions, frame key. Lock it.</td><td><span class="app compass">Capability Compass</span></td></tr>
+      <tr><td><span class="chip">1 Focus</span></td><td><strong>Once</strong>, in the same workspace</td><td>Clusters with their scope and diagnostic question; money levers; anchor roles. Clear the calibration panel.</td><td><span class="app compass">Capability Compass</span></td></tr>
+      <tr><td><em>Then</em></td><td>Charter → Units to compare</td><td>Choose the unit word, name the home unit, add each other unit with its tier. Each gets the same frame and IDs, every score blank.</td><td><span class="app compass">Capability Compass</span></td></tr>
+      <tr><td><span class="chip">2 Find</span></td><td><strong>Each unit</strong> separately</td><td>Evidence, role status and scores. Scored-and-mapped units also go to Process Map Studio and Org Modeling. Narrative Lens if needed.</td><td><span class="app compass">Compass</span> <span class="app org">Org</span> <span class="app pms">PMS</span> <span class="app nl">optional</span></td></tr>
+      <tr><td><span class="chip">3 Dial</span></td><td><strong>Each unit</strong>, then <strong>together</strong></td><td>Import findings, re-score, save a version in each unit. Then compare the units and print the readout.</td><td><span class="app compass">Compass</span> <span class="app wb">Workbench</span></td></tr>
+      <tr><td><span class="chip">4 Design</span> <span class="chip">5 Deliver</span></td><td><strong>Once</strong>, for the organisation</td><td>One design, shaped by how the units differ, then measured cycle by cycle on the Scoreboard.</td><td><span class="app org">Org</span> <span class="app wb">Workbench</span> <span class="app compass">Compass</span></td></tr>
+    </table></div>
+
+    <h3 class="sec">Three rules that keep the comparison honest</h3>
+    <div class="rules">
+      <div class="rule"><b>The home workspace is also a unit</b>It describes the whole organisation in its charter, but you score it as one unit, like the others. There is no separate, unscored "group" workspace above the units. Choose as home the unit you know best and have the most evidence for.</div>
+      <div class="rule a"><b>One kind of unit per comparison</b>Pick one level: countries, or stations, or assets, or business units. Comparing a region with a single asset makes every difference meaningless. The Compass does not add units up into a regional total; if you need a region-level view later, set it up as a separate comparison.</div>
+      <div class="rule"><b>Frame changes flow one way, and only add</b>Change the frame in the home workspace, then open each unit and use <strong>Review frame changes</strong>. Only additions and renames come in, ticked one by one. Nothing is deleted, and no score, status, weight or amount moves.</div>
+    </div>
+
+    <h3 class="sec">What is set once, and what each unit fills in</h3>
+    <div class="grid2">
+      <div class="box"><h4>Set once, in the frame (home workspace)</h4><ul>
+        <li>Charter: organisation name, sponsor, thesis, scope, design criteria, decision owners</li>
+        <li>The frame key (each unit's key is built from it)</li>
+        <li>Clusters and their IDs, scope (Scored, Enabler, Context only) and diagnostic question</li>
+        <li>The list of money levers and the list of anchor roles</li>
+        <li>The unit word: country, station, asset or business unit</li>
+        <li>The period and the volume measure for unit economics</li></ul></div>
+      <div class="box"><h4>Filled in by each unit</h4><ul>
+        <li>Evidence, scores, evidence grades and rationale</li>
+        <li>Whether each anchor role exists, is thin or is absent there (they start as "To confirm")</li>
+        <li>Money weights and amounts in that unit's currency</li>
+        <li>Hand-off decisions and the value stream to examine (choose the same one across units)</li>
+        <li>Revenue, manpower and non-manpower cost, head-count and volume (unit economics)</li>
+        <li>Its SOP register: owner role, who updates each SOP, review dates</li>
+        <li>The process owner, steps and handoffs for each value stream it maps</li>
+        <li>Quick-win candidates, findings from the other apps, saved versions</li></ul></div>
+    </div>
+
+    <h3 class="sec">Which tier for each unit</h3>
+    <div class="card"><table>
+      <tr><th>Tier</th><th>What it means</th><th>Choose it when</th></tr>
+      <tr><td><strong>Scored and mapped</strong></td><td>Scored in the Compass, and its value stream is mapped in Process Map Studio and its structure read in Org Modeling.</td><td>It is one of the two or three units you most expect to differ, or where most money is at stake. Map at least two units.</td></tr>
+      <tr><td><strong>Scored only</strong></td><td>Scored in the Compass; no process map, by design. The readout says so plainly instead of showing a gap.</td><td>You need it on the scale for completeness, but time or access does not allow interviews this cycle.</td></tr>
+    </table></div>
+
+    <h3 class="sec">Before you add any units: lock the frame</h3>
+    <div class="card"><p style="margin:0 0 8px;color:var(--muted);font-size:12.5px">Each unit is a copy of the frame as it stands. Getting these right first saves a round of frame reviews in every unit. Ticks are remembered on this computer.</p>
+      <ul class="chk" id="fchk"></ul></div>
+
+    <h3 class="sec">Questions worth asking before you start</h3>
+    <div class="faq">
+      <details><summary>Can I add a unit later?</summary><p><span class="yes">Yes.</span> Add it from Charter → Units to compare at any time. It is copied from the frame as it stands that day, so it starts up to date.</p></details>
+      <details><summary>A cluster does not apply in one unit. Do I delete it there?</summary><p><span class="no">No.</span> Deleting breaks the line-up with the other units. Leave its cells Not scored and write why in the cell notes. If it applies nowhere this cycle, set it to Context only in the home frame and bring that change into each unit.</p></details>
+      <details><summary>Who should score each unit?</summary><p>Ideally the unit lead, from that unit's own evidence. Open the unit, Export, send the file, and Import what comes back. Different people score differently, so before EXCO have the leads look at each other's evidence on the widest gaps.</p></details>
+      <details><summary>Where does the comparison happen, and what does it need?</summary><p>On Current State → Compare countries, in any workspace of the frame. Every unit must be in the Compass on <strong>the same computer and browser</strong>, so import the files the unit leads send back. Each unit needs its scores and a saved version that holds them.</p></details>
+      <details><summary>How do I avoid losing work?</summary><p>The Compass keeps everything in this browser only. Clearing browser data, or switching computer, loses it. <strong>Export each workspace at the end of every working session</strong> and keep the files in your approved storage.</p></details>
+      <details><summary>Can I change the frame key after adding units?</summary><p>Avoid it. Every unit's key, and so every ID quoted in a board paper, is built from it. Settle the key before adding the first unit.</p></details>
+      <details><summary>What about confidential documents?</summary><p>Workspace files and exports hold your organisation's data: keep them where your policy allows. <strong>Analyse and synthesise evidence</strong> sends document text to the Claude API, so check your data policy before using it on restricted documents. You can always score by hand and cite the document without sending it.</p></details>
+      <details><summary>When should I save a version?</summary><p>In each unit, once its cells are scored, and again after findings come back and you re-score. A version with no scores is ignored, and the app warns before saving one.</p></details>
+      <details><summary>Can I show EXCO an early read?</summary><p><span class="yes">Yes.</span> The readout assembles from whatever is scored and imported. Printed at about week 6, it is your early read; pages with thin evidence say so rather than filling the gap. Quick-win candidates appear on page 6 as "Act now".</p></details>
+    </div>
+  </section>
+
   <section class="panel" id="p-exco">
     <p class="lede"><strong>What EXCO sees.</strong> The current-state analysis ends in six pages, printed from <strong>Compass → Current State → EXCO readout</strong>. You write two things: the verdict and the ask. Everything else is counted or quoted, so every line traces to a score or a finding.</p>
     <div class="card"><table id="exco"></table></div>
+    <h3 class="sec">The four design choices, and the minimum evidence for each</h3>
+    <div class="card"><table>
+      <tr><th>Design choice</th><th>Readout pages</th><th>Minimum evidence per unit</th></tr>
+      <tr><td><strong>1. Standardise or keep local</strong></td><td>2, 5, 6</td><td>One mapped value stream; every material difference classed Required, Chosen or Inherited; steps run differently from the reference unit</td></tr>
+      <tr><td><strong>2. Spans and layers</strong></td><td>4</td><td>An org file whose reporting lines work; managers tagged by type of work</td></tr>
+      <tr><td><strong>3. Decision rights, standards, unique roles</strong></td><td>2, 3, 4, 5</td><td>On paper, decides, accountable for the key decisions (including who approves a local deviation); SOP owners; role families with reasons</td></tr>
+      <tr><td><strong>4. Data backbone</strong></td><td>2, 5</td><td>Core cargo system, e-AWB share, ONE Record readiness; systems and handoffs by hand on the mapped value stream</td></tr>
+    </table><p style="margin:10px 0 0;color:var(--muted);font-size:12.5px">Each readout page says which choices it serves and ends with how strong its evidence is. Ask for each unit's evidence pack on day one: the org file, one mapped value stream with its SOPs, Finance's revenue and cost for one snapshot date, and three data-and-systems facts.</p></div>
     <h3 class="sec">Before you present</h3>
     <div class="card"><ul style="margin:0;padding-left:18px">
       <li>Every in-scope cluster scored in every country. An unscored cell reads "Not scored" and is never counted as weak; context-only clusters are left out by a stated reason.</li>
@@ -218,9 +341,15 @@ footer{color:var(--muted);font-size:12px;margin-top:26px}
       <li>Findings imported for each country, or pages 3 to 5 will say plainly that they are empty.</li>
       <li>Country leads have looked at each other's evidence for the widest gaps. Different people score different countries, and one may simply be stricter.</li>
       <li>If you ran Narrative Lens, its patterns are cited as Indicated evidence behind a score. They are never a finding on their own.</li>
-      <li>Money at risk is an estimate until finance validates it, and is only totalled when the countries share a currency.</li></ul></div>
+      <li>Money at risk is an estimate until finance validates it, and is only totalled when the countries share a currency.</li>
+      <li>Unit economics entered for every unit, on the same period, head-count basis and volume measure, and validated by Finance (or shown as an estimate). Org Modeling's people cost is base salary only.</li>
+      <li>Every decision finding says who is accountable, not only who decides.</li>
+      <li>Every mapped unit lists its SOPs with an owner role and a review date; overdue and uncontrolled copies are flagged on page 5.</li>
+      <li>Every value stream has a process owner named in each unit, and steps and handoffs for every mapped unit.</li>
+      <li>Each page's evidence line shows enough Confirmed and Indicated evidence for the design choice it serves; nothing reaches EXCO on a Hypothesis alone.</li>
+      <li>Every unit has its three data-and-systems facts, and no role family in only some units is left without a reason.</li></ul></div>
   </section>
-  <footer>Built for the six-stage workflow. Reviewed against all five apps on 17 November 2026 and updated on 21 November 2026: every screen named here exists today. Narrative Lens is the app in the TESSA-Sensemaking repository.</footer>
+  <footer>Built for the six-stage workflow. Reviewed against all five apps on 17 November 2026 and updated on 26 November 2026 (four design choices, data backbone, role families): every screen named here exists today. Narrative Lens is the app in the TESSA-Sensemaking repository.</footer>
 </main>
 
 <script>
@@ -228,32 +357,32 @@ const APPS={compass:"Capability Compass",org:"Org Modeling",pms:"Process Map Stu
 const STEPS=[
  {phase:"Frame it",t:"Frame the analysis",app:"compass",where:"Compass → Charter",
   q:"What are we trying to learn, about which business, in which countries, and who decides what happens next?",
-  bring:["The business or segment in scope","The countries to compare","The sponsor and who owns each decision"],
-  doit:["Write the five-sentence thesis: what business you are building and why the current model may not fit.","State the four questions of this analysis in the scope: which roles exist, why they exist, who really decides, how work really runs.","Check the design criteria (they must total 100) and the evidence rules.","Lock the charter. Later changes need a logged reason."],
+  bring:["The business or segment in scope","The units to compare, and which one is home","The sponsor, co-sponsors and who owns each decision"],
+  doit:["Write the five-sentence thesis: what business you are building and why the current model may not fit.","State the four questions of this analysis in the scope: which roles exist, why they exist, who really decides, how work really runs.","Check the design criteria (they must total 100) and the evidence rules.","Set the organisation name and a frame key you will keep (each unit's key is built from it).","Lock the charter. Later changes need a logged reason."],
   get:["A locked charter: the rules every later judgement is held to"],done:"Charter locked; sponsor named.",
-  watch:"Do not skip this to save time. Without agreed criteria, every country will argue its own way is right."},
- {phase:"Frame it",t:"Build the frame in one country",app:"compass",where:"Compass → Value Chain, Roles",
+  watch:"Do not skip this to save time. Without agreed criteria, every country will argue its own way is right. The charter speaks for the whole organisation, even though this workspace is also scored as your home unit."},
+ {phase:"Frame it",t:"Build the frame in your home unit",app:"compass",where:"Compass → Value Chain, Roles",
   q:"What exactly will every country be measured against?",
   bring:["The capability clusters or value streams","Where the money is made and lost","The anchor roles the model depends on"],
-  doit:["In your home country's workspace, settle the clusters (or value streams).","Give each cluster a scope (Edit cluster): Scored, Enabler (scored, no money weight) or Context only (not scored this cycle, with a reason).","Write each cluster's diagnostic question: what this analysis must find out. Leave the solution for the design.","On Value Chain, list the money levers and act on the calibration panel: it tests whether these are the right clusters for the money.","On Roles, list the anchor roles and score them."],
+  doit:["In your home country's workspace, settle the clusters (or value streams).","Give each cluster a scope (Edit cluster): Scored, Enabler (scored, no money weight) or Context only (not scored this cycle, with a reason).","Write each cluster's diagnostic question: what this analysis must find out. Leave the solution for the design.","On Value Chain, list the money levers and act on the calibration panel: it tests whether these are the right clusters for the money.","On Value Chain → Unit economics, set the period and the one volume measure every unit shares (agreed with Finance), and what counts as manpower cost.","Add a data-and-systems diagnostic question to the cluster that owns technology and data, so the data backbone is part of the frame every unit copies.","On Roles, list the anchor roles and score them."],
   get:["A frame: clusters, levers and roles, each with a permanent ID"],done:"The calibration panel shows no high-severity finding; every cluster has roles.",
   watch:"Get the frame right before copying it. Later changes made here can be brought into each country (additions and renames only; scores never move), but a frame that keeps changing makes the comparison harder to read."},
- {phase:"Frame it",t:"Add each country",app:"compass",where:"Compass → Charter → Units to compare (once the charter is locked)",
+ {phase:"Frame it",t:"Add each unit",app:"compass",where:"Compass → Charter → Units to compare (once the charter is locked)",
   q:"How do we make sure the same ID means the same thing everywhere?",
-  bring:["Each country's name and a two- or three-letter code"],
+  bring:["Each unit's name and a two- or three-letter code","Which units will be mapped, and which scored only"],
   doit:["Choose what you are comparing (country, station, asset or business unit) and say which one this workspace covers.","Add each other unit with its tier: scored and mapped, or scored only. It gets the same clusters, levers, roles, charter and IDs, with every score, piece of evidence and amount blank. You stay where you are.","If the frame changes later, open each unit and use Review frame changes.","To let a country lead do the scoring: open that country, Export, send the file, and Import what comes back."],
-  get:["One workspace per country, comparable line by line"],done:"Every country in scope has a workspace.",
+  get:["One workspace per unit, comparable line by line"],done:"Every unit in scope has a workspace; at least two are scored and mapped.",
   watch:"Roles copied to a new country show \"To confirm\". Someone there must say whether each exists, is thin, or is absent."},
  {phase:"Gather the evidence",t:"Score each country from its own evidence",app:"compass",where:"Compass → Roles, Evidence, Signal Matrix (in each country)",
   q:"Where does each country really stand today?",
   bring:["Each country's documents: org charts, strategy papers, survey results, workforce files"],
-  doit:["Confirm every role's status.","Upload documents under Evidence and analyse them.","Score every cell on the Signal Matrix. Cite a source and choose an evidence grade for each.","Fill in that country's money weights. Save a version."],
+  doit:["Confirm every role's status.","Upload documents under Evidence and analyse them.","Score every cell on the Signal Matrix. Cite a source and choose an evidence grade for each.","Fill in that country's money weights. Save a version.","On Value Chain → Unit economics, enter the unit's revenue, manpower cost, non-manpower cost, head-count and volume for the agreed period. Head-count and base-salary cost can be taken from the Org Modeling file; ask Finance to validate."],
   get:["A scored, sourced baseline per country"],done:"Every cell scored and graded in every country; a version saved.",
   watch:"Leave a cell unscored rather than guess: it is left out of every total. Choosing a level is what scores a cell, and Clear score undoes it. Save a version only after scoring; an empty one is ignored."},
  {phase:"Gather the evidence",t:"Choose what to examine closely, and hand off",app:"compass",where:"Compass → Hand-off (in each country)",
   q:"Which value stream do we map in detail, and what do the other apps need to start?",
   bring:["The Priority Board ranking: money at risk, weak cells, missing roles"],
-  doit:["Give every cluster a decision: examine now, later, or not this cycle (with the reason).","Name the value stream and its process KPI. Choose the same one in each country: it keeps the same VS number.","Download the full packet for each country."],
+  doit:["Give every cluster a decision: examine now, later, or not this cycle (with the reason).","Name the value stream and its process KPI. Choose the same one in each country: it keeps the same VS number.","Name the process owner for it in this unit: the role accountable end to end.","Download the full packet for each country."],
   get:["One hand-off file per country"],done:"The same value stream is chosen in at least two countries; packets downloaded.",
   watch:"Pick one value stream first. Two countries on one process teaches more than one country on five."},
  {phase:"Gather the evidence",t:"Optional: hear the shop floor",app:"nl",where:"Narrative Lens → Design, Collect, Validate, Read",optional:true,
@@ -265,19 +394,19 @@ const STEPS=[
  {phase:"Gather the evidence",t:"Which roles exist, and why",app:"org",where:"Org Modeling → upload the org file, import each country's packet, then By country and Compass roles",
   q:"Which roles and layers exist in each country, and why is each role there or missing?",
   bring:["An org file with a Country column","Each country's hand-off file"],
-  doit:["Upload the org file; review layers, spans and cost side by side by country.","Import each country's packet.","On the Compass roles screen, confirm which job titles match each anchor role.","For each role and country, record why it is there or missing: Required, Chosen or Inherited.","Export one findings file per country."],
+  doit:["Upload the org file; review layers, spans and cost side by side by country.","Import each country's packet.","On the Compass roles screen, confirm which job titles match each anchor role.","For each role and country, record why it is there or missing: Required, Chosen or Inherited.","Put the unit's name in the Country column (station or asset names work), so spans and layers are counted per unit.","Tag each manager's type of work (supervisor, coach, coordinator, specialist lead, leader of leaders) and compare spans within a type.","Fix reporting lines where supervisors show nobody reporting to them; until then their spans are not shown.","Confirm role families once for the whole org file, and say why a family exists in only some units.","Export one findings file per country."],
   get:["A findings file per country: structure, head-count per role, and the reason"],done:"Every role with nobody in it has a recorded reason, or is marked \"not known yet\".",
   watch:"Org Modeling never changes a Compass status. Where its head-count disagrees with the Compass (for example \"exists\" but nobody holds it), it flags the mismatch for you to settle in the Compass."},
  {phase:"Gather the evidence",t:"How work really runs, and who really decides",app:"pms",where:"Process Map Studio → new engagement from each country's packet; then More → Compare countries",
   q:"How is the work done in practice, who makes each decision, and how does that differ between countries?",
   bring:["Each country's hand-off file","Interviews and process documents from each country"],
-  doit:["Start one engagement per country from its packet, on the same value stream.","Add transcripts and documents; review and publish each map.","Review the gaps between documented and done, and who really decides.","Line up the two countries' maps, and class each difference Required, Chosen or Inherited.","Export the findings file for each country."],
+  doit:["Start one engagement per country from its packet, on the same value stream.","Add transcripts and documents; review and publish each map.","Review the gaps between documented and done, who really decides, and who holds A (accountable) on each decision.","Record the process owner in the scope; read steps, handoffs and waiting time on the leadership view.","Name the system of record on each step and how the data moves at each handoff (interface, re-keyed, email, paper, verbal).","On the comparison, note how many steps run differently from the reference unit.","In the source register, give each SOP or manual its owner role, the role that updates it, its version date and whether the copy in use is controlled.","Line up the two countries' maps, and class each difference Required, Chosen or Inherited.","Export the findings file for each country."],
   get:["A published map per country","A findings file per country, including differences between countries"],done:"A published map in at least two countries; findings exported.",
   watch:"Maps are compared two at a time against one reference country, so choose the reference with care. With many countries, start with the two you most expect to differ. If you ran Narrative Lens, use its clusters to decide which steps to probe in the interviews."},
  {phase:"Bring it together",t:"Compare the countries and explain the differences",app:"compass",where:"Compass → Current State → Compare countries, Findings",
   q:"Where do the countries differ, and which differences are ours to remove?",
   bring:["The findings files from the other apps"],
-  doit:["Open each country and import its findings files.","Cite the findings that matter on the cells they relate to; re-score where the evidence warrants.","On Compare countries, read the map: gaps of one level or more are flagged.","Class every material difference: Required, Chosen or Inherited, with a one-line reason."],
+  doit:["Open each country and import its findings files.","Cite the findings that matter on the cells they relate to; re-score where the evidence warrants.","On each decision finding, check or fill in who is named on paper, who decides in practice and who is accountable.","Under Findings → Value streams, check each unit's process owner, steps and handoffs (type them from Process Map Studio's leadership view if its file does not carry them).","Under Findings → Data and systems, give each unit's core cargo system, e-AWB share and ONE Record readiness.","Under Findings → Decisions you add, record decisions no app mapped, such as who approves a local deviation and how many days it takes.","Under Findings → SOPs, list or correct each unit's SOPs: owner role, who updates it, last review and review due. Type spans and layers there too if no org file was imported.","On Compare countries, read the map: gaps of one level or more are flagged.","Class every material difference: Required, Chosen or Inherited, with a one-line reason."],
   get:["A variation map","Every material difference explained"],done:"No material difference is left unclassed.",
   watch:"A small gap may be a stricter scorer, not a real difference. Have country leads check each other's evidence on the widest gaps."},
  {phase:"Bring it together",t:"Take six pages to EXCO",app:"compass",where:"Compass → Current State → EXCO readout",
@@ -303,7 +432,7 @@ const CELLS={
  "nl-5":["Hear it again","The same prompt, a cycle later.","Shows whether the installed system changed what people experience, not only what the scores say.","A before-and-after pattern, cited on the Scoreboard cycle"],
  "compass-5":["Scoreboard","Trend across versions; were last cycle's calls right?","Tells you whether the installed system is lifting capability, and holds the forecast to account.","The scoreboard"]
 };
-const EXCO=[["1","Where we stand","Your one-line verdict, then each country on one scale","Compass scores; money at risk where estimated; Narrative Lens patterns as cited evidence, if used"],["2","Where the countries differ","The variation map; how many differences are required, chosen or inherited","Compass → Compare countries"],["3","Who really decides","Decisions made by a different role from the one on paper","Process Map Studio findings"],["4","Which roles exist where, and why","Anchor roles by country, and the reasons","Compass roles; Org Modeling and Workbench findings"],["5","How work really runs","Where practice departs from the documents, and what it costs","Process Map Studio findings"],["6","What we ask you to decide","Harmonise, decide, or leave local; where to pilot; your ask","Your classifications"]];
+const EXCO=[["1","Where we stand","Your one-line verdict, each country on one scale, then cost and productivity side by side: revenue, manpower and non-manpower cost, manpower share, revenue and volume per head, cost per unit","Compass scores and unit economics (estimate until Finance validates); money at risk where estimated; Narrative Lens patterns as cited evidence, if used"],["2","Where the units differ","The variation map and how many differences are required, chosen or inherited; the data backbone and the share of steps run differently from the reference (with the IATA scale); role families common, in some, or unique","Compass → Compare; Findings → Data and systems, Value streams, Role families"],["3","Who really decides, and who is accountable","For each decision: on paper, decides in practice, accountable; mismatches counted and flagged","Process Map Studio findings, corrected by you where needed"],["4","Which roles exist where, and why","Anchor roles by country and the reasons, plus head-count, layers and spans per unit side by side","Compass roles; Org Modeling and Workbench findings"],["5","How work really runs","The same value stream in each unit: process owner, steps, decisions, handoffs, waiting time; where practice departs from the documents; who owns and updates the SOPs","Process Map Studio findings; each unit's value-stream figures and SOP register"],["6","What we ask you to decide","Harmonise, decide, or leave local; where to pilot; your ask","Your classifications"]];
 
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -312,7 +441,7 @@ let done={};try{done=JSON.parse(localStorage.getItem(KEY))||{}}catch(e){}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(done))}catch(e){}};
 let sel=Math.max(0,STEPS.findIndex((s,i)=>!done[i]&&!s.optional));
 
-const MODES=[["now","Current-state analysis","now"],["out","Outcomes to aim for"],["journey","The whole journey"],["files","What travels between apps"],["exco","What EXCO sees"]];
+const MODES=[["now","Current-state analysis","now"],["out","Outcomes to aim for"],["journey","The whole journey"],["units","Frame once, score each unit"],["files","What travels between apps"],["exco","What EXCO sees"]];
 function setMode(m){MODES.forEach(x=>{$("p-"+x[0]).classList.toggle("on",x[0]===m)});document.querySelectorAll(".mode").forEach(b=>b.classList.toggle("on",b.dataset.m===m))}
 $("modes").innerHTML=MODES.map(m=>`<button class="mode" data-m="${m[0]}">${m[1]}${m[2]?` <small>start here</small>`:""}</button>`).join("");
 document.querySelectorAll(".mode").forEach(b=>b.onclick=()=>setMode(b.dataset.m));
@@ -368,63 +497,82 @@ function drawJourney(pick){
 }
 $("exco").innerHTML=`<tr><th>Page</th><th>The question</th><th>What it shows</th><th>Where it comes from</th></tr>`+EXCO.map(r=>`<tr><td><span class="chip">${r[0]}</span></td><td><strong>${r[1]}</strong></td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("");
 /* ---------- outcome mock-ups (illustrative, fictional) ---------- */
-const lv=n=>`<span class="lv lv${Math.round(n)}">${Number.isInteger(n)?"L"+n:n.toFixed(1)}</span>`;
+const lv=n=>`<span class="lv lv${Math.round(n)}">${n.toFixed(1)}</span>`;
 const rc={req:'<span class="rc req">Required</span>',cho:'<span class="rc cho">Chosen</span>',inh:'<span class="rc inh">Inherited</span>'};
 const C=["Arden","Belmar","Caldera"];
 const tbl=(head,rows)=>`<table><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr>${rows.map(r=>`<tr class="${r.d?"diff":""}">${r.c.map(x=>`<td>${x}</td>`).join("")}</tr>`).join("")}</table>`;
+const ev=(c,i,h)=>`<p class="mk-ev">Evidence on this page: <strong>${c}</strong> Confirmed · <strong>${i}</strong> Indicated · <strong>${h}</strong> Hypothesis</p>`;
+const up='<span class="hi" title="Highest">▲</span>',dn='<span class="hi" title="Lowest">▽</span>';
 const MOCKS=[
- {t:"One verdict, one scale",s:"Where each country stands",src:"Compass → EXCO readout, page 1",
+ {t:"Where we stand",s:"One verdict, each unit on one scale, then cost and productivity",src:"Compass → EXCO readout, page 1",ch:"All four design choices",
   body:()=>`<p class="quote">Three countries run one business on three operating models. One difference is required by regulation; the widest gaps are inherited, and they cost speed in cargo handling.</p>
-   <div class="tiles">${[[3.3,3,24,"$131m"],[2.8,6,24,"$101m"],[2.7,8,20,"$72m"]].map((x,i)=>`<div class="tile"><h4>${C[i]}</h4><div class="big">${lv(x[0])}average level of 4</div><div><strong>${x[1]}</strong> of ${x[2]} scored cells need action</div><div><strong>≈ ${x[3]}</strong> at risk (estimate)</div></div>`).join("")}</div>`,
-  gives:"A single sentence leadership can repeat, and every country measured on the same four-level scale against the same capabilities.",
-  design:"The baseline the design must beat. The Scoreboard later measures every cycle against these numbers."},
- {t:"The variation map",s:"Where the countries differ",src:"Compass → Current State → Compare countries",
-  body:()=>tbl(["Capability"].concat(C,["Gap"]),[["Gateway / Hub Services",3.3,2.5,2.8,.8],["Food & Catering",3.5,3.5,3.0,.5],["Technology, Data & AI",3.3,2.3,2.3,1.0],["Commercial Leadership",3.0,3.0,2.3,.8],["Enterprise Leadership",3.5,3.0,3.3,.5],["Human Capital",3.3,2.8,null,.5]].map(r=>({d:r[4]>=1,c:[`<strong>${r[0]}</strong>`,lv(r[1]),lv(r[2]),r[3]===null?'<span style="color:var(--muted)">Not scored</span>':lv(r[3]),`<span class="gapbar ${r[4]>=1?"w":""}"><i style="width:${r[4]/3*100}%"></i></span><strong>${r[4].toFixed(1)}</strong>${r[4]>=1?' <span class="flag">⚑ wide</span>':""}`]}))),
-  gives:"One picture of where the same capability is strong in one country and weak in another, with honest blanks where nobody has scored yet.",
-  design:"Shows where a single design can be lifted from the strongest country, and where no country is strong so the design must be new."},
- {t:"Who really decides",s:"Decision rights, paper against practice",src:"Process Map Studio findings → readout page 3",
-  body:()=>tbl(["Decision","On paper"].concat(C,["Why it differs"]),[
-   {d:1,c:["<strong>Approve the renewal price</strong>","Commercial lead",'<span class="am">Regional finance controller</span>','<span class="am">Country manager</span>',"Commercial lead",rc.inh]},
-   {d:1,c:["<strong>Sign off the load plan</strong>","Certified load controller","Certified load controller",'<span class="am">Shift supervisor</span>',"Nationally certified controller",rc.req+" "+rc.inh]},
-   {d:1,c:["<strong>Approve overtime</strong>","Regional roster owner","Regional roster owner",'<span class="am">Station manager</span>',"Regional roster owner",rc.inh]},
-   {c:["<strong>Release a food batch</strong>","Food safety lead","Food safety lead","Food safety lead","Food safety lead","—"]}]),
-  gives:"For each decision that matters: who the documents say decides, and who actually does in each country. Amber marks practice that departs from paper.",
-  design:"The raw material for the decision-rights design. You see which decisions drifted for a good reason and which simply drifted."},
- {t:"The role landscape",s:"Which roles exist where, and why",src:"Compass roles + Org Modeling findings → readout page 4",
+   <div class="tiles">${[[3.3,3,24,"$131m"],[2.8,6,24,"$101m"],[2.7,8,20,"$72m"]].map((x,i)=>`<div class="tile"><h4>${C[i]}</h4><div class="big">${lv(x[0])}average level of 4</div><div><strong>${x[1]}</strong> of ${x[2]} scored cells need action</div><div><strong>≈ ${x[3]}</strong> at risk (estimate)</div></div>`).join("")}</div>
+   <h4 class="mk-h">Cost and productivity · FY2025</h4>`+tbl(["","Revenue","Manpower","Non-manpower","Manpower share of cost","Revenue per head","Volume per head (t)","Cost per tonne","Revenue per tonne"],[
+   {c:["<strong>Arden</strong>","$410m","$168m","$151m","52.7%","$330,645","500","$515","$661"]},
+   {c:["<strong>Belmar</strong> <span class=\"chip\">est.</span>","$182m","$64m","$79m","44.8%","$325,000","538","$475","$605"]},
+   {c:["<strong>Caldera</strong> <span class=\"chip\">est.</span>","$121m","$55m","$44m","55.6%","$325,269","425","$627","$766"]}])+ev(11,54,3),
+  gives:"One sentence leadership can repeat; every unit on the same four-level scale; and cost and productivity side by side, worked out from five numbers per unit and marked as estimates until Finance validates them.",
+  design:"The baseline the design must beat, in capability and in economics. Caldera's higher cost per tonne on less volume per head is a question for the design, not yet an answer."},
+ {t:"Where the units differ",s:"The variation map, the data backbone, the deviation share and role families",src:"Compass → EXCO readout, page 2",ch:"Design choices 1 Standardise or keep local · 3 Decision rights, standards and unique roles · 4 Data backbone",
+  body:()=>tbl(["Capability"].concat(C,["Gap"]),[["Gateway / Hub Services",3.3,2.5,2.8,.8],["Technology, Data & AI",3.3,2.3,2.3,1.0],["Commercial Leadership",3.0,3.0,2.3,.8],["Human Capital",3.3,2.8,null,.5]].map(r=>({d:r[4]>=1,c:[`<strong>${r[0]}</strong>`,lv(r[1]),lv(r[2]),r[3]===null?'<span style="color:var(--muted)">Not scored</span>':lv(r[3]),`<span class="gapbar ${r[4]>=1?"w":""}"><i style="width:${r[4]/3*100}%"></i></span><strong>${r[4].toFixed(1)}</strong>${r[4]>=1?' <span class="flag">⚑ wide</span>':""}`]})))+
+   `<h4 class="mk-h">Data backbone and deviation from the reference · <span class="chip">VS-01</span></h4>`+tbl(["","Core cargo system","e-AWB","ONE Record","Systems","Handoffs by hand","Off-system steps","Steps run differently"],[
+   {c:["<strong>Arden</strong>","CargoSuite","88%","Pilot","4",'<span class="am">5 of 9</span>',"2","reference"]},
+   {d:1,c:["<strong>Belmar</strong>","Legacy hub system + CargoSuite",'<span class="am">61%</span>',"Not started","3","2 of 6","1",'<span class="am">27%</span>']},
+   {c:["<strong>Caldera</strong>","Local cargo system","74%","Not started","—","—","—","—"]}])+
+   `<p class="mk-note">For scale: IATA audits find about 8% of procedures vary from the manual.</p>
+   <h4 class="mk-h">Role families across 3 units</h4><p style="margin:0 0 6px"><strong>3</strong> in every unit · <strong>2</strong> in some · <strong>1</strong> in one only</p>
+   <ul class="mk-list"><li><strong>Pricing and revenue management</strong> <span class="chip">RF-03</span>: only in Belmar · Belmar: ${rc.cho} created after two large renewals</li><li><strong>Analytics and AI</strong> <span class="chip">RF-04</span>: in Arden, Caldera · Belmar: ${rc.cho} bought as a service</li></ul>`+ev(11,54,3),
+  gives:"Where the same capability is strong in one unit and weak in another; how far each unit's data runs outside the systems; what share of the process each unit runs its own way; and which roles exist only in some units, with the reason.",
+  design:"Shows what can be lifted from the strongest unit, which data must be common before anything is automated, and how far each unit sits from a common spine."},
+ {t:"Who really decides, and who is accountable",s:"On paper, in practice, and who answers for it",src:"Compass → EXCO readout, page 3",ch:"Design choice 3 Decision rights, standards and unique roles",
+  body:()=>`<div class="mk-counts"><span><strong>7</strong> decisions</span><span><strong>5</strong> decided by a different role from the one on paper</span><span><strong>4</strong> where the one who decides is not accountable</span></div>`+tbl(["Unit","Decision","On paper","Decides in practice","Accountable"],[
+   {d:1,c:["Arden","<strong>Approve the renewal price</strong>","Commercial lead",'<span class="am">Regional finance controller ⚑</span>','Commercial lead <span class="am">⚑ not the one who decides</span>']},
+   {d:1,c:["Arden","<strong>Approve a local deviation from the manual</strong> · 21 days <span class=\"chip\">entered by you</span>","Group quality lead",'<span class="am">Station manager ⚑</span>','Group quality lead <span class="am">⚑</span>']},
+   {d:1,c:["Belmar","<strong>Sign off the load plan</strong>","Certified load controller",'<span class="am">Shift supervisor ⚑</span>','Certified load controller <span class="am">⚑</span>']},
+   {d:1,c:["Belmar","<strong>Approve overtime</strong>","Regional roster owner",'<span class="am">Station manager ⚑</span>','Regional roster owner (sources disagree)']},
+   {c:["Caldera","<strong>Approve commercial terms</strong>","Commercial lead",'<span class="am">Operations director ⚑</span>',"Operations director"]}])+ev(4,5,0),
+  gives:"For each decision that matters, the role the documents name, the role that really decides, and the role that answers for the outcome. Typed decisions, such as who approves a local deviation and how long it takes, sit beside the mapped ones.",
+  design:"The raw material for the decision-rights design. Authority and accountability in different places is the most common fault to design out."},
+ {t:"Which roles exist where, and why",s:"Anchor roles, spans and layers per unit",src:"Compass → EXCO readout, page 4",ch:"Design choices 2 Spans and layers · 3 Decision rights, standards and unique roles",
   body:()=>tbl(["Anchor role"].concat(C,["Why"]),[
    {d:1,c:["<strong>Head of Pricing</strong>","○ Absent","● Exists · 1","○ Absent",rc.cho+" Belmar created it after two large renewals"]},
-   {d:1,c:["<strong>Head, Analytics & AI</strong>","◐ Thin · 1","○ Absent","◐ Thin · 1",rc.cho+" Belmar buys analytics as a service"]},
-   {d:1,c:["<strong>Hub Duty Controller</strong>","◐ Thin · 1","○ Absent","● Exists · 2",rc.inh+" Belmar rotates supervisors since the merger"]},
-   {d:1,c:["<strong>Load Controller (certified)</strong>","● Exists · 2","● Exists · 2","● Exists · 2",rc.req+" Caldera needs national certification"]},
-   {c:["<strong>M&A / Integration Lead</strong>","○ Absent","○ Absent","○ Absent","Absent everywhere: a design question, not a country one"]}]),
-  gives:"Every role the model depends on, in every country: there, thin or missing, how many people hold it, and the reason.",
-  design:"Tells the design which roles to keep, create, merge or stop, and separates a role missing by choice from one missing by accident."},
- {t:"How the work really runs",s:"The same value stream in two countries",src:"Process Map Studio → Compare countries → readout page 5",
-  body:()=>`<p class="sub" style="margin-top:-8px"><span class="chip">VS-01</span> Bid to contract renewal</p>`+tbl(["Step","Arden","Belmar","Difference"],[
-   {c:["Receive renewal request","Account manager · 1 day","Account manager · 1 day","—"]},
-   {d:1,c:["Build the bid pack",'Rebuilt each time · <span class="am">9 days</span>',"Reused template · 3 days","<strong>V2</strong> 3 times longer in Arden "+rc.inh]},
-   {d:1,c:["Approve the price",'Finance controller · <span class="am">6 days wait</span>',"Country manager · 1 day","<strong>V1</strong> Different decider "+rc.inh]},
-   {d:1,c:["Legal review","Group legal","Local counsel","<strong>V3</strong> "+rc.req+" local contract law"]},
-   {c:["Send the offer",'<span class="am">38 days before expiry (target 90)</span>','<span class="am">61 days before expiry (target 90)</span>',"Neither meets the promise"]}]),
-  gives:"Step by step, how each country actually does the work, where it departs from the documents, and what that costs in days.",
-  design:"The best-practice step is often already running in one country. The design starts from proven practice, not a blank page."},
- {t:"The decision sheet",s:"Every difference lands in one of three places",src:"Compass → EXCO readout, page 6",
+   {d:1,c:["<strong>Hub Duty Controller</strong>","◐ Thin · 1","○ Absent","● Exists · 2",rc.inh+" Belmar rotates supervisors since the merger"]}])+
+   `<h4 class="mk-h">Spans and layers</h4>`+tbl(["","Head-count","Managers","Managers %","Layers","Median span","Within benchmark"],[
+   {c:["<strong>Arden</strong>","1,240 "+up,"118 "+up,"9.5% "+dn,"5 "+dn,"8 "+up,"71 of 118 "+up]},
+   {c:["<strong>Belmar</strong>","560","61","10.9%","5 "+dn,"6.5","38 of 61"]},
+   {d:1,c:["<strong>Caldera</strong>","372 "+dn,"47 "+dn,"12.6% "+up,"6 "+up,"5 "+dn,"22 of 47 "+dn]}])+
+   `<p class="mk-warn">⚑ Reporting lines incomplete in Caldera (9 supervisory roles with no reports): spans there are not reliable until the org file is fixed.</p>`+ev(17,4,0),
+  gives:"The roles the model depends on, unit by unit, with the reason each is there or missing; and spans and layers side by side, flagged where the org file cannot be trusted.",
+  design:"Tells the design which roles to keep, create, merge or stop, and where supervision differs. Spans are compared within a type of manager work, never as one average."},
+ {t:"How work and data really run",s:"The same value stream in each unit, and who owns the SOPs",src:"Compass → EXCO readout, page 5",ch:"Design choices 1 Standardise or keep local · 3 Decision rights, standards and unique roles · 4 Data backbone",
+  body:()=>tbl(["Value stream","Unit","Process owner","Steps","Decisions / approvals","Handoffs","Work / waiting"],[
+   {d:1,c:['<span class="chip">VS-01</span> Bid to renewal',"<strong>Arden</strong>","Commercial lead","14 "+up,"3 / 3","9 "+up,'18 h / <span class="am">216 h</span>']},
+   {c:['<span class="chip">VS-01</span> Bid to renewal',"<strong>Belmar</strong>","Country manager","11 "+dn,"2 / 2","6 "+dn,"14 h / 120 h"]},
+   {c:['<span class="chip">VS-02</span> Roster to shift cover',"<strong>Arden</strong>",'<span class="am">⚑ none named</span>',"—","—","—","—"]}])+
+   `<h4 class="mk-h">Who owns and updates the SOPs</h4>`+tbl(["","SOPs","With an owner","Owner also updates","Reviewed on time","Controlled copies","Need attention"],[
+   {c:["<strong>Arden</strong>","2","2","0","1 (50%)","1","1"]},{d:1,c:["<strong>Belmar</strong>","2","2","1",'<span class="am">0 (0%)</span>',"1","2"]},{c:["<strong>Caldera</strong>","1","1","0","1 (100%)","1","0"]}])+
+   `<ul class="mk-list"><li><strong>Load planning and sign-off</strong> is owned by the station manager in Belmar, the chief load controller in Caldera</li><li><strong>Belmar</strong>: load planning SOP not reviewed in 2 years, uncontrolled copy in use, 3 steps done differently</li></ul>`+ev(9,6,1),
+  gives:"Step counts, handoffs and waiting time for the same process in each unit, who owns it end to end, where practice departs from the documents, and who owns and keeps each SOP current.",
+  design:"The best-practice version is often already running somewhere. Fewer handoffs and less waiting at Belmar point to a spine worth testing elsewhere."},
+ {t:"What we ask you to decide",s:"Every difference lands in one of three places",src:"Compass → EXCO readout, page 6",ch:"All four design choices",
   body:()=>`<div class="cols3">
-   <div class="col i"><h4>Harmonise</h4><p>Inherited: nobody decided it</p><ul><li><strong>Load planning</strong>: two systems since the merger</li><li><strong>Renewal pricing authority</strong>: three different deciders</li><li><strong>Bid pack</strong>: adopt Belmar's template</li></ul></div>
-   <div class="col c"><h4>Decide: keep or align</h4><p>Chosen: a deliberate local decision</p><ul><li><strong>Analytics</strong>: bought as a service in Belmar</li><li><strong>Head of Pricing</strong>: one country has it; should all?</li></ul></div>
-   <div class="col"><h4>Leave local</h4><p>Required: regulation, contract or site</p><ul><li><strong>Load controller certification</strong> in Caldera</li><li><strong>Legal review</strong> under local contract law</li></ul></div></div>
-   <p class="quote" style="margin:14px 0 0;font-size:14px">The ask: agree to harmonise the three inherited differences, starting with load planning; decide the two chosen ones by next quarter; pilot the redesign on renewals.</p>`,
-  gives:"A clear ask. Leadership is not told \"the countries differ\"; it is asked to harmonise, to decide, or to leave alone.",
+   <div class="col i"><h4>Harmonise</h4><p>Inherited: nobody decided it</p><ul><li><strong>Load planning</strong>: two systems since the merger</li><li><strong>Renewal pricing authority</strong>: three different deciders</li></ul></div>
+   <div class="col c"><h4>Decide: keep or align</h4><p>Chosen: a deliberate local decision</p><ul><li><strong>Analytics</strong>: bought as a service in Belmar</li><li><strong>Head of Pricing</strong>: one unit has it; should all?</li></ul></div>
+   <div class="col"><h4>Leave local</h4><p>Required: regulation, contract or site</p><ul><li><strong>Load controller certification</strong> in Caldera</li></ul></div></div>
+   <h4 class="mk-h">Act now: quick-win candidates</h4><ul class="mk-list"><li><strong>Belmar</strong>: <span class="chip">CAP-01.Process</span> Retire the second load-planning system at the hub (Station GM)</li></ul>
+   <h4 class="mk-h">Where we would pilot the design</h4><ul class="mk-list"><li><strong>Arden</strong>: <span class="chip">VS-01</span> Bid to contract renewal (days from request to signed renewal)</li></ul>
+   <p class="quote" style="margin:12px 0 0;font-size:14px">The ask: agree to harmonise the two inherited differences, starting with load planning; decide the two chosen ones by next quarter; pilot the redesign on renewals.</p>`,
+  gives:"A clear ask. Leadership is not told \"the units differ\"; it is asked to harmonise, to decide, or to leave alone, with quick wins to start now and a place to pilot.",
   design:"Sets the boundary of the design: what must be one way everywhere, what may vary, and what is not up for debate."},
- {t:"The design brief",s:"The foundation the design phase starts from",src:"Assembled from all of the above; carried into Stages 3 to 5",
-  body:()=>`<div class="legend"><span><b style="background:var(--l3)"></b>Where we are today (best country to weakest shown as one bar)</span><span><b style="background:var(--ink)"></b>Industry norm</span><span><b style="background:var(--amber)"></b>Leapfrog ambition</span></div>
-   ${[["Decision speed on renewals",35,60,90],["One way of working across countries",40,55,85],["Work designed for people and AI together",20,35,80],["Capability measured every cycle",45,50,90]].map(r=>`<div style="margin-bottom:10px"><strong>${r[0]}</strong><div class="track"><div class="now" style="width:${r[1]}%"></div><div class="mark" style="left:${r[2]}%"></div><div class="amb" style="left:${r[3]}%"></div></div></div>`).join("")}
+ {t:"The design brief",s:"The foundation the design phase starts from",src:"Assembled from the six pages; carried into Stages 3 to 5",ch:"Carries all four design choices into design",
+  body:()=>`<div class="legend"><span><b style="background:var(--l3)"></b>Where we are today (best unit to weakest shown as one bar)</span><span><b style="background:var(--ink)"></b>Industry norm</span><span><b style="background:var(--amber)"></b>Leapfrog ambition</span></div>
+   ${[["One way of working across units (choice 1)",40,55,85],["Decision speed, with authority and accountability together (choice 3)",35,60,90],["Supervision matched to the type of work (choice 2)",45,55,85],["One data backbone: data captured once, no re-keying (choice 4)",25,50,90]].map(r=>`<div style="margin-bottom:10px"><strong>${r[0]}</strong><div class="track"><div class="now" style="width:${r[1]}%"></div><div class="mark" style="left:${r[2]}%"></div><div class="amb" style="left:${r[3]}%"></div></div></div>`).join("")}
    <div class="grid2" style="margin-top:14px">
     <div class="box"><h4>Fixed constraints (Required)</h4><ul><li>National certification in Caldera</li><li>Local legal review</li></ul></div>
-    <div class="box"><h4>Proven practice to scale</h4><ul><li>Belmar's reusable bid pack</li><li>Belmar's one-day price approval</li></ul></div>
+    <div class="box"><h4>Proven practice to scale</h4><ul><li>Belmar's reusable bid pack and one-day price approval</li><li>Arden's e-AWB share and ONE Record pilot</li></ul></div>
     <div class="box"><h4>Hypotheses to test in design</h4><ul><li><span class="chip">H1</span> Pricing authority inside Commercial halves renewal time</li><li><span class="chip">H2</span> One load-planning system removes double entry</li></ul></div>
-    <div class="box"><h4>Baseline the scoreboard will track</h4><ul><li>Average capability level per country</li><li>Days from bid request to signed contract</li><li>Anchor roles filled</li></ul></div></div>`,
-  gives:"One page that turns the diagnosis into a starting point: the constraints, what already works, what to test, and how far the ambition sits beyond the industry norm.",
+    <div class="box"><h4>Baseline the scoreboard will track</h4><ul><li>Average capability level per unit</li><li>Cost per tonne; handoffs by hand; steps run differently</li><li>Anchor roles filled</li></ul></div></div>`,
+  gives:"One page that turns the diagnosis into a starting point for each design choice: the constraints, what already works, what to test, and how far the ambition sits beyond the industry norm.",
   design:"This is the hand-over. Catching up means reaching the black line; leapfrogging means designing for the amber one, and the gap between them is the design agenda."}
 ];
 let mk=0;
@@ -432,13 +580,19 @@ function drawMock(){
   $("mk-nav").innerHTML=MOCKS.map((m,i)=>`<button class="mk-btn ${i===mk?"sel":""}" data-mk="${i}"><i>${i+1}</i><span><b>${m.t}</b><span>${m.s}</span></span></button>`).join("");
   const m=MOCKS[mk];
   $("mk-view").innerHTML=`<div class="frame"><div class="frame-bar"><u></u><u></u><u></u><span>${m.src}</span><em>Mock-up · illustrative data</em></div>
-    <div class="frame-body"><h3>${m.t}</h3><p class="sub">${m.s}</p>${m.body()}</div></div>
+    <div class="frame-body">${m.ch?`<span class="mk-ch">${m.ch}</span>`:""}<h3>${m.t}</h3><p class="sub">${m.s}</p>${m.body()}</div></div>
     <div class="mk-notes"><div class="box"><h4>What this outcome gives you</h4>${m.gives}</div><div class="box warn"><h4>What it sets up for design</h4>${m.design}</div></div>
     <div class="donebtn">${mk>0?'<button class="btn ghost" id="mk-prev">← Previous</button>':""}${mk<MOCKS.length-1?'<button class="btn" id="mk-next">Next outcome →</button>':""}</div>`;
   document.querySelectorAll("[data-mk]").forEach(b=>b.onclick=()=>{mk=+b.dataset.mk;drawMock()});
   if($("mk-prev"))$("mk-prev").onclick=()=>{mk--;drawMock()};if($("mk-next"))$("mk-next").onclick=()=>{mk++;drawMock()};
 }
 drawMock();
+const FCHK=["Charter locked, with the organisation name, sponsor and co-sponsors","Frame key final","Every decision has an owner","Clusters final, with IDs","Each cluster's scope set (Context only has a reason)","Each cluster's diagnostic question written in your own words","Money levers listed; calibration panel clear","Anchor roles listed against their clusters","Unit word chosen and home unit named","Tier chosen for each unit","Period, volume measure and what counts as manpower cost agreed with Finance","Data-and-systems question added to the frame; each unit's evidence pack requested (org file, one mapped value stream with its SOPs, Finance figures, three data facts)","Home workspace exported as a backup"];
+const FKEY="four_apps_board_frame_v1";let fdone={};try{fdone=JSON.parse(localStorage.getItem(FKEY))||{}}catch(e){}
+function drawChk(){$("fchk").innerHTML=FCHK.map((t,i)=>`<li><input type="checkbox" data-f="${i}" ${fdone[i]?"checked":""} id="fc${i}"><label for="fc${i}">${esc(t)}</label></li>`).join("");
+  document.querySelectorAll("[data-f]").forEach(c=>c.onchange=()=>{fdone[c.dataset.f]=c.checked;try{localStorage.setItem(FKEY,JSON.stringify(fdone))}catch(e){}})}
+drawChk();
+$("go-units").onclick=e=>{e.preventDefault();setMode("units");window.scrollTo(0,0)};
 draw();drawJourney();setMode("now");
 </script>
 </body>

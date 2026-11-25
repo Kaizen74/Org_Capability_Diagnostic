@@ -40,9 +40,11 @@ An ID is a prefix and a number. The number is never reused inside a workspace, s
 | `I n` | Intent statement | Process Map Studio |
 | `H n` | Operating-model hypothesis | Org Modeling |
 | `V n` | Difference between two countries' published maps of the same process | Process Map Studio |
+| `SOP-nn` | An SOP or manual in an engagement's sources (added 2026-11-25) | Process Map Studio |
+| `RF-nn` | A role family, defined once for the whole org file, so the same in every unit (added 2026-11-26) | Org Modeling |
 | `T-nnn` | Task | Workbench |
 
-The last six are reserved so the Compass never mints a clashing prefix. Process Map Studio already gives discrepancies codes that are never reused (`X1`, `X2`…).
+The last eight are reserved so the Compass never mints a clashing prefix. Process Map Studio already gives discrepancies codes that are never reused (`X1`, `X2`…).
 
 ## 2. One evidence grammar
 
@@ -161,6 +163,21 @@ Each of the other three apps exports what it found as one small file:
 | `topic` *(optional)* | What the finding is about: `decision_right` (who really decides), `role_presence` (which roles exist), `role_reason` (why a role is there or missing), `way_of_working` (how work runs). It decides the readout page; without it, the kind decides. |
 | `reason_class` *(optional)* | Why it is so: `required` (regulation, contract, site), `chosen` (a deliberate local decision), `inherited` (history, acquisition, habit), or `unknown`. The same words as the Compass's Compare tab. |
 | `compared_with` *(optional)* | The other country a difference is measured against, e.g. `Arden`. |
+| `metrics` *(optional, `structural_baseline` only)* | Numbers behind a structure finding: `headcount`, `managers`, `manager_ratio_pct`, `layers`, `median_span`, `spans_within`, `spans_below`, `spans_above`, `single_report_managers`, `health_score`, `total_cost` (annual people cost in full currency units, base salary). Numbers of zero or more only; anything else is dropped. Without it, the Compass reads the numbers from the figure and detail wording. |
+| `on_paper`, `decided_by`, `accountable` *(optional, `decision_right` findings)* | Role names, at most 80 characters: the decider the documents name, the decider in practice, and the role holding A in the RACI ("X / Y" when two hold it). Never a person's name. |
+| `owner_role`, `updated_by`, `version_date`, `last_reviewed`, `review_due` *(optional, kind `sop`)* | The SOP's owner role, the role that keeps it current, and its dates as `YYYY`, `YYYY-MM` or `YYYY-MM-DD`. Roles only, never a person's name. |
+| `process_owner` *(optional, kind `process_summary`)* | The role accountable for the value stream end to end in this unit. |
+| `metrics` *(optional, kind `process_summary`)* | `steps`, `decisions`, `approvals`, `handoffs` (a step passing the work to a step in a different lane), `roles`, `rework_loops`, `work_min`, `wait_min`; since 2026-11-26 also `systems`, `handoffs_manual` (re-keyed, email or spreadsheet, paper, verbal), `off_system_steps` (D6), `no_record_steps` (D11) and `steps_differing` (steps differing from the reference unit's map). Numbers of zero or more only. |
+| `metrics` *(optional, kind `role_family`)* | `headcount` (0 = absent in this unit) and `job_titles`. One finding per family per unit file, `ref` = `RF-nn`. |
+| `controlled_copy` *(optional, kind `sop`)* | `true` or `false`: whether the copy in use is the controlled one. |
+| `steps_governed`, `steps_departing` *(optional, kind `sop`)* | Numbers: steps on the published map that cite this SOP, and how many of those are done differently from it. |
+| `accountable_contested` *(optional)* | `true` when the sources disagree about who is accountable, or two roles hold A. Counts only when exactly `true`. |
+
+New kind (added 2026-11-26): **`role_family`** from Org Modeling. The Compass compares families by `RF-nn` across units (in every unit, in some, in one only) on readout page 2, with the reason class. `structural_baseline` metrics also gain `supervisors_no_reports`; the Compass flags broken reporting lines on page 4.
+
+New kind (added 2026-11-25): **`process_summary`** from Process Map Studio, one per published map, `ref` = the value stream's `VS-nn`. The Compass shows it per unit under Findings → Value streams (each figure can be typed over) and lines up the same value stream across units on readout page 5. The packet's `pilots[]` now also carries `process_owner` when the owner has named one.
+
+New kind (added 2026-11-25): **`sop`** from Process Map Studio, one per SOP or manual in the sources (ID `SOP-nn`), answering "who owns and updates the SOPs". The Compass lists it in that unit's SOP register, where the owner can correct it, and compares units on readout page 5.
 
 New kinds (added 2026-11-13, still format 1.0 because they are additive): **`role_reason`** from Org Modeling (why an anchor role exists, is thin, or is missing in this country) and **`variation`** from Process Map Studio (a difference between two countries' published maps of the same process, ID `Vn`).
 
@@ -169,7 +186,8 @@ What the Compass does with it:
 1. Keeps **only** the fields above. Anything else in the file is discarded.
 2. Lists the findings under Current State → Findings, strongest grade first.
 3. **Never changes a level or a grade.** "Cite on CAP-01.Process" adds the finding to that cell as evidence, with its ID and its grade at source in the note. The assessor then decides.
-4. Uses the findings on pages 3 to 5 of the EXCO readout. A finding whose words concern who decides, approves or holds authority goes to "Who really decides"; structure, role and knowledge-risk findings go to "Which roles exist where"; the rest go to "How work really runs".
+4. Lines up `metrics` per unit on readout page 4 (spans and layers), offers `headcount` and `total_cost` as starting figures for that unit's economics (Value Chain; a typed figure always wins), and shows on paper / decides / accountable on page 3. The owner can fill or correct the three roles in the findings register; both values are kept and the correction is marked. Added 2026-11-25.
+5. Uses the findings on pages 3 to 5 of the EXCO readout. A finding whose words concern who decides, approves or holds authority goes to "Who really decides"; structure, role and knowledge-risk findings go to "Which roles exist where"; the rest go to "How work really runs".
 
 Samples, all fictional: `docs/samples/countries/belmar_return_org_modeling.json` and `docs/samples/countries/belmar_return_process_map_studio.json`. They are checked by the Compass's contract test, so they always import.
 

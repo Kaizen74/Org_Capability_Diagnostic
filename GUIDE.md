@@ -56,6 +56,32 @@ When you create one you choose what its rows are: **capability clusters** (the i
 - **Renaming a cluster** whose ID has already been used asks whether it is the same capability (keep the ID) or a different one (new ID; the old one is retired).
 - **Quick-win candidates:** tick the box in the cell panel, write the action and an owner. They appear on readout page 6.
 
+## Five questions EXCO asks of every unit (added 25 November 2026)
+
+| Question | Where it is answered | What you do |
+|---|---|---|
+| Who decides, and who is accountable? | Readout page 3 | Import Process Map Studio's findings. On each decision finding in the findings register, check or fill in **on paper**, **decides in practice** and **accountable**. ⚑ marks a mismatch. |
+| How many steps and handoffs, and who owns the process? | Current State → Findings → **Value streams**; readout page 5 | Per value stream and unit: process owner (a role; also on Hand-off), steps, decisions, approvals, handoffs, roles, rework loops, work and waiting time. From Process Map Studio's findings file when it carries them, or typed from its leadership view. A typed figure wins. ▲ and ▽ mark the most and fewest for the same value stream. |
+| How many spans and layers? | Readout page 4, table per unit | Import each unit's Org Modeling findings file, or type the figures under Current State → Findings → **Spans and layers**. A typed figure wins; Org Modeling's is shown beside it. ▲ and ▽ mark the highest and lowest. |
+| Which roles are common or unique, and why? | Readout page 4 | Anchor roles only, with Required, Chosen or Inherited. Roles outside the anchor list are not compared yet. |
+| Who owns and updates the SOPs? | Current State → Findings → **SOPs**; readout page 5 | Per unit, list the SOPs that govern the work: owner role, the role that updates it, version, last review, review due, controlled copy. Process Map Studio's SOPs appear there when its file carries them; correct them in place. ⚑ shows what needs attention; page 5 also names an SOP owned by different roles in different units. |
+| Revenue, cost and productivity | Value Chain → **Unit economics**; readout page 1 | Per unit, enter revenue, manpower cost, non-manpower cost, head-count and one volume measure for one period. Ratios are worked out. Org Modeling can fill head-count and base-salary cost; a typed figure always wins. Tick "validated" once Finance agrees. |
+
+Agree the period, the volume measure and what counts as manpower cost with Finance **before** adding units: they are copied to each new unit.
+
+## The four design choices (added 26 November 2026)
+
+The readout is organised around four design choices. Each page says which it serves, and ends with how strong its evidence is (Confirmed, Indicated, Hypothesis).
+
+| Design choice | Readout | Minimum evidence per unit |
+|---|---|---|
+| 1. Standardise or keep local | Pages 2, 5, 6 | One mapped value stream; every material difference classed; steps run differently from the reference (Findings → Value streams) |
+| 2. Spans and layers | Page 4 | An org file whose reporting lines work (page 4 flags supervisory roles with nobody reporting to them) |
+| 3. Decision rights, standards, unique roles | Pages 2, 3, 4, 5 | Decision findings (or decisions you add under Findings, e.g. who approves a local deviation and how many days it takes); SOP owners; role families |
+| 4. Data backbone | Pages 2, 5 | Findings → Data and systems: core cargo system, e-AWB share, ONE Record readiness; per value stream: systems, handoffs by hand, off-system steps, steps with no record |
+
+Ask each unit for its evidence pack on day one: the org file, one mapped value stream with its SOPs, Finance's revenue and cost for one snapshot date, and the three data-and-systems facts.
+
 ## Current state across countries
 
 Use this before any design work, to answer four questions: which roles exist, who really decides, how work really runs, and how all of that differs from one country to the next.

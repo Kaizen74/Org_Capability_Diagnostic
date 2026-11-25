@@ -80,6 +80,45 @@ Owner approved seven changes after reviewing a real SG Hub workspace (2026-11-21
 - [x] R4 — Diagnostic question relabel (no preset solutions seeded); quick-win candidates on cells, listed on readout page 6.
 - [x] R5 — Workflow board, guide, decisions; full mock test plus a check on a copy of the owner's workspace (not committed).
 
+## This session (2026-11-25) — answer five EXCO questions across units
+
+Owner approved A, B and D (2026-11-25) after a review of the five questions (decision rights, steps and handoffs, spans and layers, common and unique roles, finance and productivity). Spend cap: few large increments.
+- [x] E1 — Unit economics on each unit (revenue, manpower and non-manpower cost, head-count, one volume measure; derived ratios; estimate until validated; head-count and people cost can be taken from an Org Modeling file, always overridable). Readout page 1 table.
+- [x] E2 — Structure table on readout page 4 from Org Modeling's structural findings (numbers read from an optional `metrics` object, else from the figure text).
+- [x] E3 — Accountable beside who decides on readout page 3 (optional `accountable` and `accountable_contested` on findings; owner can enter or correct it).
+- [x] E4 — Contract and browser checks, HANDOFF_FORMAT, GUIDE, DECISIONS, workflow board; PRDs for Org Modeling and Process Map Studio.
+
+## This session (2026-11-25, later) — sixth question: who owns and updates the SOPs
+
+- [x] F1 — SOP register per unit (typed by the owner, or from Process Map Studio's findings and correctable); readout page 5 table per unit; structure figures can be typed or corrected per unit.
+- [x] F2 — Checks (contract, browser, six printed pages, phone width), PRD refinements, shared format, guide, decisions, workflow board.
+
+## This session (2026-11-26) — calibrated round: design choices, data backbone, decisions, role families
+
+Owner approved the calibrated package (2026-11-26): fewer additions, each tied to one of the four design choices.
+- [x] J1 — Compass logic: design-choice labels and an evidence line per readout page; data and systems per unit (3 unit fields; systems, manual handoffs, off-system, no-record and steps-different per value stream); deviation share; typed decisions; revenue per unit of volume; reporting-line warning; role families finished.
+- [x] J2 — Screens and readout (six pages kept), demo data, contract and browser checks.
+- [x] J3 — Process Map Studio and Org Modeling PRDs, shared format, guide, decisions, workflow board (minimum evidence per design choice); final mock test.
+
+## This session (2026-11-25) — role families across units (E)
+
+- [x] H1 — Role families per unit (typed, or Org Modeling `role_family` findings with `RF-nn`, correctable); common, some, unique across units with a reason class; readout page 4 summary; findings card.
+- [x] H2 — Checks (contract, browser, six printed pages, phone width), Org Modeling PRD, shared format, guide, decisions, board.
+
+## This session (2026-11-25, last) — process owner and steps and handoffs (C)
+
+- [x] G1 — Process owner per value stream per unit (Hand-off and Findings, one value; in the hand-off packet); steps, decisions, approvals, handoffs, roles, rework, work and waiting time per value stream, typed or from Process Map Studio's `process_summary`; readout page 5 table.
+- [x] G2 — Checks, PRD, shared format, guide, decisions, board.
+
+## Done in this session (2026-11-25)
+
+1. Unit economics on each unit (Value Chain); ratios worked out; Org Modeling head-count and base-salary cost offered; readout page 1 table.
+2. Spans-and-layers table per unit on readout page 4, from Org Modeling's numbers or, for older files, its wording.
+3. On paper, decides in practice and accountable on readout page 3; the owner can fill or correct them in the findings register.
+4. PRDs: `docs/sibling_prds/PRD_org_modeling_structure_numbers.md` and `docs/sibling_prds/PRD_process_map_studio_accountability.md`. Samples rebuilt with the new fields.
+5. Not done, by owner choice: step and handoff counts per unit (C) and role families across units (E).
+6. Sixth question, who owns and updates the SOPs: an SOP register per unit (typed, or from Process Map Studio and correctable), compared on readout page 5; PRD for Process Map Studio extended (`sop` findings, `SOP-nn`). Spans and layers can now be typed per unit.
+
 ## Done in this session (2026-11-21)
 
 1. Not scored is not Level 1, everywhere; picking a level scores a cell; Clear score; already-scored cells marked on load.

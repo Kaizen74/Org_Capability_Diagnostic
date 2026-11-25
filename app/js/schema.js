@@ -151,6 +151,64 @@ function validateState(s) {
       if (!_isObj(pr) || !_isStr(pr.ref) || !/^VS-\d{1,4}$/.test(pr.ref)) errs.push("pilotRefs." + cid + ": ref must be a VS-nn ID");
     });
   }
+  if (s.economics !== undefined && s.economics !== null) errs = errs.concat(validateEconomics(s.economics));
+  if (s.sops !== undefined) {
+    if (!_isArr(s.sops)) errs.push("sops must be an array");
+    else s.sops.forEach(function (x, i) {
+      if (!_isObj(x)) { errs.push("sops[" + i + "] must be an object"); return; }
+      if (!_isStr(x.title) || !x.title.trim()) errs.push("sops[" + i + "]: title required");
+      ["governs", "owner_role", "updated_by", "version_date", "last_reviewed", "review_due", "note"].forEach(function (k) {
+        if (x[k] !== undefined && !_isStr(x[k])) errs.push("sops[" + i + "]." + k + " must be a string");
+      });
+      if (x.controlled !== undefined && x.controlled !== null && typeof x.controlled !== "boolean") errs.push("sops[" + i + "].controlled must be true, false or empty");
+    });
+  }
+  if (s.dataFacts !== undefined && s.dataFacts !== null) {
+    if (!_isObj(s.dataFacts)) errs.push("dataFacts must be an object");
+    else {
+      if (s.dataFacts.cargo_system !== undefined && !_isStr(s.dataFacts.cargo_system)) errs.push("dataFacts.cargo_system must be a string");
+      if (s.dataFacts.eawb_pct !== undefined && (typeof s.dataFacts.eawb_pct !== "number" || s.dataFacts.eawb_pct < 0 || s.dataFacts.eawb_pct > 100)) errs.push("dataFacts.eawb_pct must be a number from 0 to 100");
+      if (s.dataFacts.one_record !== undefined && ["none", "pilot", "live"].indexOf(s.dataFacts.one_record) === -1) errs.push("dataFacts.one_record must be none, pilot or live");
+      if (s.dataFacts.note !== undefined && !_isStr(s.dataFacts.note)) errs.push("dataFacts.note must be a string");
+    }
+  }
+  if (s.typedDecisions !== undefined) {
+    if (!_isArr(s.typedDecisions)) errs.push("typedDecisions must be an array");
+    else s.typedDecisions.forEach(function (x, i) {
+      if (!_isObj(x) || !_isStr(x.title) || !x.title.trim()) { errs.push("typedDecisions[" + i + "]: title required"); return; }
+      ["on_paper", "decided_by", "accountable", "note"].forEach(function (k) { if (x[k] !== undefined && !_isStr(x[k])) errs.push("typedDecisions[" + i + "]." + k + " must be a string"); });
+      if (x.days !== undefined && x.days !== null && (typeof x.days !== "number" || x.days < 0)) errs.push("typedDecisions[" + i + "].days must be a number of zero or more");
+      if (x.grade !== undefined && x.grade !== "" && EVIDENCE_GRADE_KEYS.indexOf(x.grade) === -1) errs.push("typedDecisions[" + i + "].grade must be empty or a grade");
+    });
+  }
+  if (s.roleFamilies !== undefined) {
+    if (!_isArr(s.roleFamilies)) errs.push("roleFamilies must be an array");
+    else s.roleFamilies.forEach(function (x, i) {
+      if (!_isObj(x) || !_isStr(x.name) || !x.name.trim()) { errs.push("roleFamilies[" + i + "]: name required"); return; }
+      if (x.ref !== undefined && x.ref !== "" && !/^RF-\d{1,4}$/.test(x.ref)) errs.push("roleFamilies[" + i + "].ref must be RF-nn or empty");
+      if (x.headcount !== undefined && x.headcount !== null && (typeof x.headcount !== "number" || x.headcount < 0)) errs.push("roleFamilies[" + i + "].headcount must be a number of zero or more, or empty");
+      if (x.reason_class !== undefined && x.reason_class !== "" && REASON_CLASS_KEYS.indexOf(x.reason_class) === -1) errs.push("roleFamilies[" + i + "].reason_class must be empty or a reason class");
+    });
+  }
+  if (s.processFacts !== undefined && s.processFacts !== null) {
+    if (!_isObj(s.processFacts)) errs.push("processFacts must be an object keyed by value stream ID");
+    else Object.keys(s.processFacts).forEach(function (ref) {
+      var x = s.processFacts[ref];
+      if (!/^VS-\d{1,4}$/.test(ref)) errs.push("processFacts." + ref + ": key must be a VS-nn ID");
+      if (!_isObj(x)) { errs.push("processFacts." + ref + " must be an object"); return; }
+      Object.keys(x).forEach(function (k) {
+        var v = x[k];
+        if (k === "process_owner" || k === "note" ? !_isStr(v) : (typeof v !== "number" || !isFinite(v) || v < 0)) errs.push("processFacts." + ref + "." + k + " has the wrong type");
+      });
+    });
+  }
+  if (s.structureOverride !== undefined && s.structureOverride !== null) {
+    if (!_isObj(s.structureOverride)) errs.push("structureOverride must be an object");
+    else Object.keys(s.structureOverride).forEach(function (k) {
+      var v = s.structureOverride[k];
+      if (k === "note" ? !_isStr(v) : (typeof v !== "number" || !isFinite(v) || v < 0)) errs.push("structureOverride." + k + " has the wrong type");
+    });
+  }
   if (s.comparison !== undefined && s.comparison !== null) errs = errs.concat(validateComparison(s.comparison));
   if (s.returns !== undefined && !_isArr(s.returns)) errs.push("returns must be an array");
   (_isArr(s.returns) ? s.returns : []).forEach(function (r, i) {
@@ -423,8 +481,50 @@ function validateReturn(r) {
     if (f.reason_class !== undefined && f.reason_class !== "" && REASON_CLASS_KEYS.indexOf(f.reason_class) === -1)
       errs.push(w + ": reason_class must be empty or one of " + REASON_CLASS_KEYS.join("/"));
     if (f.compared_with !== undefined && !_isStr(f.compared_with)) errs.push(w + ": compared_with must be a string");
+    ["on_paper", "decided_by", "accountable"].forEach(function (k) {
+      if (f[k] !== undefined && !_isStr(f[k])) errs.push(w + "." + k + " must be a string");
+    });
+    if (f.accountable_contested !== undefined && typeof f.accountable_contested !== "boolean") errs.push(w + ".accountable_contested must be true or false");
+    ["owner_role", "updated_by", "version_date", "last_reviewed", "review_due"].forEach(function (k) {
+      if (f[k] !== undefined && !_isStr(f[k])) errs.push(w + "." + k + " must be a string");
+    });
+    if (f.controlled_copy !== undefined && typeof f.controlled_copy !== "boolean") errs.push(w + ".controlled_copy must be true or false");
+    if (f.process_owner !== undefined && !_isStr(f.process_owner)) errs.push(w + ".process_owner must be a string");
+    ["steps_governed", "steps_departing"].forEach(function (k) {
+      if (f[k] !== undefined && (typeof f[k] !== "number" || !isFinite(f[k]) || f[k] < 0)) errs.push(w + "." + k + " must be a number of zero or more");
+    });
+    if (f.metrics !== undefined) {
+      if (!_isObj(f.metrics)) errs.push(w + ".metrics must be an object");
+      else Object.keys(f.metrics).forEach(function (k) {
+        if (typeof f.metrics[k] !== "number" || !isFinite(f.metrics[k]) || f.metrics[k] < 0) errs.push(w + ".metrics." + k + " must be a number of zero or more");
+      });
+    }
+    if (f.owner_edit !== undefined) {
+      if (!_isObj(f.owner_edit)) errs.push(w + ".owner_edit must be an object");
+      else Object.keys(f.owner_edit).forEach(function (k) {
+        var v = f.owner_edit[k];
+        var ok = (k === "accountable_contested" || k === "controlled_copy") ? typeof v === "boolean"
+          : k === "headcount" ? (typeof v === "number" && isFinite(v) && v >= 0) : _isStr(v);
+        if (!ok) errs.push(w + ".owner_edit." + k + " has the wrong type");
+      });
+    }
   });
   if (/"apiKey"|"api_key"|sk-ant-/.test(JSON.stringify(r))) errs.push("return file must not contain an API key");
+  return errs;
+}
+
+/* Unit economics (2026-11-25): amounts, head-count and volume are numbers
+   of zero or more, or null when not entered. */
+function validateEconomics(e) {
+  var errs = [];
+  if (!_isObj(e)) return ["economics must be an object"];
+  ["revenue", "manpower_cost", "non_manpower_cost", "headcount", "volume"].forEach(function (k) {
+    var v = e[k];
+    if (v !== null && v !== undefined && (typeof v !== "number" || !isFinite(v) || v < 0)) errs.push("economics." + k + " must be a number of zero or more, or empty");
+  });
+  ["period", "volume_label", "note"].forEach(function (k) { if (e[k] !== undefined && !_isStr(e[k])) errs.push("economics." + k + " must be a string"); });
+  if (e.validated !== undefined && typeof e.validated !== "boolean") errs.push("economics.validated must be true or false");
+  if (e.from !== undefined && !_isObj(e.from)) errs.push("economics.from must be an object");
   return errs;
 }
 
@@ -457,6 +557,7 @@ function directionToLeading(direction) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     COMPASS_SCHEMA_VERSION: COMPASS_SCHEMA_VERSION,
+    validateEconomics: validateEconomics,
     SIGNAL_DIRECTIONS: SIGNAL_DIRECTIONS,
     LEADING_SIGNALS: LEADING_SIGNALS,
     DOC_KINDS: DOC_KINDS,

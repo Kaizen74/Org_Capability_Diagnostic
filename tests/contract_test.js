@@ -1206,5 +1206,187 @@ checkOk("nothing is ever deleted: a cluster no longer in the frame is only flagg
 checkOk("after bringing changes in, the ID counters stay ahead, so no ID is ever reused", fa.idSeq.CAP >= 7 && fa.idSeq.RL >= 20 && fa.idSeq.LV >= 8);
 checkOk("a unit's tier is checked by the contract", schema.validateState(Object.assign({}, fu, { unitTier: "maybe" })).length === 1);
 
+// ---- 48. Five EXCO questions: unit economics, structure, decision rights ----
+const ex = run("demoEconomics('Arden')");
+put("__ex", ex);
+const er = run("econRatios(__ex)");
+checkOk("ratios are worked out from the parts: total cost, manpower share, per head, per unit of volume",
+  er.total_cost === 319 && Math.abs(er.mp_share_cost - 168 / 319) < 1e-9 && Math.abs(er.mp_to_revenue - 168 / 410) < 1e-9 &&
+  Math.abs(er.revenue_per_head - 410 / 1240) < 1e-9 && Math.abs(er.volume_per_head - 500) < 1e-9 && Math.abs(er.cost_per_volume - 319 / 620000) < 1e-12);
+const erPart = run("econRatios(Object.assign(blankEconomics(), { revenue: 100, manpower_cost: 40 }))");
+checkOk("a missing part gives no ratio, never a zero", erPart.total_cost === null && erPart.mp_share_cost === null && erPart.revenue_per_head === null && Math.abs(erPart.mp_to_revenue - 0.4) < 1e-9);
+checkOk("a head-count of zero gives no per-head figure rather than infinity", run("econRatios(Object.assign(blankEconomics(), { revenue: 100, headcount: 0 }))").revenue_per_head === null);
+const exMessy = run("(() => { const s = { economics: { revenue: '1,200', headcount: -5, volume: 'lots', junk: 1, from: { revenue: 'x', evil: 3 } } }; return ensureEconomics(s); })()");
+checkOk("stored economics are cleaned on load: text numbers read, negatives and words dropped, unknown keys gone",
+  exMessy.revenue === 1200 && exMessy.headcount === null && exMessy.volume === null && exMessy.junk === undefined && exMessy.from.revenue === "x" && exMessy.from.evil === undefined);
+check("economics conform to the contract", schema.validateEconomics(ex));
+checkOk("the contract refuses a negative or text amount", schema.validateEconomics(Object.assign({}, ex, { revenue: -1 })).length === 1 && schema.validateEconomics(Object.assign({}, ex, { headcount: "many" })).length === 1);
+const exHome = JSON.parse(JSON.stringify(dHome)); exHome.economics = ex; put("__exh", exHome);
+const exCopy = run("frameCopy(__exh, 'Dorne', 'DO')");
+checkOk("a new unit keeps the period and the volume measure, with every number blank",
+  exCopy.economics.period === "FY2025" && exCopy.economics.volume_label === "tonnes handled" && ["revenue", "manpower_cost", "non_manpower_cost", "headcount", "volume"].every(k => exCopy.economics[k] === null) && exCopy.economics.validated === false);
+check("every demo unit with economics conforms", [].concat(...[exHome].concat(run("DEMO_COUNTRIES.map(spec => ensureRefs(buildDemoCountry(__exh, spec)))")).map(d => schema.validateState(d))));
+
+const rawEx = { format: "compass-return", format_version: "1.0", source_app: "org-modeling", engagement_key: "K", findings: [
+  { ref: "baseline.layers", kind: "structural_baseline", title: "Layers", figure: "5 layers", metrics: { headcount: 900, layers: 5, total_cost: 42000000, sneaky: 3, managers: -2, median_span: "7" } },
+  { ref: "X1", kind: "discrepancy", topic: "decision_right", title: "Pricing", on_paper: "Commercial lead", decided_by: "Finance controller", accountable: "Commercial lead", accountable_contested: "yes" }] };
+put("__rawEx", rawEx);
+const retEx = run("normaliseReturn(__rawEx)");
+check("a findings file with numbers and decision rights conforms", schema.validateReturn(retEx));
+checkOk("only known structure numbers are kept, and only numbers of zero or more",
+  JSON.stringify(retEx.findings[0].metrics) === JSON.stringify({ headcount: 900, layers: 5, median_span: 7, total_cost: 42000000 }));
+checkOk("decision fields are kept; 'contested' must be exactly true", retEx.findings[1].decided_by === "Finance controller" && retEx.findings[1].accountable === "Commercial lead" && retEx.findings[1].accountable_contested === undefined);
+const st1 = run("unitStructure({ returns: [__rawEx] })");
+checkOk("structure is read from the numbers when the file sends them", st1 && st1.metrics.headcount === 900 && st1.metrics.layers === 5 && st1.numeric === true);
+const belmar = run("ensureRefs(buildDemoCountry(__exh, DEMO_COUNTRIES[0]))"); put("__bel", belmar);
+const st2 = run("unitStructure(__bel)");
+checkOk("an older file without numbers is read from its wording", st2 && st2.metrics.headcount === 560 && st2.metrics.layers === 5 && st2.metrics.managers === 61 && st2.metrics.spans_within === 38 && st2.metrics.median_span === 6.5 && st2.metrics.single_report_managers === 9 && st2.numeric === false);
+checkOk("no structure findings means no structure, not zeros", run("unitStructure({ returns: [] })") === null);
+const exSug = run("econSuggestions(Object.assign({}, __exh, { valueChain: Object.assign({}, __exh.valueChain, { value_unit: 'm' }) }))");
+checkOk("Org Modeling's head-count and people cost are offered in the workspace's unit, marked as base salary",
+  exSug.headcount.value === 1240 && exSug.manpower_cost.value === 52.8 && /base salary/.test(exSug.manpower_cost.from));
+const dv = run("decisionView(__rawEx.findings[1])");
+checkOk("who decides vs who is accountable: a split and an off-paper decision are both flagged", dv.split === true && dv.offPaper === true && dv.edited === false);
+const dvEdit = run("decisionView(Object.assign({}, __rawEx.findings[1], { owner_edit: { accountable: 'Finance controller' } }))");
+checkOk("the owner's correction wins and is marked as entered by the owner", dvEdit.accountable === "Finance controller" && dvEdit.split === false && dvEdit.edited === true);
+check("a finding the owner corrected still conforms", schema.validateReturn(Object.assign({}, retEx, { findings: [Object.assign({}, retEx.findings[1], { owner_edit: { accountable: "X", accountable_contested: true } })] })));
+checkOk("the contract refuses a malformed correction", schema.validateReturn(Object.assign({}, retEx, { findings: [Object.assign({}, retEx.findings[1], { owner_edit: { accountable: 3 } })] })).length === 1);
+const rmEx = run("readoutModel(__exh, [{ id: 'a', label: 'Arden', state: __exh }, { id: 'b', label: 'Belmar', state: __bel }])");
+checkOk("the readout carries each unit's economics and structure", rmEx.econAny && rmEx.countries.every(c => c.econ) && rmEx.countries.every(c => c.structure) && rmEx.econSameMoney && rmEx.econLabels.join() === "tonnes handled");
+const blankU = run("frameCopy(__exh, 'Dorne', 'DO')"); put("__blankU", blankU);
+const rmEx2 = run("readoutModel(__exh, [{ id: 'a', label: 'Arden', state: __exh }, { id: 'd', label: 'Dorne', state: __blankU }])");
+checkOk("a unit with no economics is listed as missing, not shown as zero", rmEx2.econMissing.join() === "Dorne" && rmEx2.countries[1].econ === null);
+
+put("__omS48", omS); put("__pmsS48", pmsS);
+checkOk("the Org Modeling sample carries its structure as numbers the Compass reads",
+  (() => { const st = run("unitStructure({ returns: [normaliseReturn(__omS48)] })"); return st && st.numeric && st.metrics.headcount === 26 && st.metrics.layers === 5 && st.metrics.total_cost === 2263000; })());
+checkOk("the Process Map Studio sample says who decides and who is accountable, and flags a contested one",
+  (() => { const fs2 = run("normaliseReturn(__pmsS48)").findings; return fs2.filter(f => f.decided_by && f.accountable).length === 2 && fs2.some(f => f.accountable_contested === true); })());
+
+// ---- 49. Sixth question: who owns and updates the SOPs; typed structure ----
+const T = "new Date(Date.UTC(2026, 10, 25))";
+checkOk("SOP dates are read as YYYY, YYYY-MM or YYYY-MM-DD, anything else is no date",
+  run("sopDate('2025') && sopDate('2025-03') && sopDate('2025-03-09') && !sopDate('March 2025') && !sopDate('')") === true);
+const f1 = run(`sopFlags({ title: "A", owner_role: "", updated_by: "", version_date: "2019-04", controlled: false, steps_departing: 3 }, ${T})`);
+checkOk("an SOP with no owner, nobody to update it, an old version and an uncontrolled copy is flagged for each",
+  ["no owner", "nobody named to update it", "not reviewed in 2 years", "uncontrolled copy in use", "3 steps done differently"].every(x => f1.includes(x)));
+checkOk("a past review date is overdue; a future one with an owner and updater is in order",
+  run(`sopFlags({ owner_role: "X", updated_by: "Y", review_due: "2026-09", controlled: true }, ${T})`).join() === "review overdue" &&
+  run(`sopFlags({ owner_role: "X", updated_by: "Y", review_due: "2027-04", controlled: true }, ${T})`).length === 0);
+checkOk("with no dates at all, the SOP says so rather than passing", run(`sopFlags({ owner_role: "X", updated_by: "Y", controlled: true }, ${T})`).join() === "no review date");
+const sopHome = JSON.parse(JSON.stringify(exHome)); sopHome.sops = run("demoSops('Arden')"); put("__sh", sopHome);
+check("a unit's SOP register conforms to the contract", schema.validateState(sopHome));
+checkOk("the contract refuses an SOP with no title or a wrong controlled value",
+  schema.validateState(Object.assign({}, sopHome, { sops: [{ title: "" }] })).length === 1 && schema.validateState(Object.assign({}, sopHome, { sops: [{ title: "X", controlled: "yes" }] })).length === 1);
+checkOk("stored SOPs are cleaned on load: untitled rows and odd values dropped",
+  (() => { const st = { sops: [{ title: "Keep", controlled: "maybe", owner_role: "  Role  ", junk: 1 }, { title: "" }, "x"] }; run("void 0"); put("__sx", st); const r = run("ensureSops(__sx)"); return r.length === 1 && r[0].controlled === null && r[0].owner_role === "Role" && r[0].junk === undefined; })());
+const sopBel = run("ensureRefs(buildDemoCountry(__sh, DEMO_COUNTRIES[0]))"); put("__sb", sopBel);
+const ub = run("unitSops(__sb)");
+checkOk("a unit lists its own SOPs and Process Map Studio's together, each saying where it came from",
+  ub.length === 2 && ub.some(x => x.source === "manual") && ub.some(x => x.ref === "SOP-01" && x.source === "Process Map Studio" && x.controlled === false && x.steps_departing === 3 && x.governs === "CAP-01"));
+const sopRet = sopBel.returns.find(r => r.findings.some(f => f.kind === "sop")); const sopIdx = sopRet.findings.findIndex(f => f.kind === "sop");
+sopRet.findings[sopIdx].owner_edit = { owner_role: "Head of hub operations", controlled_copy: true }; put("__sb2", sopBel);
+const ub2 = run("unitSops(__sb2)").find(x => x.ref === "SOP-01");
+checkOk("the owner's correction of an imported SOP wins, is marked, and keeps the app's value", ub2.owner_role === "Head of hub operations" && ub2.controlled === true && ub2.edited === true && sopRet.findings[sopIdx].owner_role === "Station manager");
+check("a corrected SOP finding still conforms", schema.validateState(sopBel));
+const sopCopy = run("frameCopy(__sh, 'Dorne', 'DO')");
+checkOk("a new unit starts with no SOPs and no typed structure: each unit names its own", sopCopy.sops.length === 0 && Object.keys(sopCopy.structureOverride).length === 0);
+const sopFrames = [{ id: "a", label: "Arden", state: sopHome }, { id: "b", label: "Belmar", state: sopBel }, { id: "c", label: "Caldera", state: run("ensureRefs(buildDemoCountry(__sh, DEMO_COUNTRIES[1]))") }];
+put("__sf", sopFrames);
+const rmS = run("readoutModel(__sh, __sf)");
+checkOk("the readout counts each unit's SOPs, owners and those needing attention", rmS.sopAny && rmS.countries[0].sops.n === 2 && rmS.countries[0].sops.owned === 2 && rmS.countries[1].sops.n === 2 && rmS.countries[1].sops.departing === 3);
+checkOk("the same SOP owned by different roles in different units is called out",
+  rmS.sopOwnerDiffs.length === 1 && rmS.sopOwnerDiffs[0].owners.Belmar === "Head of hub operations" && rmS.sopOwnerDiffs[0].owners.Caldera === "Chief load controller");
+const rawSop = { format: "compass-return", format_version: "1.0", source_app: "process-map-studio", engagement_key: "K", findings: [
+  { ref: "SOP-02", kind: "sop", title: "Ramp safety", owner_role: "Safety lead", updated_by: "Safety lead", version_date: "2026-01", controlled_copy: true, steps_governed: "7", steps_departing: -1, owner_name: "A Person" }] };
+put("__rs", rawSop);
+const rsN = run("normaliseReturn(__rs)").findings[0];
+checkOk("an SOP finding keeps only its agreed fields: counts as numbers, nothing else rides in",
+  rsN.owner_role === "Safety lead" && rsN.controlled_copy === true && rsN.steps_governed === 7 && rsN.steps_departing === undefined && rsN.owner_name === undefined);
+
+// Typed structure figures
+const tsH = JSON.parse(JSON.stringify(sopBel)); tsH.structureOverride = { layers: 4, headcount: 600, note: "HR system, Oct 2026" }; put("__ts", tsH);
+const tsS = run("unitStructure(__ts)");
+checkOk("a typed structure figure wins over Org Modeling's, and both are kept", tsS.metrics.layers === 4 && tsS.imported.layers === 5 && tsS.metrics.median_span === 6.5 && tsS.typed.join() === "headcount,layers");
+checkOk("with no org file, typed figures alone fill the table", (() => { put("__ts2", { returns: [], structureOverride: { layers: 6 } }); const r = run("unitStructure(__ts2)"); return r && r.metrics.layers === 6 && r.imported_at === ""; })());
+check("typed structure figures conform", schema.validateState(tsH));
+checkOk("the contract refuses a negative or text structure figure", schema.validateState(Object.assign({}, tsH, { structureOverride: { layers: -1 } })).length === 1 && schema.validateState(Object.assign({}, tsH, { structureOverride: { layers: "five" } })).length === 1);
+
+// ---- 50. Value streams per unit: process owner, steps and handoffs ----
+const pHome = JSON.parse(JSON.stringify(sopHome)); pHome.processFacts = run("demoProcessFacts('Arden')"); put("__ph", pHome);
+check("a unit's value-stream figures conform", schema.validateState(pHome));
+const pA = run("unitProcesses(__ph)").find(x => x.ref === "VS-01");
+checkOk("typed figures and the process owner make a value stream's row", pA && pA.facts.handoffs === 9 && pA.process_owner === "Commercial lead" && pA.owner_from === "typed");
+const pBel = run("ensureRefs(buildDemoCountry(__ph, DEMO_COUNTRIES[0]))"); put("__pb", pBel);
+const pB = run("unitProcesses(__pb)").find(x => x.ref === "VS-01");
+checkOk("Process Map Studio's summary fills the row, owner included, and says where it came from",
+  pB && pB.facts.steps === 11 && pB.facts.handoffs === 6 && pB.facts.wait_min === 7200 && pB.process_owner === "Country manager" && pB.owner_from === "Process Map Studio" && pB.name);
+const pBt = JSON.parse(JSON.stringify(pBel)); pBt.processFacts = { "VS-01": { handoffs: 4, process_owner: "Head of commercial" } }; put("__pbt", pBt);
+const pT = run("unitProcesses(__pbt)").find(x => x.ref === "VS-01");
+checkOk("a typed figure or owner wins; the app's stays beside it", pT.facts.handoffs === 4 && pT.imported.handoffs === 6 && pT.facts.steps === 11 && pT.process_owner === "Head of commercial" && pT.imported.process_owner === "Country manager");
+checkOk("the contract refuses a value-stream key that is not a VS ID, or a text count",
+  schema.validateState(Object.assign({}, pHome, { processFacts: { "CAP-01": { steps: 3 } } })).length === 1 && schema.validateState(Object.assign({}, pHome, { processFacts: { "VS-01": { steps: "many" } } })).length === 1);
+checkOk("stored figures are cleaned on load: bad keys and values dropped",
+  (() => { put("__pfx", { processFacts: { "VS-02": { steps: "12", handoffs: -1, junk: 3, process_owner: " Ops lead " }, "bad": { steps: 1 } } }); const r = run("ensureProcessFacts(__pfx)"); return Object.keys(r).join() === "VS-02" && r["VS-02"].steps === 12 && r["VS-02"].handoffs === undefined && r["VS-02"].junk === undefined && r["VS-02"].process_owner === "Ops lead"; })());
+checkOk("a new unit starts with no value-stream figures and no process owner: each unit names its own", run("frameCopy(__ph, 'Dorne', 'DO')").processFacts && Object.keys(run("frameCopy(__ph, 'Dorne', 'DO')").processFacts).length === 0);
+const pkt = run("buildHandoffPacket(__ph)");
+check("the hand-off packet with a process owner still conforms", schema.validateHandoffPacket(pkt));
+const rawPS = { format: "compass-return", format_version: "1.0", source_app: "process-map-studio", engagement_key: "K", findings: [
+  { ref: "VS-01", kind: "process_summary", title: "Bid to contract renewal", relates_to: ["VS-01"], process_owner: "Ops lead", metrics: { steps: 9, handoffs: "4", layers: 3, wait_min: -5 } }] };
+put("__rps", rawPS);
+const rpsN = run("normaliseReturn(__rps)").findings[0];
+checkOk("a process summary keeps only its own numbers and its owner", JSON.stringify(rpsN.metrics) === JSON.stringify({ steps: 9, handoffs: 4 }) && rpsN.process_owner === "Ops lead");
+check("a process summary finding conforms", schema.validateReturn(run("normaliseReturn(__rps)")));
+const rmP = run("readoutModel(__ph, [{ id: 'a', label: 'Arden', state: __ph }, { id: 'b', label: 'Belmar', state: __pb }])");
+checkOk("the readout carries each unit's value streams", rmP.processAny && rmP.countries[0].processes.find(x => x.ref === "VS-01").facts.handoffs === 9 && rmP.countries[1].processes.find(x => x.ref === "VS-01").facts.handoffs === 6);
+
+// ---- 51. Calibrated round: design choices, data backbone, typed decisions, role families ----
+checkOk("every readout page names the design choices it serves, all four covered",
+  [1, 2, 3, 4, 5, 6].every(n => run("PAGE_CHOICES")[n].length > 0) && [1, 2, 3, 4].every(c => [2, 3, 4, 5].some(n => run("PAGE_CHOICES")[n].includes(c))));
+const jHome = JSON.parse(JSON.stringify(pHome));
+jHome.dataFacts = run("demoDataFacts('Arden')"); jHome.typedDecisions = run("demoDecisions('Arden')"); jHome.roleFamilies = run("demoFamilies('Arden')");
+put("__jh", jHome);
+check("a unit with data facts, typed decisions and role families conforms", schema.validateState(jHome));
+checkOk("data facts are cleaned on load: e-AWB above 100 and unknown readiness dropped",
+  (() => { put("__dfx", { dataFacts: { cargo_system: " X ", eawb_pct: 140, one_record: "soon", junk: 1 } }); const r = run("ensureDataFacts(__dfx)"); return r.cargo_system === "X" && r.eawb_pct === undefined && r.one_record === undefined && r.junk === undefined; })());
+checkOk("the contract refuses an e-AWB share above 100 or an unknown readiness",
+  schema.validateState(Object.assign({}, jHome, { dataFacts: { eawb_pct: 120 } })).length === 1 && schema.validateState(Object.assign({}, jHome, { dataFacts: { one_record: "soon" } })).length === 1);
+const tdf = run("typedDecisionFindings(__jh)");
+checkOk("a typed decision sits with the decision findings, marked as entered by the owner, with its days as the figure",
+  tdf.length === 1 && run("findingPage(" + JSON.stringify(tdf[0]) + ")") === "decisions" && tdf[0].figure === "21 days to decide" && run("decisionView(" + JSON.stringify(tdf[0]) + ")").edited === true && run("decisionView(" + JSON.stringify(tdf[0]) + ")").offPaper === true);
+checkOk("typed decisions reach the readout's decision page", run("compareFindings([{ id: 'a', label: 'Arden', state: __jh }])").per[0].decisions.some(f => f.typed));
+checkOk("the contract refuses a typed decision with no title or negative days",
+  schema.validateState(Object.assign({}, jHome, { typedDecisions: [{ title: "" }] })).length === 1 && schema.validateState(Object.assign({}, jHome, { typedDecisions: [{ title: "X", days: -2 }] })).length === 1);
+const jBel = run("ensureRefs(buildDemoCountry(__jh, DEMO_COUNTRIES[0]))"), jCal = run("ensureRefs(buildDemoCountry(__jh, DEMO_COUNTRIES[1]))");
+put("__jb", jBel); put("__jc", jCal);
+[jBel, jCal].forEach(d => check("demo unit " + d.country + " with the calibrated round conforms", schema.validateState(d)));
+const famCmp = run("familyComparison([{ label: 'Arden', state: __jh }, { label: 'Belmar', state: __jb }, { label: 'Caldera', state: __jc }])");
+checkOk("role families are compared by RF ID: common, some, unique",
+  famCmp.units.length === 3 && famCmp.common.map(r => r.ref).sort().join() === "RF-01,RF-02,RF-06" && famCmp.unique.map(r => r.ref).join() === "RF-03" && famCmp.some.map(r => r.ref).sort().join() === "RF-04,RF-05" && famCmp.unexplained.length === 0);
+const jBel2 = JSON.parse(JSON.stringify(jBel)); const fr = jBel2.returns.find(r => r.findings.some(f => f.kind === "role_family"));
+fr.findings.find(f => f.ref === "RF-03").owner_edit = { headcount: 0 }; put("__jb2", jBel2);
+const famCmp2 = run("familyComparison([{ label: 'Arden', state: __jh }, { label: 'Belmar', state: __jb2 }, { label: 'Caldera', state: __jc }])");
+checkOk("a corrected head-count changes the comparison; the app's figure stays beside it",
+  famCmp2.rows.find(r => r.ref === "RF-03").status === "none" && run("unitFamilies(__jb2)").find(x => x.ref === "RF-03").imported_headcount === 2);
+const jCopy = run("frameCopy(__jh, 'Dorne', 'DO')");
+checkOk("a new unit gets the typed families to confirm (head-count and reason blank), and no data facts or typed decisions",
+  jCopy.roleFamilies.length === 6 && jCopy.roleFamilies.every(x => x.headcount === null && !x.reason_class) && Object.keys(jCopy.dataFacts).length === 0 && jCopy.typedDecisions.length === 0);
+checkOk("a unit whose families are all still to confirm takes no part in the comparison",
+  (() => { put("__jcp", jCopy); return run("familyComparison([{ label: 'Arden', state: __jh }, { label: 'Dorne', state: __jcp }])").units.join() === "Arden"; })());
+checkOk("revenue per unit of volume is worked out", Math.abs(run("econRatios(demoEconomics('Arden'))").revenue_per_volume - 410 / 620000) < 1e-12);
+const rmJ = run("readoutModel(__jh, [{ id: 'a', label: 'Arden', state: __jh }, { id: 'b', label: 'Belmar', state: __jb }, { id: 'c', label: 'Caldera', state: __jc }])");
+checkOk("the readout lines up the value stream most units have mapped, with the data counts and deviation",
+  rmJ.sharedVS === "VS-01" && rmJ.countries[1].processes.find(x => x.ref === "VS-01").facts.steps_differing === 3 && rmJ.countries[1].processes.find(x => x.ref === "VS-01").facts.handoffs_manual === 2 && rmJ.countries[0].data.one_record === "pilot");
+checkOk("supervisory roles with no reports are kept, so broken reporting lines can be flagged", rmJ.countries[2].structure.metrics.supervisors_no_reports === 9);
+checkOk("each unit's scored cells are counted by grade for the evidence line", rmJ.countries[1].cellGrades.indicated > 0);
+const rawRF = { format: "compass-return", format_version: "1.0", source_app: "org-modeling", engagement_key: "K", findings: [
+  { ref: "RF-09", kind: "role_family", title: "Quality", metrics: { headcount: "3", job_titles: 2, layers: 4 }, reason_class: "required" }] };
+put("__rrf", rawRF);
+const rrfN = run("normaliseReturn(__rrf)").findings[0];
+checkOk("a role family finding keeps only its head-count and job titles", JSON.stringify(rrfN.metrics) === JSON.stringify({ headcount: 3, job_titles: 2 }) && rrfN.reason_class === "required");
+
+check("a corrected role-family head-count conforms (found by the browser check)", schema.validateState(jBel2));
+checkOk("a corrected head-count that is not a number is refused", (() => { const b = JSON.parse(JSON.stringify(jBel2)); b.returns.find(r => r.findings.some(f => f.kind === "role_family")).findings.find(f => f.ref === "RF-03").owner_edit = { headcount: "two" }; return schema.validateState(b).length === 1; })());
+
 console.log(failures ? `\n${failures} CONTRACT FAILURE(S)` : "\nAll contract checks passed.");
 process.exit(failures ? 1 : 0);

@@ -225,6 +225,13 @@ function migrateState(s) {
   lastAutoScored = autoScoreCells(s.clusters);
   (s.versions || []).forEach(v => { if (v && v.snapshot) autoScoreCells(v.snapshot.clusters); });
   if (!Array.isArray(s.briefings)) s.briefings = [];
+  ensureEconomics(s);
+  ensureSops(s);
+  ensureStructureOverride(s);
+  ensureProcessFacts(s);
+  ensureDataFacts(s);
+  ensureDecisions(s);
+  ensureFamilies(s);
   if (!Array.isArray(s.signal_keywords)) {
     const preset = PRESETS.find(p => p.industry_id === s.industry_id);
     s.signal_keywords = preset ? [...preset.signal_keywords] : [];
@@ -875,8 +882,87 @@ function viewValueChain() {
         ${unmapped.length ? `<p class="sig-meta" style="margin-top:8px">⚑ ${unmapped.length} lever${unmapped.length > 1 ? "s" : ""} not yet mapped to a cluster — that money has no capability owner in this diagnostic.</p>` : ""}
       </div>
 
+      ${viewEconomics()}
+
       ${viewCalibration()}
     </section>`;
+}
+
+/* ---------- Unit economics (owner review, 2026-11-25) ----------
+   This unit's revenue, costs, head-count and one volume measure. The
+   ratios are worked out, never typed. Every amount is the owner's to
+   enter; Org Modeling can fill head-count and people cost, and a typed
+   value always wins. */
+const ECON_ROWS = [
+  { k: "revenue", label: "Revenue", money: true },
+  { k: "manpower_cost", label: "Manpower cost", money: true, hint: "Salaries, wages, overtime, benefits and employer contributions, plus contract labour if you count it as manpower. Say which in the note." },
+  { k: "non_manpower_cost", label: "Non-manpower cost", money: true, hint: "Every other operating cost of this unit: equipment, facilities, fuel, IT, maintenance, materials." },
+  { k: "headcount", label: "Head-count", hint: "People, or full-time equivalents. Use the same basis in every unit." },
+  { k: "volume", label: "Volume", hint: "The one measure of output every unit shares, for example tonnes handled, flights turned or meals produced." }
+];
+function econMoney(st, v) { return v === null || v === undefined ? "—" : fmtMoney(st, v); }
+function econFmt(v, kind, st, volLabel) {
+  if (v === null || v === undefined) return "—";
+  if (kind === "pct") return Math.round(v * 1000) / 10 + "%";
+  if (kind === "money") return fmtMoney(st, v);
+  if (kind === "moneyper") { const scaled = v * econScale((st.valueChain || {}).value_unit); return ((st.valueChain || {}).currency || "") + (scaled >= 100 ? Math.round(scaled) : Math.round(scaled * 100) / 100).toLocaleString("en-US"); }
+  return (v >= 100 ? Math.round(v) : Math.round(v * 100) / 100).toLocaleString("en-US") + (volLabel ? " " + volLabel : "");
+}
+const ECON_RATIOS = [
+  { k: "total_cost", label: "Total operating cost", kind: "money" },
+  { k: "mp_share_cost", label: "Manpower share of cost", kind: "pct" },
+  { k: "mp_to_revenue", label: "Manpower cost ÷ revenue", kind: "pct" },
+  { k: "cost_to_revenue", label: "Total cost ÷ revenue", kind: "pct" },
+  { k: "revenue_per_head", label: "Revenue per head", kind: "moneyper" },
+  { k: "mp_cost_per_head", label: "Manpower cost per head", kind: "moneyper" },
+  { k: "volume_per_head", label: "Volume per head", kind: "vol" },
+  { k: "cost_per_volume", label: "Cost per unit of volume", kind: "moneyper" },
+  { k: "revenue_per_volume", label: "Revenue per unit of volume", kind: "moneyper" }
+];
+function viewEconomics() {
+  const e = ensureEconomics(state), r = econRatios(e), sug = econSuggestions(state);
+  const vc = state.valueChain || {}, unitTxt = (vc.currency || "") + (vc.value_unit || "");
+  const who = state.country || state.workspaceName || "this unit";
+  const field = row => {
+    const v = e[row.k], s = sug[row.k];
+    const offer = s && s.value !== v ? `<button class="mini-btn ghost" data-econ-use="${row.k}" title="${esc(s.from)}">Use ${esc(row.money ? fmtMoney(state, s.value) : s.value.toLocaleString("en-US"))} from Org Modeling</button>` : "";
+    return `<div class="econ-f"><label for="econ-${row.k}" title="${esc(row.hint || "")}">${row.label}${row.money ? ` <span class="econ-u">${esc(unitTxt || "amount")}</span>` : row.k === "volume" && e.volume_label ? ` <span class="econ-u">${esc(e.volume_label)}</span>` : ""}</label>
+      <input type="number" min="0" step="any" id="econ-${row.k}" data-econ="${row.k}" value="${v === null ? "" : v}" placeholder="—">
+      ${e.from[row.k] ? `<span class="econ-from">from ${esc(e.from[row.k])}</span>` : ""}${offer}</div>`;
+  };
+  const ratios = ECON_RATIOS.map(x => `<div class="econ-r"><span>${x.label}${x.k === "volume_per_head" && e.volume_label ? " (" + esc(e.volume_label) + ")" : ""}</span><strong>${econFmt(r[x.k], x.kind, state, x.kind === "vol" ? "" : "")}</strong></div>`).join("");
+  return `<div class="vc-tablewrap econ-card" id="econ-card">
+    <div class="sig-brief-head"><h2>Unit economics: ${esc(who)}</h2>
+      <span class="sig-meta">for readout page 1 · ${e.validated ? "finance-validated" : "estimate until finance validates"}</span></div>
+    <p class="ho-note">This unit's own numbers for one period, so every unit can be compared on cost and productivity. Enter amounts in ${esc(unitTxt || "the currency and unit set above")}. Use the same period, head-count basis and volume measure in every unit. The period and volume measure are copied to new units.</p>
+    <div class="econ-grid">
+      <div class="econ-f"><label for="econ-period">Period</label><input type="text" id="econ-period" value="${esc(e.period)}" placeholder="e.g. FY2025"></div>
+      <div class="econ-f"><label for="econ-vlabel" title="Agree it with Finance before adding units">Volume measure</label><input type="text" id="econ-vlabel" value="${esc(e.volume_label)}" placeholder="e.g. tonnes handled"></div>
+      ${ECON_ROWS.map(field).join("")}
+    </div>
+    <div class="econ-ratios">${ratios}</div>
+    ${sug.manpower_cost && e.from.manpower_cost && /base salary/.test(e.from.manpower_cost) ? `<p class="sig-meta">⚑ The Org Modeling figure is base salary only. Add overtime, benefits and employer contributions before you compare manpower cost.</p>` : ""}
+    <div class="econ-foot"><label><input type="checkbox" id="econ-validated" ${e.validated ? "checked" : ""}> Finance has validated these figures</label>
+      <input type="text" id="econ-note" value="${esc(e.note)}" placeholder="Note: source, what is in manpower cost, FTE or head-count"></div>
+  </div>`;
+}
+function bindEconomicsEvents() {
+  if (!$("econ-card")) return;
+  const done = () => { saveState(); renderView(); };
+  document.querySelectorAll("[data-econ]").forEach(inp => inp.addEventListener("change", () => {
+    const k = inp.dataset.econ, v = econNum(inp.value);
+    if (inp.value.trim() && v === null) { toast("Enter a number of zero or more."); inp.value = state.economics[k] === null ? "" : state.economics[k]; return; }
+    state.economics[k] = v; delete state.economics.from[k]; done();
+  }));
+  document.querySelectorAll("[data-econ-use]").forEach(b => b.addEventListener("click", () => {
+    const k = b.dataset.econUse, s = econSuggestions(state)[k];
+    if (!s) return;
+    state.economics[k] = s.value; state.economics.from[k] = s.from; done();
+  }));
+  $("econ-period").addEventListener("change", () => { state.economics.period = $("econ-period").value.trim().slice(0, 40); saveState(); });
+  $("econ-vlabel").addEventListener("change", () => { state.economics.volume_label = $("econ-vlabel").value.trim().slice(0, 40); done(); });
+  $("econ-validated").addEventListener("change", () => { state.economics.validated = $("econ-validated").checked; done(); });
+  $("econ-note").addEventListener("change", () => { state.economics.note = $("econ-note").value.trim().slice(0, 400); saveState(); });
 }
 
 /* ---------- Cluster calibration (the value chain tunes the matrix) ----------
@@ -1761,6 +1847,7 @@ function bindViewEvents() {
   bindSignalEvents();
   bindEvidenceEvents();
   bindValueChainEvents();
+  bindEconomicsEvents();
   bindRolesEvents();
 }
 

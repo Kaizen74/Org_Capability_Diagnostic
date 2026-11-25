@@ -312,7 +312,8 @@ function viewHandoff() {
       <td>${p.decision === "pilot"
         ? `<div class="pl-pilot"><span class="ref-chip">${esc(p.ref || "")}</span>
             <input type="text" class="vc-in" data-pl="${esc(cl.id)}|name" value="${esc(p.name || "")}" placeholder="Value stream to map, e.g. Bid to contract renewal">
-            <input type="text" class="vc-in" data-pl="${esc(cl.id)}|kpi" value="${esc(p.kpi || "")}" placeholder="Its process KPI"></div>`
+            <input type="text" class="vc-in" data-pl="${esc(cl.id)}|kpi" value="${esc(p.kpi || "")}" placeholder="Its process KPI">
+            <input type="text" class="vc-in" data-pl-owner="${esc(p.ref || "")}" value="${esc(((state.processFacts || {})[p.ref] || {}).process_owner || "")}" placeholder="Process owner (role) in ${esc(state.country || "this unit")}" title="The role accountable for this value stream end to end, in this unit"></div>`
         : `<input type="text" class="vc-in" data-pl="${esc(cl.id)}|reason" value="${esc(p.reason || "")}" ${!inScope(cl) ? "disabled" : ""} placeholder="${p.decision ? "Why — an exclusion needs a stated reason" : "—"}" ${p.decision ? "" : "disabled"}>`}</td>
     </tr>`;
   }).join("");
@@ -388,6 +389,12 @@ function bindHandoffEvents() {
       const packet = buildHandoffPacket(state);
       HO_APPS.forEach(a => { const pre = $("ho-pre-" + a.key); if (pre) pre.textContent = handoffBrief(packet, a.key); });
     });
+  }));
+  document.querySelectorAll("[data-pl-owner]").forEach(inp => inp.addEventListener("change", () => {
+    const ref = inp.dataset.plOwner;
+    if (!/^VS-\d+$/.test(ref)) return;
+    setProcessOwner(ref, inp.value);
+    saveState();
   }));
   /* Briefs are built at the moment of the click, so they can never be stale. */
   document.querySelectorAll("[data-ho-copy]").forEach(b => b.addEventListener("click", () => {
