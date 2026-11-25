@@ -165,9 +165,13 @@ Each of the other three apps exports what it found as one small file:
 | `metrics` *(optional, `structural_baseline` only)* | Numbers behind a structure finding: `headcount`, `managers`, `manager_ratio_pct`, `layers`, `median_span`, `spans_within`, `spans_below`, `spans_above`, `single_report_managers`, `health_score`, `total_cost` (annual people cost in full currency units, base salary). Numbers of zero or more only; anything else is dropped. Without it, the Compass reads the numbers from the figure and detail wording. |
 | `on_paper`, `decided_by`, `accountable` *(optional, `decision_right` findings)* | Role names, at most 80 characters: the decider the documents name, the decider in practice, and the role holding A in the RACI ("X / Y" when two hold it). Never a person's name. |
 | `owner_role`, `updated_by`, `version_date`, `last_reviewed`, `review_due` *(optional, kind `sop`)* | The SOP's owner role, the role that keeps it current, and its dates as `YYYY`, `YYYY-MM` or `YYYY-MM-DD`. Roles only, never a person's name. |
+| `process_owner` *(optional, kind `process_summary`)* | The role accountable for the value stream end to end in this unit. |
+| `metrics` *(optional, kind `process_summary`)* | `steps`, `decisions`, `approvals`, `handoffs` (a step passing the work to a step in a different lane), `roles`, `rework_loops`, `work_min`, `wait_min`. Numbers of zero or more only. |
 | `controlled_copy` *(optional, kind `sop`)* | `true` or `false`: whether the copy in use is the controlled one. |
 | `steps_governed`, `steps_departing` *(optional, kind `sop`)* | Numbers: steps on the published map that cite this SOP, and how many of those are done differently from it. |
 | `accountable_contested` *(optional)* | `true` when the sources disagree about who is accountable, or two roles hold A. Counts only when exactly `true`. |
+
+New kind (added 2026-11-25): **`process_summary`** from Process Map Studio, one per published map, `ref` = the value stream's `VS-nn`. The Compass shows it per unit under Findings → Value streams (each figure can be typed over) and lines up the same value stream across units on readout page 5. The packet's `pilots[]` now also carries `process_owner` when the owner has named one.
 
 New kind (added 2026-11-25): **`sop`** from Process Map Studio, one per SOP or manual in the sources (ID `SOP-nn`), answering "who owns and updates the SOPs". The Compass lists it in that unit's SOP register, where the owner can correct it, and compares units on readout page 5.
 

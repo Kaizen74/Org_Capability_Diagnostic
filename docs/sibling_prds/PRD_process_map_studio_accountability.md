@@ -1,4 +1,4 @@
-# PRD: Process Map Studio, who decides, who is accountable, and who owns the SOPs, sent to the Compass
+# PRD: Process Map Studio, decision rights, SOP owners, process owner, steps and handoffs, sent to the Compass
 
 *Paste this whole document into Claude Code inside the **Process Map Studio** repository. Section 9 lists the files to attach.*
 
@@ -9,6 +9,8 @@ I run a six-stage workflow across four apps I own. Before any design work I run 
 > **Who decides, and who is really accountable?**
 >
 > **Who owns and updates the SOPs?** *(added 2026-11-25)*
+>
+> **How many steps and handoffs does the work take, and who owns the process end to end?** *(added 2026-11-25)*
 
 This app already knows both halves of the answer for every decision and approval step on a published map:
 
@@ -23,6 +25,10 @@ I want this app to:
 - (b) let me record, on a decision or approval step, **the role the documents name** (the decider "on paper"), with the passage it comes from, and send it as `on_paper`;
 - (c) show on screen, on the RACI view, where the one who decides is not the one accountable;
 - (d) record, for each SOP or manual in the sources, **its owner role, the role that updates it, its review dates and whether the copy in use is controlled**, and send one `sop` finding per SOP to the Compass, with how many steps it governs and how many of those are done differently.
+
+- (e) record the **process owner** (a role) in the engagement scope, and send one **`process_summary`** finding per published map: steps, decisions, approvals, handoffs, roles involved, rework loops, and work and waiting time.
+
+For (e): the Compass now shows, on readout page 5, the same value stream side by side in each unit (process owner, steps, decisions and approvals, handoffs, roles, work and waiting time), marking the most and fewest. Today I type these in from your leadership view. The Compass's hand-off packet now carries `pilots[].process_owner` when I have named one; use it as the starting value.
 
 For (d): the Compass now keeps an **SOP register per unit** (Current State → Findings → SOPs) and compares units on readout page 5 ("Who owns and updates the SOPs"), naming an SOP owned by different roles in different units. Today I type it there by hand. When this app sends `sop` findings, they appear in that register and I can correct them; the Compass keeps this app's value beside my correction.
 
@@ -40,6 +46,8 @@ I am not a developer. Follow this repository's own working rules (PROJECT_STATE.
 - Steps cite verified document passages (`exports.py`: "sop.docx §3.1").
 
 There is **no field today for the role the documents name** as decider. A D12 discrepancy records that practice differs from the documents, but the documented role sits only in the evidence text. Section 4.2 adds it.
+
+- The **leadership view** (`services/leadership.py`) already counts, per phase: work and waiting minutes, rework loops, and **handoffs** (an edge between two steps in different lanes). The scope (`ScopeFields`) has `process_name`, `trigger`, `end_point`, `in_scope_roles` and `process_kpi`, but **no process owner**.
 
 There is also **no record of who updates an SOP, when it was last reviewed or when its next review is due**, and the source `owner` is free text, so it can hold a person's name. Section 4.4 adds these.
 
@@ -80,6 +88,23 @@ Rules the Compass applies, so this app must respect them:
 | `figure` | string | e.g. "3 of 9 steps done differently" |
 | `relates_to` | list | The hand-off's cluster and pilot refs for this engagement, plus the cluster's `.Process` cell |
 
+**New kind `process_summary`**, one per published map, `ref` = the engagement's `pilot_ref` (e.g. `VS-01`), `relates_to` = `[pilot_ref, cluster_ref]`, `topic` `"way_of_working"`:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `title` | string | The process name from the scope |
+| `process_owner` | string, ≤ 80 | The role accountable for the process end to end (4.5). Leave out when not recorded. |
+| `metrics.steps` | number | Steps on the published map (activities, decisions and approvals; not rejected ones) |
+| `metrics.decisions`, `metrics.approvals` | number | Steps of those kinds |
+| `metrics.handoffs` | number | Edges between two steps in different lanes, counted exactly as the leadership view counts them, over the whole map |
+| `metrics.roles` | number | Distinct lane roles with at least one step |
+| `metrics.rework_loops` | number | As the leadership view counts them |
+| `metrics.work_min`, `metrics.wait_min` | number | Sum of the steps' work and waiting minutes, where recorded |
+| `figure` | string | e.g. "11 steps, 6 handoffs" |
+| `detail` | string | One sentence with the counts, and "Times recorded on n of m steps" when not every step has a time |
+
+Leave a number out when it cannot be counted; never send 0 for "not known". The Compass keeps only these keys, as numbers of zero or more; I can type over any of them there, and it keeps your figure beside mine.
+
 The Compass flags an SOP with no owner, nobody named to update it, a review overdue (or, with no due date, no review or version in 24 months), an uncontrolled copy, or steps done differently. Send what you know; leave out what you do not. **Roles only: run every value through `hide()`.**
 
 ## 4. What to build
@@ -110,6 +135,11 @@ The Compass flags an SOP with no owner, nobody named to update it, a review over
 - On export, one `sop` finding per SOP or manual source, as in section 3. Count `steps_governed` and `steps_departing` from the **published** version only.
 - If the same SOP is uploaded twice (two versions), send only the newest by version date and say "Older version also in the sources" in `detail`.
 
+### 4.5 Process owner and the process summary
+- In the scope, add **Process owner**: a choice from the engagement's roles (with "other role…" as free text; a name on the hidden-names list is refused with "Name the role, not the person."). When the engagement starts from a Compass hand-off whose pilot carries `process_owner`, offer it as the starting value; I confirm or change it.
+- On the leadership view, show one line above the phases: "n steps · n decisions · n approvals · n handoffs between n roles · n rework loops · work n h, waiting n h · process owner: role (or "not named")".
+- On export, add the `process_summary` finding from the **published** version, as in section 3.
+
 ## 5. Rules that must hold
 - This app never changes a Compass ID, status or score.
 - No person's name ever appears in an exported file.
@@ -137,17 +167,19 @@ Build a small fictional fixture engagement (or extend an existing fixture) start
 6. Add three sources to the fixture: an SOP "Load planning and sign-off" (owner Station manager, updated by Shift supervisor, version 2019-04, last reviewed 2019-04, no review due, not controlled) cited by 9 steps, 3 of which carry a discrepancy; a manual "Overtime approval" with no owner; and an interview transcript. Export: two `sop` findings (`SOP-01`, `SOP-02`), none for the transcript. `SOP-01` matches the attached sample's `SOP-01` field for field (`steps_governed` 9, `steps_departing` 3, `controlled_copy` false). `SOP-02` has no `owner_role`.
 7. Typing a person's name from the hidden-names list as an SOP owner is refused with "Name the role, not the person."; the `leaks` check still refuses a file that would hold it.
 8. The Sources screen line reads "2 SOPs · 1 without an owner · 1 with nobody to update them · 0 review overdue · 1 uncontrolled" (the manual's other fields are empty, so it is not counted as uncontrolled).
-9. All existing tests still pass. No real AI calls in tests.
+9. Give the fixture a process owner "Country manager" and lanes so that the published map has 11 steps (2 decisions, 2 approvals), 6 handoffs between 5 roles and 1 rework loop, with work 840 and waiting 7,200 minutes. Export: one `process_summary` finding whose `ref`, `process_owner` and `metrics` match the attached sample's `VS-01` `process_summary` finding exactly, and whose handoff count equals the leadership view's total.
+10. A step with no recorded time is left out of `work_min` and `wait_min`, and the detail says "Times recorded on n of m steps".
+11. Starting an engagement from a packet whose pilot has `process_owner: "Country manager"` offers that role in the scope; nothing is set until I confirm.
+12. All existing tests still pass. No real AI calls in tests.
 
 ## 7. How to build it
-- Small increments: the three fields from the RACI on step findings; on discrepancy and variation findings; the on-paper field with its passage; the RACI view marks and count; the SOP fields in the source register; the `sop` findings on export. Test and commit each, and update the project state after each.
+- Small increments: the three fields from the RACI on step findings; on discrepancy and variation findings; the on-paper field with its passage; the RACI view marks and count; the SOP fields in the source register; the `sop` findings on export; the process owner in the scope; the `process_summary` finding and the leadership view line. Test and commit each, and update the project state after each.
 - Record the new step field in DECISIONS.md before building it.
 - Extend this app's existing data contract and tests; do not add a second way of doing the same thing.
 - End with the full check suite green and a plain-language summary: what works, what you did not do, and why.
 
 ## 8. Out of scope
 - Changing the shared format, the ID scheme or the discrepancy types.
-- Counting steps and handoffs per unit for the Compass (a separate, later change).
 - Decision rights outside the mapped value stream.
 - Any change that makes Capability Compass a required dependency.
 
@@ -158,5 +190,5 @@ All files are fictional. They are in the Capability Compass repository **`Kaizen
 | File | Needed? | What it is for |
 |---|---|---|
 | `belmar_compass_handoff.json` | Yes | Starts the fixture engagement |
-| `belmar_return_process_map_studio.json` | Yes | The expected shape: `X1` and `X3` carry the decision fields (test 2); `SOP-01` is a `sop` finding (test 6) |
+| `belmar_return_process_map_studio.json` | Yes | The expected shape: `X1` and `X3` carry the decision fields (test 2); `SOP-01` is a `sop` finding (test 6); `VS-01` is the `process_summary` finding (test 9) |
 | `docs/HANDOFF_FORMAT.md` | Helpful | The shared format, section 5 |
