@@ -47,7 +47,8 @@ const FINDING_KINDS = {
   role_impact: { label: "Role impact", page: "roles" },
   capacity: { label: "Capacity", page: "work" },
   role_reason: { label: "Why the role is there", page: "roles" },
-  variation: { label: "Differs between countries", page: "work" }
+  variation: { label: "Differs between countries", page: "work" },
+  sop: { label: "SOP and its owner", page: "work" }
 };
 /* Optional on any finding (format 1.0, additive). When the sending app
    says what a finding is about, that decides its readout page; without
@@ -122,6 +123,9 @@ function frameCopy(src, country, code) {
   /* The period and the volume measure are frame, so every unit is measured
      the same way; the numbers are the unit's own. */
   s.economics = blankEconomics(src.economics);
+  /* Each unit names its own SOP owners and dates; the list of SOPs is the
+     unit's own too, so it starts empty. Structure figures are the unit's. */
+  s.sops = []; s.structureOverride = {};
   if (s.valueChain) {
     (s.valueChain.stages || []).forEach(st => { st.note = ""; });
     (s.valueChain.levers || []).forEach(l => { l.share_pct = 0; l.figure = ""; delete l.value_at_stake; l.validated = false; });
@@ -269,6 +273,10 @@ function returnExtras(f) {
   }
   DECISION_FIELDS.forEach(k => { const v = String(f[k] || "").trim().slice(0, 80); if (v) out[k] = v; });
   if (f.accountable_contested === true) out.accountable_contested = true;
+  /* SOP findings (2026-11-25): roles and dates as text, counts as numbers. */
+  ["owner_role", "updated_by", "version_date", "last_reviewed", "review_due"].forEach(k => { const v = String(f[k] || "").trim().slice(0, 80); if (v) out[k] = v; });
+  if (f.controlled_copy === true || f.controlled_copy === false) out.controlled_copy = f.controlled_copy;
+  ["steps_governed", "steps_departing"].forEach(k => { const n = econNum(f[k]); if (n !== null) out[k] = Math.round(n); });
   return out;
 }
 
@@ -347,6 +355,7 @@ function readoutModel(home, frames) {
         .map(l => ({ ref: (cl.ref || "") + "." + l.key, cluster: cl.name, lens: l.name, action: cl.cells[l.key].quick.action || "", owner: cl.cells[l.key].quick.owner || "" }))), []),
       econ: (() => { const e = ensureEconomics(JSON.parse(JSON.stringify({ economics: f.state.economics }))); return econEntered(e) ? { e, r: econRatios(e), unit: (vc.currency || "") + "|" + (vc.value_unit || ""), currency: vc.currency || "", value_unit: vc.value_unit || "" } : null; })(),
       structure: unitStructure(f.state),
+      sops: sopSummary(f.state),
       pilots: Object.keys(f.state.pilots || {}).filter(cid => f.state.pilots[cid].decision === "pilot")
         .map(cid => { const p = f.state.pilots[cid]; return { ref: p.ref || "", name: p.name || "", kpi: p.kpi || "" }; })
     };
@@ -363,6 +372,8 @@ function readoutModel(home, frames) {
     econSameMoney: new Set(countries.filter(c => c.econ).map(c => c.econ.unit)).size <= 1,
     econLabels: Array.from(new Set(countries.filter(c => c.econ).map(c => c.econ.e.volume_label).filter(Boolean))),
     structureAny: countries.some(c => c.structure),
+    sopAny: countries.some(c => c.sops.n > 0),
+    sopOwnerDiffs: sopOwnerDifferences(frames),
     material: diffs.filter(d => d.material).length,
     roleGaps: roles.filter(r => r.anchor && r.gapIn.length),
     rolesDiffer: roles.filter(r => r.differs),
@@ -581,15 +592,22 @@ function parseStructureText(findings) {
 }
 function unitStructure(state) {
   const rets = (state.returns || []).filter(r => (r.findings || []).some(f => f.kind === "structural_baseline"));
-  if (!rets.length) return null;
-  const ret = rets.slice().sort((a, b) => String(b.imported_at).localeCompare(String(a.imported_at)))[0];
-  const base = ret.findings.filter(f => f.kind === "structural_baseline");
-  const m = parseStructureText(base);
-  base.forEach(f => { if (f.metrics) STRUCT_METRICS.forEach(k => { if (typeof f.metrics[k] === "number") m[k] = f.metrics[k]; }); });
+  const ov = state.structureOverride && typeof state.structureOverride === "object" ? state.structureOverride : {};
+  const typed = STRUCT_METRICS.filter(k => typeof ov[k] === "number");
+  if (!rets.length && !typed.length) return null;
+  let m = {}, base = [], ret = null;
+  if (rets.length) {
+    ret = rets.slice().sort((a, b) => String(b.imported_at).localeCompare(String(a.imported_at)))[0];
+    base = ret.findings.filter(f => f.kind === "structural_baseline");
+    m = parseStructureText(base);
+    base.forEach(f => { if (f.metrics) STRUCT_METRICS.forEach(k => { if (typeof f.metrics[k] === "number") m[k] = f.metrics[k]; }); });
+  }
+  const imported = Object.assign({}, m);
+  typed.forEach(k => { m[k] = ov[k]; });
   if (m.manager_ratio_pct === undefined && m.managers && m.headcount) m.manager_ratio_pct = Math.round(m.managers / m.headcount * 1000) / 10;
   const known = STRUCT_METRICS.filter(k => typeof m[k] === "number");
   if (!known.length) return null;
-  return { metrics: m, known, imported_at: ret.imported_at, numeric: base.some(f => f.metrics) };
+  return { metrics: m, known, imported, typed, imported_at: ret ? ret.imported_at : "", numeric: base.some(f => f.metrics) };
 }
 
 /* What Org Modeling can fill in on the economics card, already in the
@@ -619,4 +637,105 @@ function decisionView(f) {
   d.offPaper = !!(d.decided_by && d.on_paper && norm(d.decided_by) !== norm(d.on_paper));
   d.known = !!(d.on_paper || d.decided_by || d.accountable);
   return d;
+}
+
+/* ============================================================
+   Sixth question: who owns and updates the SOPs (2026-11-25)
+
+   Each unit keeps a short register of the SOPs that govern its work:
+   the owner role, the role that updates it, its version date, when it was
+   last reviewed, when the next review is due, and whether the copy in use
+   is controlled. Entries are typed by the owner, or come from Process Map
+   Studio as `sop` findings, which the owner can correct (the app's value
+   is kept beside the correction). Roles only, never people's names.
+   ============================================================ */
+const SOP_TEXT = ["title", "governs", "owner_role", "updated_by", "version_date", "last_reviewed", "review_due", "note"];
+const SOP_STALE_MONTHS = 24;
+
+/* "2025-03-01", "2025-03" or "2025" → a date; anything else → null. */
+function sopDate(s) {
+  const m = /^(\d{4})(?:-(\d{1,2}))?(?:-(\d{1,2}))?$/.exec(String(s || "").trim());
+  if (!m) return null;
+  const d = new Date(Date.UTC(+m[1], m[2] ? +m[2] - 1 : 0, m[3] ? +m[3] : 1));
+  return isNaN(d) ? null : d;
+}
+function cleanSop(x, i) {
+  const o = { id: String(x && x.id || ("sop_" + Date.now().toString(36) + (i || 0))).slice(0, 40) };
+  SOP_TEXT.forEach(k => { o[k] = String((x || {})[k] || "").trim().slice(0, k === "note" ? 300 : 120); });
+  o.controlled = (x || {}).controlled === true ? true : (x || {}).controlled === false ? false : null;
+  return o;
+}
+function ensureSops(state) {
+  state.sops = (Array.isArray(state.sops) ? state.sops : []).filter(x => x && typeof x === "object").map(cleanSop).filter(x => x.title);
+  return state.sops;
+}
+
+/* One list per unit: the owner's own entries, then Process Map Studio's,
+   each with any correction the owner made. */
+function unitSops(state) {
+  const out = (state.sops || []).map(x => Object.assign({ source: "manual" }, x));
+  (state.returns || []).forEach(r => (r.findings || []).forEach((f, i) => {
+    if (f.kind !== "sop") return;
+    const o = f.owner_edit || {};
+    const pick = k => (typeof o[k] === "string" && o[k].trim()) ? o[k].trim() : (f[k] || "");
+    const row = { id: r.id + "|" + i, ref: f.ref || "", source: sourceAppName(r.source_app), return_id: r.id, index: i,
+      title: pick("sop_title") || f.title, governs: (f.relates_to || []).filter(x => /^(VS|CAP)-\d+$/.test(x)).join(", "),
+      edited: Object.keys(o).some(k => k !== "accountable_contested") };
+    ["owner_role", "updated_by", "version_date", "last_reviewed", "review_due"].forEach(k => { row[k] = pick(k); });
+    row.controlled = o.controlled_copy !== undefined ? o.controlled_copy : (f.controlled_copy === true ? true : f.controlled_copy === false ? false : null);
+    row.steps_governed = typeof f.steps_governed === "number" ? f.steps_governed : null;
+    row.steps_departing = typeof f.steps_departing === "number" ? f.steps_departing : null;
+    out.push(row);
+  }));
+  return out;
+}
+
+/* What needs attention on one SOP, in words. `today` is passed in so the
+   rules can be tested. */
+function sopFlags(x, today) {
+  const now = today || new Date();
+  const flags = [];
+  if (!x.owner_role) flags.push("no owner");
+  if (!x.updated_by) flags.push("nobody named to update it");
+  const due = sopDate(x.review_due), last = sopDate(x.last_reviewed) || sopDate(x.version_date);
+  if (due && due < now) flags.push("review overdue");
+  else if (!due && last && (now - last) > SOP_STALE_MONTHS * 30.44 * 864e5) flags.push("not reviewed in " + SOP_STALE_MONTHS / 12 + " years");
+  else if (!due && !last) flags.push("no review date");
+  if (x.controlled === false) flags.push("uncontrolled copy in use");
+  if (typeof x.steps_departing === "number" && x.steps_departing > 0) flags.push(x.steps_departing + " step" + (x.steps_departing > 1 ? "s" : "") + " done differently");
+  return flags;
+}
+function sopSummary(state, today) {
+  const list = unitSops(state);
+  const flagged = list.map(x => ({ x, flags: sopFlags(x, today) }));
+  const n = list.length;
+  return {
+    n, list: flagged,
+    owned: list.filter(x => x.owner_role).length,
+    ownerUpdates: list.filter(x => x.owner_role && x.updated_by && x.owner_role.toLowerCase() === x.updated_by.toLowerCase()).length,
+    current: flagged.filter(r => !r.flags.some(f => /overdue|not reviewed|no review date/.test(f))).length,
+    controlled: list.filter(x => x.controlled === true).length,
+    departing: list.reduce((a, x) => a + (typeof x.steps_departing === "number" ? x.steps_departing : 0), 0),
+    attention: flagged.filter(r => r.flags.length).length
+  };
+}
+/* The same SOP (by title) owned by different roles in different units. */
+function sopOwnerDifferences(frames, today) {
+  const byTitle = {};
+  frames.forEach(f => unitSops(f.state).forEach(x => {
+    const k = x.title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    if (!k) return;
+    (byTitle[k] = byTitle[k] || { title: x.title, owners: {} }).owners[f.label] = x.owner_role || "no owner";
+  }));
+  return Object.values(byTitle).filter(t => Object.keys(t.owners).length > 1 && new Set(Object.values(t.owners).map(o => o.toLowerCase())).size > 1);
+}
+
+/* Structure typed or corrected by the owner wins over Org Modeling's. */
+function ensureStructureOverride(state) {
+  const o = state.structureOverride && typeof state.structureOverride === "object" && !Array.isArray(state.structureOverride) ? state.structureOverride : {};
+  const out = {};
+  STRUCT_METRICS.forEach(k => { const n = econNum(o[k]); if (n !== null) out[k] = n; });
+  if (typeof o.note === "string" && o.note.trim()) out.note = o.note.trim().slice(0, 300);
+  state.structureOverride = out;
+  return out;
 }

@@ -225,7 +225,52 @@ function csFindings() {
       <p class="ho-note">Each of the other three apps can send back what it found as a small file. Importing one never changes a score: it lists the findings here, and you decide which to cite on a cell. Import each file into the workspace of the country it describes.</p>
       <div class="cs-sources">${RETURN_SOURCES.map(s => `<div class="cs-source"><strong>${s.app}</strong><span>${s.gives}</span><em>${s.where}</em></div>`).join("")}</div>
       ${files ? `<div class="cs-files">${files}</div>` : `<div class="alert-empty" style="margin-top:12px">No findings file imported into this workspace yet.</div>`}
-    </div>${groups}`;
+    </div>${csStructureCard()}${csSopCard()}${groups}`;
+}
+
+/* ---------- This unit's structure figures: Org Modeling's, or typed ----------
+   A typed figure always wins. Clearing it brings Org Modeling's back. */
+const STRUCT_EDIT = [["headcount", "Head-count"], ["managers", "Managers"], ["layers", "Layers"], ["median_span", "Median span"],
+  ["spans_within", "Spans within benchmark"], ["spans_below", "Below benchmark"], ["spans_above", "Above benchmark"],
+  ["single_report_managers", "One-report managers"], ["health_score", "Health /100"]];
+function csStructureCard() {
+  const st = unitStructure(state), ov = ensureStructureOverride(state), imp = (st && st.imported) || {};
+  const who = state.country || state.workspaceName;
+  return `<div class="vc-tablewrap cs-unitcard" id="cs-struct">
+    <div class="sig-brief-head"><h2>Spans and layers: ${esc(who)}</h2><span class="sig-meta">for readout page 4</span></div>
+    <p class="ho-note">From this unit's Org Modeling file when one is imported. Type a figure to use your own (for example from an HR system); clear it to go back to Org Modeling's.</p>
+    <div class="econ-grid">${STRUCT_EDIT.map(([k, l]) => `<div class="econ-f"><label for="st-${k}">${l}</label>
+      <input type="number" min="0" step="any" id="st-${k}" data-st="${k}" value="${typeof ov[k] === "number" ? ov[k] : ""}" placeholder="${typeof imp[k] === "number" ? imp[k] : "—"}">
+      <span class="econ-from">${typeof ov[k] === "number" ? (typeof imp[k] === "number" && imp[k] !== ov[k] ? "typed · Org Modeling says " + imp[k] : "typed") : typeof imp[k] === "number" ? "from Org Modeling" : "not known"}</span></div>`).join("")}</div>
+    <div class="econ-foot"><input type="text" id="st-note" value="${esc(ov.note || "")}" placeholder="Note: where typed figures come from"></div></div>`;
+}
+
+/* ---------- This unit's SOPs: who owns them and who updates them ----------
+   The owner's own entries are edited in place. Process Map Studio's are
+   corrected in place: its value is kept, the correction is marked. */
+const SOP_COLS = [["title", "SOP", "e.g. Load planning procedure"], ["governs", "Governs", "VS-01 or CAP-01"], ["owner_role", "Owner (role)", "role accountable for it"],
+  ["updated_by", "Updated by (role)", "role that keeps it current"], ["version_date", "Version date", "YYYY-MM"], ["last_reviewed", "Last reviewed", "YYYY-MM"], ["review_due", "Review due", "YYYY-MM"]];
+function csSopCard() {
+  const list = unitSops(state);
+  const who = state.country || state.workspaceName;
+  const ctl = (v, attr) => `<select ${attr}><option value="" ${v === null ? "selected" : ""}>Not known</option><option value="yes" ${v === true ? "selected" : ""}>Yes</option><option value="no" ${v === false ? "selected" : ""}>No</option></select>`;
+  const rows = list.map(x => {
+    const flags = sopFlags(x);
+    const imp = x.source !== "manual";
+    const attr = k => imp ? `data-sop-imp="${esc(x.return_id)}|${x.index}|${k}"` : `data-sop="${esc(x.id)}|${k}"`;
+    const cells = SOP_COLS.map(([k, , ph]) => imp && k === "governs"
+      ? `<td><span class="cs-sub">${esc(x.governs || "—")}</span></td>`
+      : `<td><input type="text" ${attr(k === "title" && imp ? "sop_title" : k)} value="${esc(x[k] || "")}" placeholder="${ph}"></td>`).join("");
+    return `<tr>${cells}<td>${ctl(x.controlled, attr(imp ? "controlled_copy" : "controlled"))}</td>
+      <td class="sop-flags">${flags.length ? flags.map(f => `<span class="sop-flag">⚑ ${esc(f)}</span>`).join("") : `<span class="sop-ok">✓ in order</span>`}</td>
+      <td>${imp ? `<span class="ref-chip">${esc(x.ref)}</span><span class="cs-sub">${esc(x.source)}${x.edited ? " · corrected" : ""}</span>` : `<button class="mini-btn danger" data-sop-del="${esc(x.id)}" title="Remove this SOP">✕</button>`}</td></tr>`;
+  }).join("");
+  return `<div class="vc-tablewrap cs-unitcard" id="cs-sops">
+    <div class="sig-brief-head"><h2>SOPs: who owns and updates them in ${esc(who)}</h2><span class="sig-meta">for readout page 5</span>
+      <button class="mini-btn" id="sop-add">＋ Add an SOP</button></div>
+    <p class="ho-note">List the SOPs that govern the work you are examining. Name roles, never people. Process Map Studio's SOPs appear here when its findings file carries them; you can correct them. Dates as YYYY-MM.</p>
+    <div class="sop-wrap"><table class="delta-table sop-table"><thead><tr>${SOP_COLS.map(c => `<th>${c[1]}</th>`).join("")}<th>Controlled copy</th><th>Needs attention</th><th></th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="10" class="cs-none" style="text-align:center">No SOPs listed for this unit yet.</td></tr>`}</tbody></table></div></div>`;
 }
 
 /* ---------- Tab 3: the EXCO readout ---------- */
@@ -308,6 +353,19 @@ function roStructure(m) {
     <p class="ro-foot">▲ highest · ▽ lowest. Counted by Org Modeling from each unit's org file; a manager's span counts direct reports in any unit.${missing.length ? " No org file imported for " + esc(missing.join(", ")) + "." : ""}</p>`;
 }
 
+/* Readout page 5: who owns and updates the SOPs, per unit. */
+function roSops(m) {
+  if (!m.sopAny) return `<h3 class="ro-sub">Who owns and updates the SOPs</h3><p class="ro-empty">No SOPs listed. Add them per unit under Findings, or import Process Map Studio's findings.</p>`;
+  const pct = (a, n) => n ? Math.round(a / n * 100) + "%" : "—";
+  const rows = m.countries.map(c => { const x = c.sops; return `<tr><td><strong>${esc(c.label)}</strong></td>${x.n ? `<td>${x.n}</td><td>${x.owned} (${pct(x.owned, x.n)})</td><td>${x.ownerUpdates}</td><td>${x.current} (${pct(x.current, x.n)})</td><td>${x.controlled}</td><td>${x.departing || "—"}</td><td>${x.attention}</td>` : `<td colspan="7"><span class="cs-none">no SOPs listed</span></td>`}</tr>`; }).join("");
+  const worst = [];
+  m.countries.forEach(c => c.sops.list.filter(r => r.flags.length).slice(0, 2).forEach(r => worst.push(`<li><strong>${esc(c.label)}</strong>: ${esc(r.x.title)}${r.x.owner_role ? " (" + esc(r.x.owner_role) + ")" : ""} · ${esc(r.flags.join(", "))}</li>`)));
+  const diffs = m.sopOwnerDiffs.slice(0, 2).map(d => `<li><strong>${esc(d.title)}</strong> is owned by ${esc(Object.keys(d.owners).map(u => d.owners[u] + " in " + u).join(", "))}</li>`);
+  return `<h3 class="ro-sub">Who owns and updates the SOPs</h3>
+    <table class="ro-econ"><thead><tr><th></th><th>SOPs</th><th>With an owner</th><th>Owner also updates</th><th>Reviewed on time</th><th>Controlled copies</th><th>Steps done differently</th><th>Need attention</th></tr></thead><tbody>${rows}</tbody></table>
+    ${worst.length || diffs.length ? `<ul class="ro-pilots ro-sopnotes">${diffs.join("")}${worst.slice(0, 4).join("")}</ul>` : ""}`;
+}
+
 function roPerCountry(m, pick, n, emptyFor, list) {
   const tierOf = id => (m.countries.find(c => c.id === id) || {}).tier;
   return `<div class="ro-cols">${m.finds.per.map(p => `<div class="ro-col"><h4>${esc(p.label)}</h4>${
@@ -337,6 +395,9 @@ function csReadout(ctx) {
   const decs = m.finds.per.reduce((a, p) => a.concat(p.decisions), []);
   const noWho = decs.filter(f => !decisionView(f).accountable).length;
   if (noWho) gaps.push(noWho + " decision finding(s) do not say who is accountable. Add it in the findings register if you know it.");
+  const noSops = m.countries.filter(c => !c.sops.n && c.tier !== "scored").map(c => c.label);
+  if (!m.sopAny) gaps.push("No SOPs listed for any unit, so page 5 cannot say who owns and updates them.");
+  else if (noSops.length) gaps.push("No SOPs listed for " + noSops.join(", ") + ".");
 
   const tiles = m.countries.map(c => `<div class="ro-tile">
       <h4>${esc(c.label)} <span class="ref-chip">${esc(c.key)}</span></h4>
@@ -383,8 +444,9 @@ function csReadout(ctx) {
     `<h3 class="ro-sub">Why the roles are there</h3>` +
     roPerCountry(m, p => p.people.filter(f => !(f.kind === "structural_baseline" && /^baseline\./.test(f.ref || "") && !f.reason_class)), 2, "No role findings imported. They come from Org Modeling and the Workbench.") );
 
-  const p5 = page(5, "How work really runs", "Where practice departs from the documents, and what it costs.",
-    roPerCountry(m, p => p.work.filter(f => f.kind !== "step"), 4, "No process findings imported. They come from Process Map Studio.") +
+  const p5 = page(5, "How work really runs", "Where practice departs from the documents, what it costs, and who owns and updates the SOPs.",
+    roPerCountry(m, p => p.work.filter(f => f.kind !== "step" && f.kind !== "sop"), 3, "No process findings imported. They come from Process Map Studio.") +
+    roSops(m) +
     `<p class="ro-foot">Each line keeps the ID and grade it was given in the app that found it. Confirmed means verified at source; Indicated means supported but not verified; Hypothesis means still to test.</p>`);
 
   const askCol = k => {
@@ -460,6 +522,7 @@ function loadDemoCountries() {
     state.comparison = Object.assign(demoComparison(), { with: state.comparison.with || [], skip: state.comparison.skip || [] });
     state.returns = demoReturns(DEMO_HOME_COUNTRY);
     if (!econEntered(state.economics)) state.economics = demoEconomics(DEMO_HOME_COUNTRY);
+    if (!(state.sops || []).length) state.sops = demoSops(DEMO_HOME_COUNTRY);
     DEMO_COUNTRIES.forEach(spec => {
       const st = migrateState(buildDemoCountry(state, spec));
       st.workspaceId = wsNewId();
@@ -517,6 +580,56 @@ function bindCurrentEvents() {
     state.changeLog.push({ at: nowIso(), cluster: cl.name, lens: at.lensKey, from: cell.level, to: cell.level, rationale: "Evidence cited from " + sourceAppName(ret.source_app) + (f.ref ? " (" + f.ref + ")" : "") + ": " + f.title, by: state.actor || "You" });
     renderAll();
     toast("Cited on " + ref + ". The score is unchanged; open the cell to re-score if it warrants.");
+  }));
+  /* Structure figures: typed wins; empty brings Org Modeling's back. */
+  document.querySelectorAll("[data-st]").forEach(inp => inp.addEventListener("change", () => {
+    const k = inp.dataset.st, v = econNum(inp.value);
+    if (inp.value.trim() && v === null) { toast("Enter a number of zero or more."); inp.value = typeof state.structureOverride[k] === "number" ? state.structureOverride[k] : ""; return; }
+    if (v === null) delete state.structureOverride[k]; else state.structureOverride[k] = v;
+    state.changeLog.push({ at: nowIso(), cluster: "Structure", lens: "—", from: 0, to: 0, rationale: (v === null ? "Typed figure cleared for " : "Typed figure for ") + k.replace(/_/g, " ") + (v === null ? "" : ": " + v), by: state.actor || "You" });
+    saveState(); renderView();
+  }));
+  const stNote = $("st-note");
+  if (stNote) stNote.addEventListener("change", () => { const v = stNote.value.trim().slice(0, 300); if (v) state.structureOverride.note = v; else delete state.structureOverride.note; saveState(); });
+  /* SOPs typed by the owner. */
+  const sopAdd = $("sop-add");
+  if (sopAdd) sopAdd.addEventListener("click", () => {
+    state.sops.push(cleanSop({ id: "sop_" + Date.now().toString(36), title: "New SOP" }));
+    saveState(); renderView();
+    const first = document.querySelector('#cs-sops tbody tr:last-child input[data-sop$="|title"]'); if (first) { first.focus(); first.select(); }
+  });
+  document.querySelectorAll("[data-sop]").forEach(inp => inp.addEventListener("change", () => {
+    const [id, k] = inp.dataset.sop.split("|");
+    const x = state.sops.find(o => o.id === id); if (!x) return;
+    if (k === "controlled") x.controlled = inp.value === "yes" ? true : inp.value === "no" ? false : null;
+    else if (k === "title" && !inp.value.trim()) { toast("An SOP needs a title. Use ✕ to remove it."); inp.value = x.title; return; }
+    else x[k] = inp.value.trim().slice(0, 120);
+    saveState(); renderView();
+  }));
+  document.querySelectorAll("[data-sop-del]").forEach(b => b.addEventListener("click", () => {
+    const x = state.sops.find(o => o.id === b.dataset.sopDel); if (!x) return;
+    if (!confirm("Remove “" + x.title + "” from this unit's SOPs?")) return;
+    state.sops = state.sops.filter(o => o !== x);
+    state.changeLog.push({ at: nowIso(), cluster: "SOPs", lens: "—", from: 0, to: 0, rationale: "Removed SOP: " + x.title, by: state.actor || "You" });
+    saveState(); renderView();
+  }));
+  /* SOPs from Process Map Studio, corrected by the owner. */
+  document.querySelectorAll("[data-sop-imp]").forEach(inp => inp.addEventListener("change", () => {
+    const [rid, i, k] = inp.dataset.sopImp.split("|");
+    const ret = (state.returns || []).find(x => x.id === rid);
+    const f = ret && ret.findings[+i]; if (!f) return;
+    const o = Object.assign({}, f.owner_edit || {});
+    if (k === "controlled_copy") {
+      const v = inp.value === "yes" ? true : inp.value === "no" ? false : null;
+      const orig = f.controlled_copy === true ? true : f.controlled_copy === false ? false : null;
+      if (v === orig || v === null) delete o[k]; else o[k] = v;
+    } else {
+      const v = inp.value.trim().slice(0, 120), orig = k === "sop_title" ? f.title : (f[k] || "");
+      if (v && v !== orig) o[k] = v; else delete o[k];
+    }
+    if (Object.keys(o).length) f.owner_edit = o; else delete f.owner_edit;
+    state.changeLog.push({ at: nowIso(), cluster: "SOPs", lens: "—", from: 0, to: 0, rationale: "Corrected " + (f.ref || "an SOP") + " from " + sourceAppName(ret.source_app) + ": " + k.replace(/_/g, " "), by: state.actor || "You" });
+    saveState(); renderView();
   }));
   document.querySelectorAll("[data-cs-dec]").forEach(inp => inp.addEventListener("change", () => {
     const [rid, i, k] = inp.dataset.csDec.split("|");

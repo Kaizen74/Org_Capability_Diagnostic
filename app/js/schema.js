@@ -152,6 +152,24 @@ function validateState(s) {
     });
   }
   if (s.economics !== undefined && s.economics !== null) errs = errs.concat(validateEconomics(s.economics));
+  if (s.sops !== undefined) {
+    if (!_isArr(s.sops)) errs.push("sops must be an array");
+    else s.sops.forEach(function (x, i) {
+      if (!_isObj(x)) { errs.push("sops[" + i + "] must be an object"); return; }
+      if (!_isStr(x.title) || !x.title.trim()) errs.push("sops[" + i + "]: title required");
+      ["governs", "owner_role", "updated_by", "version_date", "last_reviewed", "review_due", "note"].forEach(function (k) {
+        if (x[k] !== undefined && !_isStr(x[k])) errs.push("sops[" + i + "]." + k + " must be a string");
+      });
+      if (x.controlled !== undefined && x.controlled !== null && typeof x.controlled !== "boolean") errs.push("sops[" + i + "].controlled must be true, false or empty");
+    });
+  }
+  if (s.structureOverride !== undefined && s.structureOverride !== null) {
+    if (!_isObj(s.structureOverride)) errs.push("structureOverride must be an object");
+    else Object.keys(s.structureOverride).forEach(function (k) {
+      var v = s.structureOverride[k];
+      if (k === "note" ? !_isStr(v) : (typeof v !== "number" || !isFinite(v) || v < 0)) errs.push("structureOverride." + k + " has the wrong type");
+    });
+  }
   if (s.comparison !== undefined && s.comparison !== null) errs = errs.concat(validateComparison(s.comparison));
   if (s.returns !== undefined && !_isArr(s.returns)) errs.push("returns must be an array");
   (_isArr(s.returns) ? s.returns : []).forEach(function (r, i) {
@@ -428,6 +446,13 @@ function validateReturn(r) {
       if (f[k] !== undefined && !_isStr(f[k])) errs.push(w + "." + k + " must be a string");
     });
     if (f.accountable_contested !== undefined && typeof f.accountable_contested !== "boolean") errs.push(w + ".accountable_contested must be true or false");
+    ["owner_role", "updated_by", "version_date", "last_reviewed", "review_due"].forEach(function (k) {
+      if (f[k] !== undefined && !_isStr(f[k])) errs.push(w + "." + k + " must be a string");
+    });
+    if (f.controlled_copy !== undefined && typeof f.controlled_copy !== "boolean") errs.push(w + ".controlled_copy must be true or false");
+    ["steps_governed", "steps_departing"].forEach(function (k) {
+      if (f[k] !== undefined && (typeof f[k] !== "number" || !isFinite(f[k]) || f[k] < 0)) errs.push(w + "." + k + " must be a number of zero or more");
+    });
     if (f.metrics !== undefined) {
       if (!_isObj(f.metrics)) errs.push(w + ".metrics must be an object");
       else Object.keys(f.metrics).forEach(function (k) {
@@ -438,7 +463,7 @@ function validateReturn(r) {
       if (!_isObj(f.owner_edit)) errs.push(w + ".owner_edit must be an object");
       else Object.keys(f.owner_edit).forEach(function (k) {
         var v = f.owner_edit[k];
-        if (k === "accountable_contested" ? typeof v !== "boolean" : !_isStr(v)) errs.push(w + ".owner_edit." + k + " has the wrong type");
+        if ((k === "accountable_contested" || k === "controlled_copy") ? typeof v !== "boolean" : !_isStr(v)) errs.push(w + ".owner_edit." + k + " has the wrong type");
       });
     }
   });

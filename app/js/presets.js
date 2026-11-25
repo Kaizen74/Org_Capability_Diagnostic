@@ -538,6 +538,7 @@ function buildDemoCountry(home, spec) {
   });
   s.returns = demoReturns(spec.country);
   s.economics = demoEconomics(spec.country);
+  s.sops = demoSops(spec.country);
   return s;
 }
 
@@ -585,6 +586,10 @@ const DEMO_RETURNS = {
       { ref: "V1", kind: "variation", topic: "decision_right", reason_class: "inherited", compared_with: "Arden", grade: "indicated", figure: "", relates_to: ["VS-01", "CAP-04", "CAP-04.Process"],
         title: "Renewal pricing: approved by the country manager in Belmar, by the regional finance controller in Arden",
         detail: "Types: Different role. Step S-07 (Approve the renewal price). Reason: Belmar kept its pre-merger delegation of authority.", source_note: "Compared between the two published maps of VS-01; each side rests on 3 interviews." },
+      { ref: "SOP-01", kind: "sop", topic: "way_of_working", grade: "confirmed", figure: "3 of 9 steps done differently", relates_to: ["CAP-01", "CAP-01.Process"],
+        title: "Load planning and sign-off", detail: "The SOP still names the pre-merger roles; the shift supervisor keeps an annotated copy at the desk.",
+        owner_role: "Station manager", updated_by: "Shift supervisor", version_date: "2019-04", last_reviewed: "2019-04", controlled_copy: false, steps_governed: 9, steps_departing: 3,
+        source_note: "From the source register; step counts from the published map of CAP-01." },
       { ref: "X3", kind: "discrepancy", topic: "decision_right", grade: "indicated", figure: "", relates_to: ["CAP-03", "CAP-03.Process"],
         on_paper: "Regional roster owner", decided_by: "Station manager", accountable: "Regional roster owner", accountable_contested: true,
         title: "Overtime is approved by the station manager without the regional roster owner",
@@ -621,6 +626,22 @@ const DEMO_RETURNS = {
     ] }
   ]
 };
+/* SOP registers for the fictional demo: roles only. Belmar's load-planning
+   SOP also arrives from Process Map Studio. */
+const DEMO_SOPS = {
+  Arden: [
+    { title: "Renewal pricing and approval", governs: "VS-01", owner_role: "Commercial lead", updated_by: "Commercial excellence manager", version_date: "2025-02", last_reviewed: "2025-02", review_due: "2027-02", controlled: true },
+    { title: "Bid pack preparation", governs: "CAP-04", owner_role: "Commercial lead", updated_by: "", version_date: "2021-06", last_reviewed: "", review_due: "", controlled: false }
+  ],
+  Belmar: [
+    { title: "Overtime approval", governs: "CAP-03", owner_role: "Regional roster owner", updated_by: "Regional roster owner", version_date: "2024-09", last_reviewed: "2024-09", review_due: "2026-09", controlled: true }
+  ],
+  Caldera: [
+    { title: "Load planning and sign-off", governs: "CAP-01", owner_role: "Chief load controller", updated_by: "Quality manager", version_date: "2025-10", last_reviewed: "2025-10", review_due: "2027-04", controlled: true }
+  ]
+};
+function demoSops(country) { return (DEMO_SOPS[country] || []).map((x, i) => cleanSop(Object.assign({ id: "sop_demo_" + country.toLowerCase() + "_" + (i + 1) }, x))); }
+
 /* Unit economics for the fictional demo (amounts in $m). */
 const DEMO_ECONOMICS = {
   Arden: { revenue: 410, manpower_cost: 168, non_manpower_cost: 151, headcount: 1240, volume: 620000 },

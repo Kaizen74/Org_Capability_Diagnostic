@@ -1269,7 +1269,7 @@ function check(name, cond) {
   check("the findings tab says where each app's file comes from", await page.locator(".cs-source").count() === 3);
   check("the demo's findings are listed by the app that sent them",
     await page.locator(".cs-file").count() === 3 && await page.locator(".cs-find tbody tr").count() === 9 &&
-    (await page.locator(".cs-body .sig-brief-head h2").allTextContents()).slice(1).join() === "Process Map Studio,Org Modeling,Workbench");
+    (await page.locator(".cs-body .sig-brief-head h2").allTextContents()).slice(1).filter(t => !/^(Spans and layers|SOPs):/.test(t)).join() === "Process Map Studio,Org Modeling,Workbench");
   const beforeCite = await page.evaluate(() => { const c = state.clusters.find(x => x.id === "commercial").cells.Process; return { level: c.level, grade: c.grade, ev: c.evidence.length }; });
   await page.locator('[data-cs-cite$="|CAP-04.Process"]').first().click();
   await page.waitForTimeout(400);
@@ -1368,7 +1368,7 @@ function check(name, cond) {
     (await page.locator(".cs-chip.on em").textContent()) === "open now" && (await page.locator(".cs-chip.on").first().textContent()).includes("Belmar"));
   await page.click('[data-cs-tab="findings"]');
   await page.waitForTimeout(300);
-  check("each country keeps its own findings", await page.locator(".cs-file").count() === 2 && await page.locator(".cs-find tbody tr").count() === 8);
+  check("each country keeps its own findings", await page.locator(".cs-file").count() === 2 && await page.locator(".cs-find tbody tr").count() === 9);
   check("a finding says why it is so, and against which country, in words",
     (await page.locator(".cs-find tbody tr", { hasText: "V1" }).first().textContent()).includes("Inherited") &&
     (await page.locator(".cs-find tbody tr", { hasText: "V1" }).first().textContent()).includes("vs Arden"));
@@ -1513,12 +1513,58 @@ function check(name, cond) {
   await page.waitForTimeout(300);
   check("the correction is stored beside the app's own value and logged",
     await page.evaluate(() => { const f = state.returns.flatMap(r => r.findings).find(x => x.owner_edit && x.owner_edit.accountable); return !!f && !!f.accountable && f.accountable !== f.owner_edit.accountable && /Decision rights edited/.test(state.changeLog.slice(-1)[0].rationale); }));
+  /* ---- Sixth question: who owns and updates the SOPs; typed structure figures ---- */
+  check("the unit's SOPs list its own and Process Map Studio's, with what needs attention",
+    await page.locator("#cs-sops tbody tr").count() === 2 && (await page.locator("#cs-sops").textContent()).includes("SOP-01") &&
+    (await page.locator("#cs-sops").textContent()).includes("review overdue") && (await page.locator("#cs-sops").textContent()).includes("3 steps done differently"));
+  await page.click("#sop-add");
+  await page.waitForTimeout(300);
+  const nid = await page.evaluate(() => state.sops[state.sops.length - 1].id);
+  const sopIn = k => page.locator(`[data-sop="${nid}|${k}"]`);
+  await sopIn("title").fill("Ramp safety briefing");
+  await sopIn("title").dispatchEvent("change");
+  await page.waitForTimeout(250);
+  await sopIn("owner_role").fill("Ramp safety lead");
+  await sopIn("owner_role").dispatchEvent("change");
+  await page.waitForTimeout(250);
+  await sopIn("controlled").selectOption("yes");
+  await page.waitForTimeout(250);
+  const newRowText = await page.locator("#cs-sops tbody tr", { has: page.locator(`[data-sop="${nid}|title"]`) }).textContent();
+  check("an SOP can be added by hand, and its flags follow what is filled in",
+    await page.evaluate(() => { const x = state.sops.find(o => o.title === "Ramp safety briefing"); return !!x && x.owner_role === "Ramp safety lead" && x.controlled === true; }) &&
+    newRowText.includes("nobody named to update it") && !newRowText.includes("no owner"));
+  const impOwner = page.locator('input[data-sop-imp$="|owner_role"]');
+  await impOwner.fill("Head of hub operations");
+  await impOwner.dispatchEvent("change");
+  await page.waitForTimeout(300);
+  check("an imported SOP can be corrected; the app's value is kept and the correction marked and logged",
+    await page.evaluate(() => { const f = state.returns.flatMap(r => r.findings).find(x => x.kind === "sop"); return f.owner_role === "Station manager" && f.owner_edit.owner_role === "Head of hub operations" && /Corrected SOP-01/.test(state.changeLog.slice(-1)[0].rationale); }) &&
+    (await page.locator("#cs-sops").textContent()).includes("corrected"));
+  page.once("dialog", d => d.accept());
+  await page.locator(`[data-sop-del="${nid}"]`).click();
+  await page.waitForTimeout(300);
+  check("a typed SOP can be removed after a confirmation", await page.evaluate(() => !state.sops.some(o => o.title === "Ramp safety briefing")) && await page.locator("#cs-sops tbody tr").count() === 2);
+  check("Org Modeling's structure figures show as the starting value", (await page.locator("#st-layers").getAttribute("placeholder")) === "5" && (await page.locator("#cs-struct").textContent()).includes("from Org Modeling"));
+  await page.fill("#st-layers", "4");
+  await page.locator("#st-layers").dispatchEvent("change");
+  await page.waitForTimeout(300);
+  check("a typed structure figure wins, says Org Modeling's figure beside it, and is logged",
+    await page.evaluate(() => state.structureOverride.layers === 4 && unitStructure(state).metrics.layers === 4 && /Typed figure for layers/.test(state.changeLog.slice(-1)[0].rationale)) &&
+    (await page.locator("#cs-struct").textContent()).includes("Org Modeling says 5"));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(300);
+  check("on a phone the SOP table scrolls inside its card, never the page", await page.evaluate(() => document.documentElement.scrollWidth <= 392));
+  await page.setViewportSize({ width: 1440, height: 950 });
+  await page.waitForTimeout(300);
   await page.click('[data-cs-tab="readout"]');
   await page.waitForTimeout(400);
   const p1t = await page.locator(".ro-page").nth(0).textContent(), p3t = await page.locator(".ro-page").nth(2).textContent(), p4t = await page.locator(".ro-page").nth(3).textContent();
   check("page 1 lines up cost and productivity for every unit", p1t.includes("Cost and productivity") && p1t.includes("Manpower share of cost") && await page.locator(".ro-page").nth(0).locator(".ro-econ tbody tr").count() === 3);
   check("page 3 shows on paper, who decides and who is accountable, with mismatches counted and flagged",
     p3t.includes("who is accountable") && p3t.includes("Accountable:") && p3t.includes("not the one who decides") && p3t.includes("entered by the owner") && p3t.includes("sources disagree"));
+  const p5t = await page.locator(".ro-page").nth(4).textContent();
+  check("page 5 says who owns and updates the SOPs in each unit, and where the same SOP has different owners",
+    p5t.includes("Who owns and updates the SOPs") && p5t.includes("Owner also updates") && p5t.includes("Load planning and sign-off is owned by Head of hub operations in Belmar, Chief load controller in Caldera"));
   check("page 4 lines up head-count, layers and spans per unit, highest and lowest marked",
     p4t.includes("Spans and layers") && p4t.includes("Layers") && p4t.includes("▲") && p4t.includes("1,240") && p4t.includes("560"));
   await page.click('.tab[data-view="current"]');

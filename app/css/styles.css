@@ -1263,3 +1263,17 @@ select.to-confirm { border-color: var(--amber); background: var(--amber-bg); col
   .ro-page:has(.ro-econ) .ro-detail { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .ro-page:has(.ro-econ) .ro-call { padding: 4px 10px; }
 }
+
+/* ---- SOP register and typed structure figures (2026-11-25) ---- */
+.cs-unitcard { margin-top: 14px; }
+.sop-wrap { overflow-x: auto; max-width: 100%; }
+.sop-table { min-width: 980px; }
+.sop-table input[type=text], .sop-table select { width: 100%; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; font: inherit; font-size: 12px; min-width: 78px; }
+.sop-table td { vertical-align: top; }
+.sop-flags { min-width: 150px; }
+.sop-flag { display: block; font-size: 11.5px; color: #8A5412; }
+.sop-ok { font-size: 11.5px; color: var(--muted); }
+.ro-sopnotes li { font-size: 12px; }
+@media print {
+  .ro-sopnotes li { font-size: 11px; padding: 2px 0; }
+}

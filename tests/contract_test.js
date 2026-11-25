@@ -1263,5 +1263,54 @@ checkOk("the Org Modeling sample carries its structure as numbers the Compass re
 checkOk("the Process Map Studio sample says who decides and who is accountable, and flags a contested one",
   (() => { const fs2 = run("normaliseReturn(__pmsS48)").findings; return fs2.filter(f => f.decided_by && f.accountable).length === 2 && fs2.some(f => f.accountable_contested === true); })());
 
+// ---- 49. Sixth question: who owns and updates the SOPs; typed structure ----
+const T = "new Date(Date.UTC(2026, 10, 25))";
+checkOk("SOP dates are read as YYYY, YYYY-MM or YYYY-MM-DD, anything else is no date",
+  run("sopDate('2025') && sopDate('2025-03') && sopDate('2025-03-09') && !sopDate('March 2025') && !sopDate('')") === true);
+const f1 = run(`sopFlags({ title: "A", owner_role: "", updated_by: "", version_date: "2019-04", controlled: false, steps_departing: 3 }, ${T})`);
+checkOk("an SOP with no owner, nobody to update it, an old version and an uncontrolled copy is flagged for each",
+  ["no owner", "nobody named to update it", "not reviewed in 2 years", "uncontrolled copy in use", "3 steps done differently"].every(x => f1.includes(x)));
+checkOk("a past review date is overdue; a future one with an owner and updater is in order",
+  run(`sopFlags({ owner_role: "X", updated_by: "Y", review_due: "2026-09", controlled: true }, ${T})`).join() === "review overdue" &&
+  run(`sopFlags({ owner_role: "X", updated_by: "Y", review_due: "2027-04", controlled: true }, ${T})`).length === 0);
+checkOk("with no dates at all, the SOP says so rather than passing", run(`sopFlags({ owner_role: "X", updated_by: "Y", controlled: true }, ${T})`).join() === "no review date");
+const sopHome = JSON.parse(JSON.stringify(exHome)); sopHome.sops = run("demoSops('Arden')"); put("__sh", sopHome);
+check("a unit's SOP register conforms to the contract", schema.validateState(sopHome));
+checkOk("the contract refuses an SOP with no title or a wrong controlled value",
+  schema.validateState(Object.assign({}, sopHome, { sops: [{ title: "" }] })).length === 1 && schema.validateState(Object.assign({}, sopHome, { sops: [{ title: "X", controlled: "yes" }] })).length === 1);
+checkOk("stored SOPs are cleaned on load: untitled rows and odd values dropped",
+  (() => { const st = { sops: [{ title: "Keep", controlled: "maybe", owner_role: "  Role  ", junk: 1 }, { title: "" }, "x"] }; run("void 0"); put("__sx", st); const r = run("ensureSops(__sx)"); return r.length === 1 && r[0].controlled === null && r[0].owner_role === "Role" && r[0].junk === undefined; })());
+const sopBel = run("ensureRefs(buildDemoCountry(__sh, DEMO_COUNTRIES[0]))"); put("__sb", sopBel);
+const ub = run("unitSops(__sb)");
+checkOk("a unit lists its own SOPs and Process Map Studio's together, each saying where it came from",
+  ub.length === 2 && ub.some(x => x.source === "manual") && ub.some(x => x.ref === "SOP-01" && x.source === "Process Map Studio" && x.controlled === false && x.steps_departing === 3 && x.governs === "CAP-01"));
+const sopRet = sopBel.returns.find(r => r.findings.some(f => f.kind === "sop")); const sopIdx = sopRet.findings.findIndex(f => f.kind === "sop");
+sopRet.findings[sopIdx].owner_edit = { owner_role: "Head of hub operations", controlled_copy: true }; put("__sb2", sopBel);
+const ub2 = run("unitSops(__sb2)").find(x => x.ref === "SOP-01");
+checkOk("the owner's correction of an imported SOP wins, is marked, and keeps the app's value", ub2.owner_role === "Head of hub operations" && ub2.controlled === true && ub2.edited === true && sopRet.findings[sopIdx].owner_role === "Station manager");
+check("a corrected SOP finding still conforms", schema.validateState(sopBel));
+const sopCopy = run("frameCopy(__sh, 'Dorne', 'DO')");
+checkOk("a new unit starts with no SOPs and no typed structure: each unit names its own", sopCopy.sops.length === 0 && Object.keys(sopCopy.structureOverride).length === 0);
+const sopFrames = [{ id: "a", label: "Arden", state: sopHome }, { id: "b", label: "Belmar", state: sopBel }, { id: "c", label: "Caldera", state: run("ensureRefs(buildDemoCountry(__sh, DEMO_COUNTRIES[1]))") }];
+put("__sf", sopFrames);
+const rmS = run("readoutModel(__sh, __sf)");
+checkOk("the readout counts each unit's SOPs, owners and those needing attention", rmS.sopAny && rmS.countries[0].sops.n === 2 && rmS.countries[0].sops.owned === 2 && rmS.countries[1].sops.n === 2 && rmS.countries[1].sops.departing === 3);
+checkOk("the same SOP owned by different roles in different units is called out",
+  rmS.sopOwnerDiffs.length === 1 && rmS.sopOwnerDiffs[0].owners.Belmar === "Head of hub operations" && rmS.sopOwnerDiffs[0].owners.Caldera === "Chief load controller");
+const rawSop = { format: "compass-return", format_version: "1.0", source_app: "process-map-studio", engagement_key: "K", findings: [
+  { ref: "SOP-02", kind: "sop", title: "Ramp safety", owner_role: "Safety lead", updated_by: "Safety lead", version_date: "2026-01", controlled_copy: true, steps_governed: "7", steps_departing: -1, owner_name: "A Person" }] };
+put("__rs", rawSop);
+const rsN = run("normaliseReturn(__rs)").findings[0];
+checkOk("an SOP finding keeps only its agreed fields: counts as numbers, nothing else rides in",
+  rsN.owner_role === "Safety lead" && rsN.controlled_copy === true && rsN.steps_governed === 7 && rsN.steps_departing === undefined && rsN.owner_name === undefined);
+
+// Typed structure figures
+const tsH = JSON.parse(JSON.stringify(sopBel)); tsH.structureOverride = { layers: 4, headcount: 600, note: "HR system, Oct 2026" }; put("__ts", tsH);
+const tsS = run("unitStructure(__ts)");
+checkOk("a typed structure figure wins over Org Modeling's, and both are kept", tsS.metrics.layers === 4 && tsS.imported.layers === 5 && tsS.metrics.median_span === 6.5 && tsS.typed.join() === "headcount,layers");
+checkOk("with no org file, typed figures alone fill the table", (() => { put("__ts2", { returns: [], structureOverride: { layers: 6 } }); const r = run("unitStructure(__ts2)"); return r && r.metrics.layers === 6 && r.imported_at === ""; })());
+check("typed structure figures conform", schema.validateState(tsH));
+checkOk("the contract refuses a negative or text structure figure", schema.validateState(Object.assign({}, tsH, { structureOverride: { layers: -1 } })).length === 1 && schema.validateState(Object.assign({}, tsH, { structureOverride: { layers: "five" } })).length === 1);
+
 console.log(failures ? `\n${failures} CONTRACT FAILURE(S)` : "\nAll contract checks passed.");
 process.exit(failures ? 1 : 0);
