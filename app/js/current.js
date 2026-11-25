@@ -225,14 +225,14 @@ function csFindings() {
       <p class="ho-note">Each of the other three apps can send back what it found as a small file. Importing one never changes a score: it lists the findings here, and you decide which to cite on a cell. Import each file into the workspace of the country it describes.</p>
       <div class="cs-sources">${RETURN_SOURCES.map(s => `<div class="cs-source"><strong>${s.app}</strong><span>${s.gives}</span><em>${s.where}</em></div>`).join("")}</div>
       ${files ? `<div class="cs-files">${files}</div>` : `<div class="alert-empty" style="margin-top:12px">No findings file imported into this workspace yet.</div>`}
-    </div>${csStructureCard()}${csProcessCard()}${csSopCard()}${groups}`;
+    </div>${csDataCard()}${csProcessCard()}${csDecisionCard()}${csStructureCard()}${csFamilyCard()}${csSopCard()}${groups}`;
 }
 
 /* ---------- This unit's structure figures: Org Modeling's, or typed ----------
    A typed figure always wins. Clearing it brings Org Modeling's back. */
 const STRUCT_EDIT = [["headcount", "Head-count"], ["managers", "Managers"], ["layers", "Layers"], ["median_span", "Median span"],
   ["spans_within", "Spans within benchmark"], ["spans_below", "Below benchmark"], ["spans_above", "Above benchmark"],
-  ["single_report_managers", "One-report managers"], ["health_score", "Health /100"]];
+  ["single_report_managers", "One-report managers"], ["health_score", "Health /100"], ["supervisors_no_reports", "Supervisory roles with no reports"]];
 function csStructureCard() {
   const st = unitStructure(state), ov = ensureStructureOverride(state), imp = (st && st.imported) || {};
   const who = state.country || state.workspaceName;
@@ -249,7 +249,9 @@ function csStructureCard() {
    Figures from Process Map Studio's process summary, or typed (for example
    read off its leadership view). A typed figure wins; clear it to go back. */
 const PROC_EDIT = [["steps", "Steps"], ["decisions", "Decisions"], ["approvals", "Approvals"], ["handoffs", "Handoffs"],
-  ["roles", "Roles involved"], ["rework_loops", "Rework loops"], ["work_h", "Work time (hours)"], ["wait_h", "Waiting time (hours)"]];
+  ["roles", "Roles involved"], ["rework_loops", "Rework loops"], ["work_h", "Work time (hours)"], ["wait_h", "Waiting time (hours)"],
+  ["steps_differing", "Steps run differently from the reference unit"],
+  ["systems", "Systems used"], ["handoffs_manual", "Handoffs done by hand (re-keyed, email, paper, verbal)"], ["off_system_steps", "Steps done off-system"], ["no_record_steps", "Steps that leave no record"]];
 function setProcessOwner(ref, value) {
   const v = String(value || "").trim().slice(0, 80);
   const pf = state.processFacts[ref] = Object.assign({}, state.processFacts[ref] || {});
@@ -277,6 +279,58 @@ function csProcessCard() {
     <div class="sig-brief-head"><h2>Value streams: owner, steps and handoffs in ${esc(who)}</h2><span class="sig-meta">for readout page 5</span></div>
     <p class="ho-note">One block per value stream this unit has chosen to map (Hand-off) or has figures for. A handoff is a step passing the work to a different role. Figures come from Process Map Studio's findings file when it carries them; type a figure to use your own, clear it to go back.</p>
     ${blocks || `<div class="alert-empty">No value stream chosen in this unit yet. Choose one on Hand-off (Pilot now), or import Process Map Studio's findings.</div>`}</div>`;
+}
+
+/* ---------- Data and systems: three facts per unit (design choice 4) ---------- */
+function csDataCard() {
+  const d = ensureDataFacts(state), who = state.country || state.workspaceName;
+  return `<div class="vc-tablewrap cs-unitcard" id="cs-data">
+    <div class="sig-brief-head"><h2>Data and systems: ${esc(who)}</h2><span class="sig-meta">design choice 4 · for readout page 2</span></div>
+    <p class="ho-note">Three facts about this unit's data backbone. How data moves along the mapped value stream (systems, handoffs done by hand, steps off-system) is under Value streams below.</p>
+    <div class="econ-grid">
+      <div class="econ-f"><label for="df-cargo">Core cargo system</label><input type="text" id="df-cargo" data-df="cargo_system" value="${esc(d.cargo_system || "")}" placeholder="the system of record for shipments"></div>
+      <div class="econ-f"><label for="df-eawb">e-AWB share (%)</label><input type="number" min="0" max="100" step="any" id="df-eawb" data-df="eawb_pct" value="${typeof d.eawb_pct === "number" ? d.eawb_pct : ""}" placeholder="—"></div>
+      <div class="econ-f"><label for="df-one">ONE Record readiness</label><select id="df-one" data-df="one_record">${Object.keys(ONE_RECORD).map(k => `<option value="${k}" ${(d.one_record || "") === k ? "selected" : ""}>${ONE_RECORD[k]}</option>`).join("")}</select></div>
+    </div>
+    <div class="econ-foot"><input type="text" id="df-note" data-df="note" value="${esc(d.note || "")}" placeholder="Note: source and date of these facts"></div></div>`;
+}
+
+/* ---------- Decisions typed by the owner (design choice 3) ---------- */
+function csDecisionCard() {
+  const list = ensureDecisions(state), who = state.country || state.workspaceName;
+  const gsel = x => `<select data-dec="${esc(x.id)}|grade"><option value="" ${!x.grade ? "selected" : ""}>No grade</option>${["confirmed", "indicated", "hypothesis"].map(g => `<option value="${g}" ${x.grade === g ? "selected" : ""}>${esc(gradeMeta(g).label)}</option>`).join("")}</select>`;
+  const inp = (x, k, ph, type) => `<input type="${type || "text"}" ${type === "number" ? 'min="0" step="any"' : ""} data-dec="${esc(x.id)}|${k}" value="${esc(x[k] === null || x[k] === undefined ? "" : x[k])}" placeholder="${ph}">`;
+  const rows = list.map(x => `<tr><td>${inp(x, "title", "the decision")}</td><td>${inp(x, "on_paper", "role on paper")}</td><td>${inp(x, "decided_by", "role in practice")}</td>
+    <td>${inp(x, "accountable", "role accountable")}</td><td>${inp(x, "days", "days", "number")}</td>
+    <td><label class="dec-c"><input type="checkbox" data-dec="${esc(x.id)}|contested" ${x.contested ? "checked" : ""}> disputed</label></td><td>${gsel(x)}</td>
+    <td><button class="mini-btn danger" data-dec-del="${esc(x.id)}" title="Remove">✕</button></td></tr>`).join("");
+  return `<div class="vc-tablewrap cs-unitcard" id="cs-dec">
+    <div class="sig-brief-head"><h2>Decisions you add: ${esc(who)}</h2><span class="sig-meta">design choice 3 · for readout page 3</span><button class="mini-btn" id="dec-add">＋ Add a decision</button></div>
+    <p class="ho-note">For a decision no app has mapped, for example who approves a local deviation from a standard, and how many days it takes. Roles only. Grade it like any other evidence.</p>
+    <div class="sop-wrap"><table class="delta-table sop-table dec-table"><thead><tr><th>Decision</th><th>On paper</th><th>Decides in practice</th><th>Accountable</th><th>Days</th><th></th><th>Grade</th><th></th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="8" class="cs-none" style="text-align:center">None added.</td></tr>`}</tbody></table></div></div>`;
+}
+
+/* ---------- Role families in this unit (design choice 3) ---------- */
+function csFamilyCard() {
+  const list = unitFamilies(state), who = state.country || state.workspaceName;
+  const frames = currentFrames().frames || [];
+  const cmp = frames.length > 1 ? familyComparison(frames) : null;
+  const status = x => { const r = cmp && cmp.rows.find(y => y.key === x.key); return r ? ({ common: "in every unit", some: "in some units", unique: "only in " + r.present[0], none: "in no unit" })[r.status] : ""; };
+  const rcSel = (x, attr) => `<select ${attr}><option value="" ${!x.reason_class ? "selected" : ""}>Why? not said</option>${["required", "chosen", "inherited", "unknown"].map(k => `<option value="${k}" ${x.reason_class === k ? "selected" : ""}>${esc(REASON_CLASSES[k].label)}</option>`).join("")}</select>`;
+  const rows = list.map(x => {
+    const imp = x.source !== "manual";
+    const attr = k => imp ? `data-fam-imp="${esc(x.return_id)}|${x.index}|${k}"` : `data-fam="${esc(x.id)}|${k}"`;
+    return `<tr><td>${x.ref ? `<span class="ref-chip">${esc(x.ref)}</span> ` : ""}${imp ? `<strong>${esc(x.name)}</strong>` : `<input type="text" ${attr("name")} value="${esc(x.name)}">`}</td>
+      <td><input type="number" min="0" step="1" ${attr("headcount")} value="${x.headcount === null ? "" : x.headcount}" placeholder="${imp && typeof x.imported_headcount === "number" ? x.imported_headcount : "to confirm"}"></td>
+      <td><span class="fam-status">${esc(status(x))}</span></td><td>${rcSel(x, attr("reason_class"))}</td><td><input type="text" ${attr("reason")} value="${esc(x.reason || "")}" placeholder="why it is here, or not"></td>
+      <td>${imp ? `<span class="cs-sub">${esc(x.source)}${x.edited ? " · corrected" : ""}</span>` : `<button class="mini-btn danger" data-fam-del="${esc(x.id)}" title="Remove">✕</button>`}</td></tr>`;
+  }).join("");
+  return `<div class="vc-tablewrap cs-unitcard" id="cs-fam">
+    <div class="sig-brief-head"><h2>Role families: ${esc(who)}</h2><span class="sig-meta">design choice 3 · for readout page 4</span><button class="mini-btn" id="fam-add">＋ Add a family</button></div>
+    <p class="ho-note">All roles, grouped into families so units can be compared despite different job titles. Org Modeling defines them once for the whole org file (RF-nn); you can add your own. Head-count 0 means absent here. Say why a family exists in only some units.</p>
+    <div class="sop-wrap"><table class="delta-table sop-table fam-table"><thead><tr><th>Family</th><th>Head-count</th><th>Across units</th><th>Why</th><th>Reason</th><th></th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="6" class="cs-none" style="text-align:center">No role families yet.</td></tr>`}</tbody></table></div></div>`;
 }
 
 /* ---------- This unit's SOPs: who owns them and who updates them ----------
@@ -324,7 +378,7 @@ function roDecisionList(list, n, empty) {
     const d = decisionView(f);
     const who = d.known ? `<span class="ro-who"><span>On paper: <strong>${esc(d.on_paper || "not stated")}</strong></span><span>Decides: <strong>${esc(d.decided_by || "not stated")}</strong>${d.offPaper ? " ⚑" : ""}</span><span>Accountable: <strong>${esc(d.accountable || "not stated")}</strong>${d.contested ? " (sources disagree)" : ""}${d.split ? " ⚑ not the one who decides" : ""}</span>${d.edited ? `<em>entered by the owner</em>` : ""}</span>` : "";
     return `<li>${f.grade ? `<span class="grade-pill g-${f.grade}">${esc(gradeMeta(f.grade).label)}</span>` : ""}
-      <strong>${esc(f.title)}</strong>${f.figure ? ` <span class="ro-fig">${esc(f.figure)}</span>` : ""} ${whyChip(f)}${who}<span class="ref-chip">${esc(f.ref || "")}</span></li>`;
+      <strong>${esc(f.title)}</strong>${f.figure ? ` <span class="ro-fig">${esc(f.figure)}</span>` : ""} ${whyChip(f)}${who}${f.typed ? "" : `<span class="ref-chip">${esc(f.ref || "")}</span>`}</li>`;
   }).join("")}</ul>${list.length > n ? `<p class="ro-more">and ${list.length - n} more in the findings register</p>` : ""}`;
 }
 
@@ -344,7 +398,8 @@ function roEconomics(m, frames) {
     ["Revenue per head", c => econFmt(c.econ.r.revenue_per_head, "moneyper", st(c.id))],
     ["Manpower cost per head", c => econFmt(c.econ.r.mp_cost_per_head, "moneyper", st(c.id))],
     ["Volume per head", c => econFmt(c.econ.r.volume_per_head, "num")],
-    ["Cost per unit of volume", c => econFmt(c.econ.r.cost_per_volume, "moneyper", st(c.id))]
+    ["Cost per unit of volume", c => econFmt(c.econ.r.cost_per_volume, "moneyper", st(c.id))],
+    ["Revenue per unit of volume", c => econFmt(c.econ.r.revenue_per_volume, "moneyper", st(c.id))]
   ];
   const notes = [];
   if (!m.econSameMoney) notes.push("The units use different currencies or units, so amounts and amounts per head cannot be compared directly. Percentages and volume per head can.");
@@ -381,10 +436,42 @@ function roStructure(m) {
     return fmtv(k, v) + of + mark;
   };
   const missing = m.countries.filter(c => !c.structure && c.tier !== "scored").map(c => c.label);
+  const broken = m.countries.filter(c => c.structure && typeof c.structure.metrics.supervisors_no_reports === "number" && c.structure.metrics.supervisors_no_reports > 0);
   return `<h3 class="ro-sub">Spans and layers</h3>
     <table class="ro-econ"><thead><tr><th></th>${cols.map(([, l]) => `<th>${l}</th>`).join("")}</tr></thead>
     <tbody>${m.countries.map(c => `<tr><td><strong>${esc(c.label)}</strong></td>${cols.map(([k]) => `<td>${val(c, k)}</td>`).join("")}</tr>`).join("")}</tbody></table>
-    <p class="ro-foot">▲ highest · ▽ lowest. Counted by Org Modeling from each unit's org file; a manager's span counts direct reports in any unit.${missing.length ? " No org file imported for " + esc(missing.join(", ")) + "." : ""}</p>`;
+    <p class="ro-foot">▲ highest · ▽ lowest. Counted by Org Modeling from each unit's org file; a manager's span counts direct reports in any unit.${missing.length ? " No org file imported for " + esc(missing.join(", ")) + "." : ""}</p>
+    ${broken.length ? `<p class="ro-call">⚑ Reporting lines incomplete in ${esc(broken.map(c => c.label + " (" + c.structure.metrics.supervisors_no_reports + " supervisory roles with no reports)").join(", "))}: spans there are not reliable until the org file is fixed.</p>` : ""}`;
+}
+
+/* Readout page 2: the data backbone and the deviation share, per unit, on
+   the value stream most units have mapped (design choices 1 and 4). */
+function roBackbone(m) {
+  const vs = m.sharedVS;
+  const anyData = m.countries.some(c => Object.keys(c.data).some(k => k !== "note"));
+  if (!vs && !anyData) return `<h3 class="ro-sub">Data backbone and deviation from the reference</h3><p class="ro-empty">No data-and-systems facts yet. Add them per unit under Findings.</p>`;
+  const f = (c, k) => { const x = c.processes.find(p => p.ref === vs); return x && typeof x.facts[k] === "number" ? x.facts[k] : null; };
+  const pct = c => { const d = f(c, "steps_differing"), n = f(c, "steps"); return d !== null && n ? Math.round(d / n * 100) + "%" : "—"; };
+  const dash = v => v === null || v === undefined ? "—" : v;
+  const rows = m.countries.map(c => `<tr><td><strong>${esc(c.label)}</strong></td><td>${esc(c.data.cargo_system || "—")}</td><td>${typeof c.data.eawb_pct === "number" ? c.data.eawb_pct + "%" : "—"}</td><td>${esc(ONE_RECORD[c.data.one_record || ""])}</td>
+    <td>${dash(f(c, "systems"))}</td><td>${dash(f(c, "handoffs_manual"))}${f(c, "handoffs") ? " of " + f(c, "handoffs") : ""}</td><td>${dash(f(c, "off_system_steps"))}</td><td>${dash(f(c, "no_record_steps"))}</td><td>${pct(c)}</td></tr>`).join("");
+  return `<h3 class="ro-sub">Data backbone and deviation from the reference${vs ? " · " + esc(vs) : ""}</h3>
+    <table class="ro-econ"><thead><tr><th></th><th>Core cargo system</th><th>e-AWB</th><th>ONE Record</th><th>Systems</th><th>Handoffs by hand</th><th>Off-system steps</th><th>Steps with no record</th><th>Steps run differently</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="ro-foot">Steps run differently: share of the value stream's steps a unit runs differently from the reference unit. For scale: ${esc(DEVIATION_REFERENCE)}.</p>`;
+}
+
+/* Readout page 4: role families common to every unit, in some, or unique. */
+function roFamilies(m) {
+  const F = m.families;
+  if (!F.rows.length) return "";
+  const uniq = F.unique.concat(F.some).slice(0, 2).map(r => {
+    const whoWhy = Object.keys(r.reasons).find(u => r.reasons[u].cls && r.reasons[u].cls !== "unknown");
+    const why = whoWhy ? Object.assign({ unit: whoWhy }, r.reasons[whoWhy]) : null;
+    return `<li><strong>${esc(r.name)}</strong>${r.ref ? ` <span class="ref-chip">${esc(r.ref)}</span>` : ""}: ${r.status === "unique" ? "only in " + esc(r.present[0]) : "in " + esc(r.present.join(", "))}${why ? ` · ${esc(why.unit)}: <span class="cs-why why-${why.cls}">${esc(REASON_CLASSES[why.cls].label)}</span> ${esc(why.text || "")}` : ` · <span class="am">⚑ why not said</span>`}</li>`;
+  }).join("");
+  return `<h3 class="ro-sub">Role families across ${F.units.length} units</h3>
+    <p class="ro-line"><strong>${F.common.length}</strong> in every unit · <strong>${F.some.length}</strong> in some · <strong>${F.unique.length}</strong> in one only${F.unexplained.length ? ` · <span class="am">${F.unexplained.length} not yet explained</span>` : ""}</p>
+    ${uniq ? `<ul class="ro-pilots ro-sopnotes">${uniq}</ul>` : ""}`;
 }
 
 /* Readout page 5: the same value stream in each unit, side by side. */
@@ -432,8 +519,13 @@ function csReadout(ctx) {
   const { frames } = ctx;
   const m = readoutModel(state, frames);
   const cmp = state.comparison;
-  const page = (n, title, lede, body) => `<section class="ro-page print-section">
-      <header class="ro-head"><span class="ro-n">${n}</span><div><h2>${title}</h2><p>${lede}</p></div></header>${body}</section>`;
+  const choiceLine = n => PAGE_CHOICES[n].length === 4 ? "All four design choices" : (PAGE_CHOICES[n].length > 1 ? "Design choices " : "Design choice ") + PAGE_CHOICES[n].map(c => c + " " + DESIGN_CHOICES[c]).join(" · ");
+  const evLine = ev => { if (!ev) return ""; const t = ev.confirmed + ev.indicated + ev.hypothesis + ev.none; return t ? `<p class="ro-ev">Evidence on this page: <strong>${ev.confirmed}</strong> Confirmed · <strong>${ev.indicated}</strong> Indicated · <strong>${ev.hypothesis}</strong> Hypothesis${ev.none ? " · " + ev.none + " not graded" : ""}</p>` : `<p class="ro-ev">Evidence on this page: none yet.</p>`; };
+  const page = (n, title, lede, body, ev) => `<section class="ro-page print-section">
+      <header class="ro-head"><span class="ro-n">${n}</span><div><span class="ro-choice">${esc(choiceLine(n))}</span><h2>${title}</h2><p>${lede}</p></div></header>${body}${evLine(ev)}</section>`;
+  const sumEv = list => list.reduce((a, c) => ({ confirmed: a.confirmed + c.confirmed, indicated: a.indicated + c.indicated, hypothesis: a.hypothesis + c.hypothesis, none: a.none + c.none }), { confirmed: 0, indicated: 0, hypothesis: 0, none: 0 });
+  const cellEv = sumEv(m.countries.map(c => c.cellGrades));
+  const findEv = pick => gradeCounts(m.finds.per.reduce((a, p) => a.concat(pick(p)), []));
   const single = frames.length < 2;
 
   /* What would weaken the paper, said before it is printed. */
@@ -455,6 +547,9 @@ function csReadout(ctx) {
   if (noSteps.length) gaps.push("No steps and handoffs for " + noSteps.join(", ") + ". Import Process Map Studio's findings or type them under Findings.");
   const noOwner = m.countries.reduce((a, c) => a.concat(c.processes.filter(x => !x.process_owner).map(x => c.label + " " + x.ref)), []);
   if (noOwner.length) gaps.push("No process owner named for " + noOwner.join(", ") + ".");
+  const noData = m.countries.filter(c => !Object.keys(c.data).some(k => k !== "note")).map(c => c.label);
+  if (noData.length) gaps.push("No data-and-systems facts for " + noData.join(", ") + " (design choice 4).");
+  if (m.families.unexplained.length) gaps.push(m.families.unexplained.length + " role famil" + (m.families.unexplained.length > 1 ? "ies exist" : "y exists") + " in only some units with no reason given.");
   const noSops = m.countries.filter(c => !c.sops.n && c.tier !== "scored").map(c => c.label);
   if (!m.sopAny) gaps.push("No SOPs listed for any unit, so page 5 cannot say who owns and updates them.");
   else if (noSops.length) gaps.push("No SOPs listed for " + noSops.join(", ") + ".");
@@ -475,7 +570,7 @@ function csReadout(ctx) {
     <div class="ro-tiles">${tiles}</div>
     <p class="ro-foot">${total !== null ? `Across the countries: ≈ ${esc(fmtMoney(frames[0].state, total))} at risk (estimate, same currency and unit).` : (m.countries.filter(c => c.money).length > 1 ? "Money at risk is shown per country and not added up: the countries use different currencies or units." : "")}
       Money at risk is an estimate until finance validates the amount on each lever.</p>
-    ${roEconomics(m, frames)}`);
+    ${roEconomics(m, frames)}`, cellEv);
 
   const classCount = k => m.byClass[k].length;
   const p2 = page(2, "Where the countries differ", "Same capabilities, same scale. Wide gaps are flagged.",
@@ -484,7 +579,7 @@ function csReadout(ctx) {
       <div class="ro-count"><strong>${m.diffs.length}</strong><span>cells scored differently</span></div>
       <div class="ro-count"><strong>${m.material}</strong><span>material (two levels or more)</span></div>
       ${DIFF_CLASSES.map(k => `<div class="ro-count ask-${k.key}"><strong>${classCount(k.key)}</strong><span>${k.label}</span></div>`).join("")}
-      <div class="ro-count"><strong>${classCount("unclassified")}</strong><span>still to classify</span></div></div>`);
+      <div class="ro-count"><strong>${classCount("unclassified")}</strong><span>still to classify</span></div></div>` + roBackbone(m) + roFamilies(m), cellEv);
 
   const splitN = decs.filter(f => decisionView(f).split).length, offN = decs.filter(f => decisionView(f).offPaper).length;
   const p3 = page(3, "Who really decides, and who is accountable", "Where decisions are made in practice, against where the documents say they are made, and who answers for the outcome.",
@@ -492,23 +587,24 @@ function csReadout(ctx) {
       <div class="ro-count"><strong>${offN}</strong><span>decided by a different role from the one on paper</span></div>
       <div class="ro-count"><strong>${splitN}</strong><span>the one who decides is not the one accountable</span></div></div>` : "") +
     roPerCountry(m, p => p.decisions, 4, "No decision-rights findings imported. They come from Process Map Studio, where a step is decided by a different role from the one on paper.", roDecisionList) +
-    `<p class="ro-foot">Source: Process Map Studio and Org Modeling findings that concern who decides, owns or approves, with any correction you made in the findings register. ⚑ marks a mismatch. Strongest evidence first.</p>`);
+    `<p class="ro-foot">Source: Process Map Studio and Org Modeling findings that concern who decides, owns or approves, decisions you added, and any correction you made. ⚑ marks a mismatch. Strongest evidence first.</p>`, findEv(p => p.decisions));
 
   const roleRows = m.roles.filter(r => r.differs || (r.anchor && r.gapIn.length));
   /* The structure table shares the page, so fewer role rows keep it to one printed page. */
-  const roleCap = m.structureAny ? 3 : 5;
+  const roleCap = m.structureAny ? 2 : 5;
   const p4 = page(4, "Which roles exist where, and why", "The anchor roles the model depends on, country by country.",
     (roleRows.length ? csRoleTable(frames, roleRows.slice(0, roleCap)) + (roleRows.length > roleCap ? `<p class="ro-more">and ${roleRows.length - roleCap} more roles that differ or are missing, on the Compare tab</p>` : "") : `<p class="ro-empty">${m.roles.length ? "Every listed role has the same status in every country." : "No roles are listed yet."}</p>`) +
     (m.roleGaps.length ? `<p class="ro-call">⚑ ${m.roleGaps.length} anchor role${m.roleGaps.length > 1 ? "s are" : " is"} absent or thin somewhere: ${esc(m.roleGaps.slice(0, 3).map(r => r.title + " (" + r.gapIn.join(", ") + ")").join("; "))}${m.roleGaps.length > 3 ? "; and " + (m.roleGaps.length - 3) + " more" : ""}</p>` : "") +
     roStructure(m) +
     `<h3 class="ro-sub">Why the roles are there</h3>` +
-    roPerCountry(m, p => p.people.filter(f => !(f.kind === "structural_baseline" && /^baseline\./.test(f.ref || "") && !f.reason_class)), 2, "No role findings imported. They come from Org Modeling and the Workbench.") );
+    roPerCountry(m, p => p.people.filter(f => f.kind !== "role_family" && !(f.kind === "structural_baseline" && /^baseline\./.test(f.ref || "") && !f.reason_class)), m.structureAny ? 1 : 2, "No role findings imported. They come from Org Modeling and the Workbench."),
+    findEv(p => p.people));
 
   const p5 = page(5, "How work really runs", "Steps, handoffs and who owns each process; where practice departs from the documents; who owns and updates the SOPs.",
     roProcesses(m) +
     roPerCountry(m, p => p.work.filter(f => f.kind !== "step" && f.kind !== "sop" && f.kind !== "process_summary"), 2, "No process findings imported. They come from Process Map Studio.") +
     roSops(m) +
-    `<p class="ro-foot">Each line keeps the ID and grade it was given in the app that found it. Confirmed means verified at source; Indicated means supported but not verified; Hypothesis means still to test.</p>`);
+    `<p class="ro-foot">Each line keeps the ID and grade it was given in the app that found it. Confirmed means verified at source; Indicated means supported but not verified; Hypothesis means still to test.</p>`, findEv(p => p.work));
 
   const askCol = k => {
     const meta = diffClassMeta(k), list = m.byClass[k];
@@ -585,6 +681,9 @@ function loadDemoCountries() {
     if (!econEntered(state.economics)) state.economics = demoEconomics(DEMO_HOME_COUNTRY);
     if (!(state.sops || []).length) state.sops = demoSops(DEMO_HOME_COUNTRY);
     if (!Object.keys(state.processFacts || {}).length) state.processFacts = demoProcessFacts(DEMO_HOME_COUNTRY);
+    if (!Object.keys(state.dataFacts || {}).length) state.dataFacts = demoDataFacts(DEMO_HOME_COUNTRY);
+    if (!(state.typedDecisions || []).length) state.typedDecisions = demoDecisions(DEMO_HOME_COUNTRY);
+    if (!(state.roleFamilies || []).length) state.roleFamilies = demoFamilies(DEMO_HOME_COUNTRY);
     DEMO_COUNTRIES.forEach(spec => {
       const st = migrateState(buildDemoCountry(state, spec));
       st.workspaceId = wsNewId();
@@ -642,6 +741,68 @@ function bindCurrentEvents() {
     state.changeLog.push({ at: nowIso(), cluster: cl.name, lens: at.lensKey, from: cell.level, to: cell.level, rationale: "Evidence cited from " + sourceAppName(ret.source_app) + (f.ref ? " (" + f.ref + ")" : "") + ": " + f.title, by: state.actor || "You" });
     renderAll();
     toast("Cited on " + ref + ". The score is unchanged; open the cell to re-score if it warrants.");
+  }));
+  /* Data and systems facts. */
+  document.querySelectorAll("[data-df]").forEach(inp => inp.addEventListener("change", () => {
+    const k = inp.dataset.df;
+    if (k === "eawb_pct") {
+      const v = econNum(inp.value);
+      if (inp.value.trim() && (v === null || v > 100)) { toast("Enter a share from 0 to 100."); renderView(); return; }
+      if (v === null) delete state.dataFacts[k]; else state.dataFacts[k] = v;
+    } else { const v = inp.value.trim().slice(0, k === "note" ? 300 : 80); if (v) state.dataFacts[k] = v; else delete state.dataFacts[k]; }
+    state.changeLog.push({ at: nowIso(), cluster: "Data and systems", lens: "—", from: 0, to: 0, rationale: k.replace(/_/g, " ") + " set", by: state.actor || "You" });
+    saveState(); if (k !== "note") renderView();
+  }));
+  /* Decisions typed by the owner. */
+  const decAdd = $("dec-add");
+  if (decAdd) decAdd.addEventListener("click", () => { state.typedDecisions.push(cleanDecision({ title: "New decision" })); saveState(); renderView(); });
+  document.querySelectorAll("[data-dec]").forEach(inp => inp.addEventListener("change", () => {
+    const [id, k] = inp.dataset.dec.split("|");
+    const x = state.typedDecisions.find(o => o.id === id); if (!x) return;
+    if (k === "contested") x.contested = inp.checked;
+    else if (k === "days") { const v = econNum(inp.value); if (inp.value.trim() && v === null) { toast("Enter a number of days."); renderView(); return; } x.days = v; }
+    else if (k === "title" && !inp.value.trim()) { toast("A decision needs a name. Use ✕ to remove it."); renderView(); return; }
+    else x[k] = inp.value.trim().slice(0, k === "title" ? 200 : 80);
+    state.changeLog.push({ at: nowIso(), cluster: "Decisions", lens: "—", from: 0, to: 0, rationale: "Typed decision edited: " + x.title, by: state.actor || "You" });
+    saveState(); renderView();
+  }));
+  document.querySelectorAll("[data-dec-del]").forEach(b => b.addEventListener("click", () => {
+    const x = state.typedDecisions.find(o => o.id === b.dataset.decDel); if (!x || !confirm("Remove “" + x.title + "”?")) return;
+    state.typedDecisions = state.typedDecisions.filter(o => o !== x);
+    state.changeLog.push({ at: nowIso(), cluster: "Decisions", lens: "—", from: 0, to: 0, rationale: "Removed typed decision: " + x.title, by: state.actor || "You" });
+    saveState(); renderView();
+  }));
+  /* Role families: typed, or Org Modeling's corrected. */
+  const famAdd = $("fam-add");
+  if (famAdd) famAdd.addEventListener("click", () => { state.roleFamilies.push(cleanFamily({ name: "New family" })); saveState(); renderView(); });
+  document.querySelectorAll("[data-fam]").forEach(inp => inp.addEventListener("change", () => {
+    const [id, k] = inp.dataset.fam.split("|");
+    const x = state.roleFamilies.find(o => o.id === id); if (!x) return;
+    if (k === "headcount") { const v = econNum(inp.value); if (inp.value.trim() && v === null) { toast("Enter a head-count of zero or more."); renderView(); return; } x.headcount = v; }
+    else if (k === "name" && !inp.value.trim()) { toast("A family needs a name. Use ✕ to remove it."); renderView(); return; }
+    else x[k] = inp.value.trim().slice(0, k === "reason" ? 300 : 100);
+    saveState(); renderView();
+  }));
+  document.querySelectorAll("[data-fam-del]").forEach(b => b.addEventListener("click", () => {
+    const x = state.roleFamilies.find(o => o.id === b.dataset.famDel); if (!x || !confirm("Remove the family “" + x.name + "” from this unit?")) return;
+    state.roleFamilies = state.roleFamilies.filter(o => o !== x); saveState(); renderView();
+  }));
+  document.querySelectorAll("[data-fam-imp]").forEach(inp => inp.addEventListener("change", () => {
+    const [rid, i, k] = inp.dataset.famImp.split("|");
+    const ret = (state.returns || []).find(x => x.id === rid);
+    const f = ret && ret.findings[+i]; if (!f) return;
+    const o = Object.assign({}, f.owner_edit || {});
+    if (k === "headcount") {
+      const v = econNum(inp.value);
+      if (inp.value.trim() && v === null) { toast("Enter a head-count of zero or more."); renderView(); return; }
+      if (v === null || (f.metrics && f.metrics.headcount === v)) delete o.headcount; else o.headcount = v;
+    } else {
+      const v = inp.value.trim().slice(0, 300), orig = k === "reason" ? (f.detail || "") : (f.reason_class || "");
+      if (v === orig) delete o[k]; else o[k] = v;
+    }
+    if (Object.keys(o).length) f.owner_edit = o; else delete f.owner_edit;
+    state.changeLog.push({ at: nowIso(), cluster: "Role families", lens: "—", from: 0, to: 0, rationale: "Corrected " + (f.ref || "a role family") + ": " + k.replace(/_/g, " "), by: state.actor || "You" });
+    saveState(); renderView();
   }));
   /* Value streams: typed figures win; empty brings the app's back. */
   document.querySelectorAll("[data-pf]").forEach(inp => inp.addEventListener("change", () => {

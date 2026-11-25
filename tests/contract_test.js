@@ -1340,5 +1340,53 @@ check("a process summary finding conforms", schema.validateReturn(run("normalise
 const rmP = run("readoutModel(__ph, [{ id: 'a', label: 'Arden', state: __ph }, { id: 'b', label: 'Belmar', state: __pb }])");
 checkOk("the readout carries each unit's value streams", rmP.processAny && rmP.countries[0].processes.find(x => x.ref === "VS-01").facts.handoffs === 9 && rmP.countries[1].processes.find(x => x.ref === "VS-01").facts.handoffs === 6);
 
+// ---- 51. Calibrated round: design choices, data backbone, typed decisions, role families ----
+checkOk("every readout page names the design choices it serves, all four covered",
+  [1, 2, 3, 4, 5, 6].every(n => run("PAGE_CHOICES")[n].length > 0) && [1, 2, 3, 4].every(c => [2, 3, 4, 5].some(n => run("PAGE_CHOICES")[n].includes(c))));
+const jHome = JSON.parse(JSON.stringify(pHome));
+jHome.dataFacts = run("demoDataFacts('Arden')"); jHome.typedDecisions = run("demoDecisions('Arden')"); jHome.roleFamilies = run("demoFamilies('Arden')");
+put("__jh", jHome);
+check("a unit with data facts, typed decisions and role families conforms", schema.validateState(jHome));
+checkOk("data facts are cleaned on load: e-AWB above 100 and unknown readiness dropped",
+  (() => { put("__dfx", { dataFacts: { cargo_system: " X ", eawb_pct: 140, one_record: "soon", junk: 1 } }); const r = run("ensureDataFacts(__dfx)"); return r.cargo_system === "X" && r.eawb_pct === undefined && r.one_record === undefined && r.junk === undefined; })());
+checkOk("the contract refuses an e-AWB share above 100 or an unknown readiness",
+  schema.validateState(Object.assign({}, jHome, { dataFacts: { eawb_pct: 120 } })).length === 1 && schema.validateState(Object.assign({}, jHome, { dataFacts: { one_record: "soon" } })).length === 1);
+const tdf = run("typedDecisionFindings(__jh)");
+checkOk("a typed decision sits with the decision findings, marked as entered by the owner, with its days as the figure",
+  tdf.length === 1 && run("findingPage(" + JSON.stringify(tdf[0]) + ")") === "decisions" && tdf[0].figure === "21 days to decide" && run("decisionView(" + JSON.stringify(tdf[0]) + ")").edited === true && run("decisionView(" + JSON.stringify(tdf[0]) + ")").offPaper === true);
+checkOk("typed decisions reach the readout's decision page", run("compareFindings([{ id: 'a', label: 'Arden', state: __jh }])").per[0].decisions.some(f => f.typed));
+checkOk("the contract refuses a typed decision with no title or negative days",
+  schema.validateState(Object.assign({}, jHome, { typedDecisions: [{ title: "" }] })).length === 1 && schema.validateState(Object.assign({}, jHome, { typedDecisions: [{ title: "X", days: -2 }] })).length === 1);
+const jBel = run("ensureRefs(buildDemoCountry(__jh, DEMO_COUNTRIES[0]))"), jCal = run("ensureRefs(buildDemoCountry(__jh, DEMO_COUNTRIES[1]))");
+put("__jb", jBel); put("__jc", jCal);
+[jBel, jCal].forEach(d => check("demo unit " + d.country + " with the calibrated round conforms", schema.validateState(d)));
+const famCmp = run("familyComparison([{ label: 'Arden', state: __jh }, { label: 'Belmar', state: __jb }, { label: 'Caldera', state: __jc }])");
+checkOk("role families are compared by RF ID: common, some, unique",
+  famCmp.units.length === 3 && famCmp.common.map(r => r.ref).sort().join() === "RF-01,RF-02,RF-06" && famCmp.unique.map(r => r.ref).join() === "RF-03" && famCmp.some.map(r => r.ref).sort().join() === "RF-04,RF-05" && famCmp.unexplained.length === 0);
+const jBel2 = JSON.parse(JSON.stringify(jBel)); const fr = jBel2.returns.find(r => r.findings.some(f => f.kind === "role_family"));
+fr.findings.find(f => f.ref === "RF-03").owner_edit = { headcount: 0 }; put("__jb2", jBel2);
+const famCmp2 = run("familyComparison([{ label: 'Arden', state: __jh }, { label: 'Belmar', state: __jb2 }, { label: 'Caldera', state: __jc }])");
+checkOk("a corrected head-count changes the comparison; the app's figure stays beside it",
+  famCmp2.rows.find(r => r.ref === "RF-03").status === "none" && run("unitFamilies(__jb2)").find(x => x.ref === "RF-03").imported_headcount === 2);
+const jCopy = run("frameCopy(__jh, 'Dorne', 'DO')");
+checkOk("a new unit gets the typed families to confirm (head-count and reason blank), and no data facts or typed decisions",
+  jCopy.roleFamilies.length === 6 && jCopy.roleFamilies.every(x => x.headcount === null && !x.reason_class) && Object.keys(jCopy.dataFacts).length === 0 && jCopy.typedDecisions.length === 0);
+checkOk("a unit whose families are all still to confirm takes no part in the comparison",
+  (() => { put("__jcp", jCopy); return run("familyComparison([{ label: 'Arden', state: __jh }, { label: 'Dorne', state: __jcp }])").units.join() === "Arden"; })());
+checkOk("revenue per unit of volume is worked out", Math.abs(run("econRatios(demoEconomics('Arden'))").revenue_per_volume - 410 / 620000) < 1e-12);
+const rmJ = run("readoutModel(__jh, [{ id: 'a', label: 'Arden', state: __jh }, { id: 'b', label: 'Belmar', state: __jb }, { id: 'c', label: 'Caldera', state: __jc }])");
+checkOk("the readout lines up the value stream most units have mapped, with the data counts and deviation",
+  rmJ.sharedVS === "VS-01" && rmJ.countries[1].processes.find(x => x.ref === "VS-01").facts.steps_differing === 3 && rmJ.countries[1].processes.find(x => x.ref === "VS-01").facts.handoffs_manual === 2 && rmJ.countries[0].data.one_record === "pilot");
+checkOk("supervisory roles with no reports are kept, so broken reporting lines can be flagged", rmJ.countries[2].structure.metrics.supervisors_no_reports === 9);
+checkOk("each unit's scored cells are counted by grade for the evidence line", rmJ.countries[1].cellGrades.indicated > 0);
+const rawRF = { format: "compass-return", format_version: "1.0", source_app: "org-modeling", engagement_key: "K", findings: [
+  { ref: "RF-09", kind: "role_family", title: "Quality", metrics: { headcount: "3", job_titles: 2, layers: 4 }, reason_class: "required" }] };
+put("__rrf", rawRF);
+const rrfN = run("normaliseReturn(__rrf)").findings[0];
+checkOk("a role family finding keeps only its head-count and job titles", JSON.stringify(rrfN.metrics) === JSON.stringify({ headcount: 3, job_titles: 2 }) && rrfN.reason_class === "required");
+
+check("a corrected role-family head-count conforms (found by the browser check)", schema.validateState(jBel2));
+checkOk("a corrected head-count that is not a number is refused", (() => { const b = JSON.parse(JSON.stringify(jBel2)); b.returns.find(r => r.findings.some(f => f.kind === "role_family")).findings.find(f => f.ref === "RF-03").owner_edit = { headcount: "two" }; return schema.validateState(b).length === 1; })());
+
 console.log(failures ? `\n${failures} CONTRACT FAILURE(S)` : "\nAll contract checks passed.");
 process.exit(failures ? 1 : 0);

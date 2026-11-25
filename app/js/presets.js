@@ -540,6 +540,9 @@ function buildDemoCountry(home, spec) {
   s.economics = demoEconomics(spec.country);
   s.sops = demoSops(spec.country);
   s.processFacts = demoProcessFacts(spec.country);
+  s.dataFacts = demoDataFacts(spec.country);
+  s.typedDecisions = demoDecisions(spec.country);
+  s.roleFamilies = demoFamilies(spec.country);
   return s;
 }
 
@@ -589,7 +592,8 @@ const DEMO_RETURNS = {
         detail: "Types: Different role. Step S-07 (Approve the renewal price). Reason: Belmar kept its pre-merger delegation of authority.", source_note: "Compared between the two published maps of VS-01; each side rests on 3 interviews." },
       { ref: "VS-01", kind: "process_summary", topic: "way_of_working", grade: "confirmed", figure: "11 steps, 6 handoffs", relates_to: ["VS-01", "CAP-04"],
         title: "Bid to contract renewal", detail: "Counted on the published map: 11 steps, 2 decisions, 2 approvals, 6 handoffs between 5 roles, 1 rework loop.",
-        process_owner: "Country manager", metrics: { steps: 11, decisions: 2, approvals: 2, handoffs: 6, roles: 5, rework_loops: 1, work_min: 840, wait_min: 7200 },
+        process_owner: "Country manager", metrics: { steps: 11, decisions: 2, approvals: 2, handoffs: 6, roles: 5, rework_loops: 1, work_min: 840, wait_min: 7200,
+          systems: 3, handoffs_manual: 2, off_system_steps: 1, no_record_steps: 0, steps_differing: 3 },
         source_note: "Counted from the published map of VS-01." },
       { ref: "SOP-01", kind: "sop", topic: "way_of_working", grade: "confirmed", figure: "3 of 9 steps done differently", relates_to: ["CAP-01", "CAP-01.Process"],
         title: "Load planning and sign-off", detail: "The SOP still names the pre-merger roles; the shift supervisor keeps an annotated copy at the desk.",
@@ -601,6 +605,12 @@ const DEMO_RETURNS = {
         detail: "Types: Different role. Impact: roster decisions made twice. Verdict: Unexplained.", source_note: "Rests on 2 interviews." }
     ] },
     { source_app: "org-modeling", findings: [
+      { ref: "RF-01", kind: "role_family", topic: "role_presence", grade: "confirmed", figure: "3 people", relates_to: [], title: "Load control", metrics: { headcount: 3, job_titles: 2 }, detail: "", source_note: "Grouped from job titles in the uploaded org file (Belmar)." },
+      { ref: "RF-02", kind: "role_family", topic: "role_presence", grade: "confirmed", figure: "22 people", relates_to: [], title: "Ramp handling", metrics: { headcount: 22, job_titles: 2 }, detail: "", source_note: "Grouped from job titles in the uploaded org file (Belmar)." },
+      { ref: "RF-03", kind: "role_family", topic: "role_presence", grade: "confirmed", figure: "2 people", relates_to: [], title: "Pricing and revenue management", metrics: { headcount: 2, job_titles: 1 }, reason_class: "chosen", compared_with: "Arden", detail: "Created in 2023 when Belmar won its two largest renewals; the other units leave pricing to finance.", source_note: "Grouped from job titles in the uploaded org file (Belmar)." },
+      { ref: "RF-04", kind: "role_family", topic: "role_presence", grade: "confirmed", figure: "0 people", relates_to: [], title: "Analytics and AI", metrics: { headcount: 0, job_titles: 1 }, reason_class: "chosen", compared_with: "Arden", detail: "Bought as a service since 2025.", source_note: "Grouped from job titles in the uploaded org file (Belmar)." },
+      { ref: "RF-05", kind: "role_family", topic: "role_presence", grade: "confirmed", figure: "0 people", relates_to: [], title: "Disruption control", metrics: { headcount: 0, job_titles: 1 }, reason_class: "inherited", compared_with: "Arden", detail: "Covered by rotating shift supervisors since the merger.", source_note: "Grouped from job titles in the uploaded org file (Belmar)." },
+      { ref: "RF-06", kind: "role_family", topic: "role_presence", grade: "confirmed", figure: "2 people", relates_to: [], title: "Account management", metrics: { headcount: 2, job_titles: 1 }, detail: "", source_note: "Grouped from job titles in the uploaded org file (Belmar)." },
       { ref: "baseline.spans", kind: "structural_baseline", topic: "role_presence", grade: "confirmed", figure: "38 of 61 managers", relates_to: ["CAP-03.Structure"],
         title: "Managers within their span benchmark (Belmar)", detail: "19 below, 4 above; 9 managers have one direct report. Median span 6.5.", source_note: "Computed from the uploaded org file (560 people in Belmar)" },
       { ref: "baseline.layers", kind: "structural_baseline", topic: "role_presence", grade: "confirmed", figure: "5 layers", relates_to: ["CAP-03.Structure"],
@@ -625,8 +635,14 @@ const DEMO_RETURNS = {
         detail: "Types: Extra step. Impact: the bench cannot be shared across borders. Verdict: Effective adaptation.", source_note: "Rests on 1 document (the national regulation), 2 interviews." }
     ] },
     { source_app: "org-modeling", findings: [
+      { ref: "RF-01", kind: "role_family", topic: "role_presence", grade: "confirmed", figure: "3 people", relates_to: [], title: "Load control", metrics: { headcount: 3, job_titles: 2 }, detail: "", source_note: "Grouped from job titles in the uploaded org file (Caldera)." },
+      { ref: "RF-02", kind: "role_family", topic: "role_presence", grade: "confirmed", figure: "18 people", relates_to: [], title: "Ramp handling", metrics: { headcount: 18, job_titles: 2 }, detail: "", source_note: "Grouped from job titles in the uploaded org file (Caldera)." },
+      { ref: "RF-03", kind: "role_family", topic: "role_presence", grade: "confirmed", figure: "0 people", relates_to: [], title: "Pricing and revenue management", metrics: { headcount: 0, job_titles: 1 }, detail: "", source_note: "Grouped from job titles in the uploaded org file (Caldera)." },
+      { ref: "RF-04", kind: "role_family", topic: "role_presence", grade: "confirmed", figure: "1 person", relates_to: [], title: "Analytics and AI", metrics: { headcount: 1, job_titles: 1 }, detail: "", source_note: "Grouped from job titles in the uploaded org file (Caldera)." },
+      { ref: "RF-05", kind: "role_family", topic: "role_presence", grade: "confirmed", figure: "2 people", relates_to: [], title: "Disruption control", metrics: { headcount: 2, job_titles: 1 }, detail: "", source_note: "Grouped from job titles in the uploaded org file (Caldera)." },
+      { ref: "RF-06", kind: "role_family", topic: "role_presence", grade: "confirmed", figure: "1 person", relates_to: [], title: "Account management", metrics: { headcount: 1, job_titles: 1 }, detail: "", source_note: "Grouped from job titles in the uploaded org file (Caldera)." },
       { ref: "baseline.layers", kind: "structural_baseline", topic: "role_presence", reason_class: "inherited", compared_with: "Arden", grade: "confirmed", figure: "6 layers", relates_to: ["CAP-04.Structure"],
-        metrics: { headcount: 372, managers: 47, layers: 6, median_span: 5, spans_within: 22, single_report_managers: 11, health_score: 54 },
+        metrics: { headcount: 372, managers: 47, layers: 6, median_span: 5, spans_within: 22, single_report_managers: 11, health_score: 54, supervisors_no_reports: 9 },
         title: "Commercial reports through an operations director in Caldera", detail: "One more layer than Arden and Belmar: the station and Commercial both report to an operations director. Unchanged since the acquisition.", source_note: "Computed from the uploaded org file." }
     ] }
   ]
@@ -648,8 +664,26 @@ const DEMO_SOPS = {
 /* Value-stream figures typed for the fictional demo (Arden reads them off
    Process Map Studio's leadership view; Caldera has not mapped VS-01). */
 const DEMO_PROCESS = {
-  Arden: { "VS-01": { process_owner: "Commercial lead", steps: 14, decisions: 3, approvals: 3, handoffs: 9, roles: 6, rework_loops: 2, work_min: 1080, wait_min: 12960 } }
+  Arden: { "VS-01": { process_owner: "Commercial lead", steps: 14, decisions: 3, approvals: 3, handoffs: 9, roles: 6, rework_loops: 2, work_min: 1080, wait_min: 12960,
+    systems: 4, handoffs_manual: 5, off_system_steps: 2, no_record_steps: 1, steps_differing: 0 } }
 };
+/* Data-and-systems facts, typed decisions and role families for the
+   fictional demo. System names are made up. */
+const DEMO_DATA = {
+  Arden: { cargo_system: "CargoSuite (fictional)", eawb_pct: 88, one_record: "pilot" },
+  Belmar: { cargo_system: "Legacy hub system + CargoSuite", eawb_pct: 61, one_record: "none" },
+  Caldera: { cargo_system: "Local cargo system", eawb_pct: 74, one_record: "none" }
+};
+const DEMO_DECISIONS = {
+  Arden: [{ title: "Approve a local deviation from the ground operations manual", on_paper: "Group quality lead", decided_by: "Station manager", accountable: "Group quality lead", days: 21, grade: "indicated" }]
+};
+const DEMO_FAMILIES = {
+  Arden: [{ ref: "RF-01", name: "Load control", headcount: 4 }, { ref: "RF-02", name: "Ramp handling", headcount: 40 }, { ref: "RF-03", name: "Pricing and revenue management", headcount: 0 },
+    { ref: "RF-04", name: "Analytics and AI", headcount: 1 }, { ref: "RF-05", name: "Disruption control", headcount: 1 }, { ref: "RF-06", name: "Account management", headcount: 3 }]
+};
+function demoDataFacts(country) { return Object.assign({}, DEMO_DATA[country] || {}); }
+function demoDecisions(country) { return (DEMO_DECISIONS[country] || []).map((x, i) => cleanDecision(Object.assign({ id: "dec_demo_" + country.toLowerCase() + "_" + (i + 1) }, x))); }
+function demoFamilies(country) { return (DEMO_FAMILIES[country] || []).map((x, i) => cleanFamily(Object.assign({ id: "rf_demo_" + country.toLowerCase() + "_" + (i + 1) }, x))); }
 function demoProcessFacts(country) { return JSON.parse(JSON.stringify(DEMO_PROCESS[country] || {})); }
 function demoSops(country) { return (DEMO_SOPS[country] || []).map((x, i) => cleanSop(Object.assign({ id: "sop_demo_" + country.toLowerCase() + "_" + (i + 1) }, x))); }
 

@@ -127,7 +127,7 @@ function frameCopy(src, country, code) {
   s.economics = blankEconomics(src.economics);
   /* Each unit names its own SOP owners and dates; the list of SOPs is the
      unit's own too, so it starts empty. Structure figures are the unit's. */
-  s.sops = []; s.structureOverride = {}; s.processFacts = {};
+  s.sops = []; s.structureOverride = {}; s.processFacts = {}; s.dataFacts = {}; s.typedDecisions = [];
   /* Typed role families travel as names to confirm: head-count and reason blank. */
   s.roleFamilies = (src.roleFamilies || []).map(x => Object.assign({}, x, { headcount: null, reason_class: "", reason: "" }));
   if (s.valueChain) {
@@ -240,7 +240,7 @@ function compareRoles(frames) {
 function allFindings(state) {
   const out = [];
   (state.returns || []).forEach(ret => (ret.findings || []).forEach(f => out.push(Object.assign({ source_app: ret.source_app, return_id: ret.id }, f))));
-  return out;
+  return out.concat(typedDecisionFindings(state));
 }
 
 function compareFindings(frames) {
@@ -373,6 +373,8 @@ function readoutModel(home, frames) {
       structure: unitStructure(f.state),
       sops: sopSummary(f.state),
       processes: unitProcesses(f.state),
+      data: Object.assign({}, f.state.dataFacts || {}),
+      cellGrades: gradeCounts(cellGrades(f.state)),
       pilots: Object.keys(f.state.pilots || {}).filter(cid => f.state.pilots[cid].decision === "pilot")
         .map(cid => { const p = f.state.pilots[cid]; return { ref: p.ref || "", name: p.name || "", kpi: p.kpi || "" }; })
     };
@@ -392,6 +394,7 @@ function readoutModel(home, frames) {
     sopAny: countries.some(c => c.sops.n > 0),
     processAny: countries.some(c => c.processes.length > 0),
     families: familyComparison(frames),
+    sharedVS: sharedValueStream(countries),
     sopOwnerDiffs: sopOwnerDifferences(frames),
     material: diffs.filter(d => d.material).length,
     roleGaps: roles.filter(r => r.anchor && r.gapIn.length),
@@ -532,7 +535,9 @@ function applyFrameChanges(unit, home, keys) {
 const ECON_AMOUNTS = ["revenue", "manpower_cost", "non_manpower_cost"];
 const ECON_NUMBERS = ECON_AMOUNTS.concat(["headcount", "volume"]);
 const STRUCT_METRICS = ["headcount", "managers", "manager_ratio_pct", "layers", "median_span", "spans_within",
-  "spans_below", "spans_above", "single_report_managers", "health_score", "total_cost"];
+  "spans_below", "spans_above", "single_report_managers", "health_score", "total_cost",
+  /* 2026-11-26: people in supervisory titles with nobody reporting to them in the file. */
+  "supervisors_no_reports"];
 const DECISION_FIELDS = ["on_paper", "decided_by", "accountable"];
 
 function econNum(v) {
@@ -574,7 +579,8 @@ function econRatios(e) {
     revenue_per_head: div(rev, hc),
     mp_cost_per_head: div(mp, hc),
     volume_per_head: div(vol, hc),
-    cost_per_volume: div(total, vol)
+    cost_per_volume: div(total, vol),
+    revenue_per_volume: div(rev, vol)
   };
 }
 
@@ -650,7 +656,7 @@ function decisionView(f) {
   const pick = k => (typeof o[k] === "string" && o[k].trim()) ? o[k].trim() : (f[k] || "");
   const d = { on_paper: pick("on_paper"), decided_by: pick("decided_by"), accountable: pick("accountable"),
     contested: o.accountable_contested !== undefined ? !!o.accountable_contested : !!f.accountable_contested,
-    edited: DECISION_FIELDS.some(k => typeof o[k] === "string" && o[k].trim()) };
+    edited: !!f.typed || DECISION_FIELDS.some(k => typeof o[k] === "string" && o[k].trim()) };
   const norm = s => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   d.split = !!(d.decided_by && d.accountable && norm(d.decided_by) !== norm(d.accountable));
   d.offPaper = !!(d.decided_by && d.on_paper && norm(d.decided_by) !== norm(d.on_paper));
@@ -769,7 +775,9 @@ function ensureStructureOverride(state) {
    typed figure wins and the app's is kept beside it. The process owner is
    a role, named per unit (it may differ between units).
    ============================================================ */
-const PROC_NUMBERS = ["steps", "decisions", "approvals", "handoffs", "roles", "rework_loops", "work_min", "wait_min"];
+const PROC_NUMBERS = ["steps", "decisions", "approvals", "handoffs", "roles", "rework_loops", "work_min", "wait_min",
+  /* 2026-11-26: the data backbone and the deviation share, per value stream. */
+  "systems", "handoffs_manual", "off_system_steps", "no_record_steps", "steps_differing"];
 
 function ensureProcessFacts(state) {
   const src = state.processFacts && typeof state.processFacts === "object" && !Array.isArray(state.processFacts) ? state.processFacts : {};
@@ -889,4 +897,78 @@ function familyComparison(frames) {
   return { units: units.map(u => u.label), rows,
     common: rows.filter(r => r.status === "common"), some: rows.filter(r => r.status === "some"), unique: rows.filter(r => r.status === "unique"),
     unexplained: rows.filter(r => (r.status === "unique" || r.status === "some") && !r.present.concat(units.map(u => u.label)).some(l => r.reasons[l] && r.reasons[l].cls && r.reasons[l].cls !== "unknown")) };
+}
+
+/* ============================================================
+   Calibrated round (owner review, 2026-11-26)
+
+   The readout serves four design choices. Each page says which, and how
+   strong its evidence is. Choice 4, the data and system backbone, gets
+   three facts per unit and four counts per value stream; choice 1 gets
+   the share of steps a unit runs differently from the reference; choice 3
+   gets decisions the owner types by hand (e.g. who approves a local
+   deviation, and how fast). Everything is typed or correctable.
+   ============================================================ */
+const DESIGN_CHOICES = {
+  1: "Standardise or keep local",
+  2: "Spans and layers",
+  3: "Decision rights, standards and unique roles",
+  4: "Data backbone"
+};
+/* Which design choices each readout page serves. */
+const PAGE_CHOICES = { 1: [1, 2, 3, 4], 2: [1, 3, 4], 3: [3], 4: [2, 3], 5: [1, 3, 4], 6: [1, 2, 3, 4] };
+const ONE_RECORD = { "": "Not known", none: "Not started", pilot: "Pilot", live: "Live" };
+const DEVIATION_REFERENCE = "IATA audits: about 8% of procedures vary from the manual";
+
+function ensureDataFacts(state) {
+  const d = state.dataFacts && typeof state.dataFacts === "object" && !Array.isArray(state.dataFacts) ? state.dataFacts : {};
+  const out = {};
+  if (typeof d.cargo_system === "string" && d.cargo_system.trim()) out.cargo_system = d.cargo_system.trim().slice(0, 80);
+  const e = econNum(d.eawb_pct); if (e !== null && e <= 100) out.eawb_pct = e;
+  if (ONE_RECORD[d.one_record] && d.one_record) out.one_record = d.one_record;
+  if (typeof d.note === "string" && d.note.trim()) out.note = d.note.trim().slice(0, 300);
+  state.dataFacts = out;
+  return out;
+}
+
+/* Count the grades behind a list of findings or cells. */
+function gradeCounts(list) {
+  const c = { confirmed: 0, indicated: 0, hypothesis: 0, none: 0 };
+  (list || []).forEach(x => { c[GRADE_ORDER[x.grade] !== undefined ? x.grade : "none"]++; });
+  return c;
+}
+function cellGrades(state) {
+  const out = [];
+  (state.clusters || []).forEach(cl => { if (!inScope(cl)) return; Object.values(cl.cells || {}).forEach(c => { if (cellAssessed(c)) out.push({ grade: c.grade || "" }); }); });
+  return out;
+}
+
+/* Decisions typed by the owner, shaped like a decision-rights finding so
+   they sit beside Process Map Studio's on page 3. */
+function cleanDecision(x, i) {
+  const o = { id: String(x && x.id || ("dec_" + Date.now().toString(36) + (i || 0))).slice(0, 40) };
+  ["title", "on_paper", "decided_by", "accountable", "note"].forEach(k => { o[k] = String((x || {})[k] || "").trim().slice(0, k === "title" ? 200 : k === "note" ? 300 : 80); });
+  o.days = econNum((x || {}).days);
+  o.contested = (x || {}).contested === true;
+  o.grade = GRADE_ORDER[(x || {}).grade] !== undefined ? x.grade : "";
+  return o;
+}
+function ensureDecisions(state) {
+  state.typedDecisions = (Array.isArray(state.typedDecisions) ? state.typedDecisions : []).filter(x => x && typeof x === "object").map(cleanDecision).filter(x => x.title);
+  return state.typedDecisions;
+}
+function typedDecisionFindings(state) {
+  return (state.typedDecisions || []).map(x => ({
+    ref: "typed", kind: "decision", topic: "decision_right", title: x.title, detail: x.note || "", grade: x.grade,
+    figure: typeof x.days === "number" ? x.days + " day" + (x.days === 1 ? "" : "s") + " to decide" : "",
+    on_paper: x.on_paper, decided_by: x.decided_by, accountable: x.accountable, accountable_contested: x.contested,
+    source_app: "typed", typed: true, typed_id: x.id, relates_to: []
+  }));
+}
+
+/* The value stream most units have figures for: the one to line up on page 2. */
+function sharedValueStream(countries) {
+  const n = {};
+  countries.forEach(c => c.processes.forEach(x => { if (x.known) n[x.ref] = (n[x.ref] || 0) + 1; }));
+  return Object.keys(n).sort((a, b) => n[b] - n[a] || a.localeCompare(b, undefined, { numeric: true }))[0] || "";
 }

@@ -163,6 +163,33 @@ function validateState(s) {
       if (x.controlled !== undefined && x.controlled !== null && typeof x.controlled !== "boolean") errs.push("sops[" + i + "].controlled must be true, false or empty");
     });
   }
+  if (s.dataFacts !== undefined && s.dataFacts !== null) {
+    if (!_isObj(s.dataFacts)) errs.push("dataFacts must be an object");
+    else {
+      if (s.dataFacts.cargo_system !== undefined && !_isStr(s.dataFacts.cargo_system)) errs.push("dataFacts.cargo_system must be a string");
+      if (s.dataFacts.eawb_pct !== undefined && (typeof s.dataFacts.eawb_pct !== "number" || s.dataFacts.eawb_pct < 0 || s.dataFacts.eawb_pct > 100)) errs.push("dataFacts.eawb_pct must be a number from 0 to 100");
+      if (s.dataFacts.one_record !== undefined && ["none", "pilot", "live"].indexOf(s.dataFacts.one_record) === -1) errs.push("dataFacts.one_record must be none, pilot or live");
+      if (s.dataFacts.note !== undefined && !_isStr(s.dataFacts.note)) errs.push("dataFacts.note must be a string");
+    }
+  }
+  if (s.typedDecisions !== undefined) {
+    if (!_isArr(s.typedDecisions)) errs.push("typedDecisions must be an array");
+    else s.typedDecisions.forEach(function (x, i) {
+      if (!_isObj(x) || !_isStr(x.title) || !x.title.trim()) { errs.push("typedDecisions[" + i + "]: title required"); return; }
+      ["on_paper", "decided_by", "accountable", "note"].forEach(function (k) { if (x[k] !== undefined && !_isStr(x[k])) errs.push("typedDecisions[" + i + "]." + k + " must be a string"); });
+      if (x.days !== undefined && x.days !== null && (typeof x.days !== "number" || x.days < 0)) errs.push("typedDecisions[" + i + "].days must be a number of zero or more");
+      if (x.grade !== undefined && x.grade !== "" && EVIDENCE_GRADE_KEYS.indexOf(x.grade) === -1) errs.push("typedDecisions[" + i + "].grade must be empty or a grade");
+    });
+  }
+  if (s.roleFamilies !== undefined) {
+    if (!_isArr(s.roleFamilies)) errs.push("roleFamilies must be an array");
+    else s.roleFamilies.forEach(function (x, i) {
+      if (!_isObj(x) || !_isStr(x.name) || !x.name.trim()) { errs.push("roleFamilies[" + i + "]: name required"); return; }
+      if (x.ref !== undefined && x.ref !== "" && !/^RF-\d{1,4}$/.test(x.ref)) errs.push("roleFamilies[" + i + "].ref must be RF-nn or empty");
+      if (x.headcount !== undefined && x.headcount !== null && (typeof x.headcount !== "number" || x.headcount < 0)) errs.push("roleFamilies[" + i + "].headcount must be a number of zero or more, or empty");
+      if (x.reason_class !== undefined && x.reason_class !== "" && REASON_CLASS_KEYS.indexOf(x.reason_class) === -1) errs.push("roleFamilies[" + i + "].reason_class must be empty or a reason class");
+    });
+  }
   if (s.processFacts !== undefined && s.processFacts !== null) {
     if (!_isObj(s.processFacts)) errs.push("processFacts must be an object keyed by value stream ID");
     else Object.keys(s.processFacts).forEach(function (ref) {
@@ -476,7 +503,9 @@ function validateReturn(r) {
       if (!_isObj(f.owner_edit)) errs.push(w + ".owner_edit must be an object");
       else Object.keys(f.owner_edit).forEach(function (k) {
         var v = f.owner_edit[k];
-        if ((k === "accountable_contested" || k === "controlled_copy") ? typeof v !== "boolean" : !_isStr(v)) errs.push(w + ".owner_edit." + k + " has the wrong type");
+        var ok = (k === "accountable_contested" || k === "controlled_copy") ? typeof v === "boolean"
+          : k === "headcount" ? (typeof v === "number" && isFinite(v) && v >= 0) : _isStr(v);
+        if (!ok) errs.push(w + ".owner_edit." + k + " has the wrong type");
       });
     }
   });

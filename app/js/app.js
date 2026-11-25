@@ -229,6 +229,9 @@ function migrateState(s) {
   ensureSops(s);
   ensureStructureOverride(s);
   ensureProcessFacts(s);
+  ensureDataFacts(s);
+  ensureDecisions(s);
+  ensureFamilies(s);
   if (!Array.isArray(s.signal_keywords)) {
     const preset = PRESETS.find(p => p.industry_id === s.industry_id);
     s.signal_keywords = preset ? [...preset.signal_keywords] : [];
@@ -913,7 +916,8 @@ const ECON_RATIOS = [
   { k: "revenue_per_head", label: "Revenue per head", kind: "moneyper" },
   { k: "mp_cost_per_head", label: "Manpower cost per head", kind: "moneyper" },
   { k: "volume_per_head", label: "Volume per head", kind: "vol" },
-  { k: "cost_per_volume", label: "Cost per unit of volume", kind: "moneyper" }
+  { k: "cost_per_volume", label: "Cost per unit of volume", kind: "moneyper" },
+  { k: "revenue_per_volume", label: "Revenue per unit of volume", kind: "moneyper" }
 ];
 function viewEconomics() {
   const e = ensureEconomics(state), r = econRatios(e), sug = econSuggestions(state);
