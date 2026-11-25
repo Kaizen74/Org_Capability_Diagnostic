@@ -93,6 +93,11 @@ Owner approved A, B and D (2026-11-25) after a review of the five questions (dec
 - [x] F1 — SOP register per unit (typed by the owner, or from Process Map Studio's findings and correctable); readout page 5 table per unit; structure figures can be typed or corrected per unit.
 - [x] F2 — Checks (contract, browser, six printed pages, phone width), PRD refinements, shared format, guide, decisions, workflow board.
 
+## This session (2026-11-25) — role families across units (E)
+
+- [ ] H1 (in progress: logic only, no screen yet) — Role families per unit (typed, or Org Modeling `role_family` findings with `RF-nn`, correctable); common, some, unique across units with a reason class; readout page 4 summary; findings card.
+- [ ] H2 — Checks (contract, browser, six printed pages, phone width), Org Modeling PRD, shared format, guide, decisions, board.
+
 ## This session (2026-11-25, last) — process owner and steps and handoffs (C)
 
 - [x] G1 — Process owner per value stream per unit (Hand-off and Findings, one value; in the hand-off packet); steps, decisions, approvals, handoffs, roles, rework, work and waiting time per value stream, typed or from Process Map Studio's `process_summary`; readout page 5 table.

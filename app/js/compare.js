@@ -49,7 +49,8 @@ const FINDING_KINDS = {
   role_reason: { label: "Why the role is there", page: "roles" },
   variation: { label: "Differs between countries", page: "work" },
   sop: { label: "SOP and its owner", page: "work" },
-  process_summary: { label: "Steps and handoffs", page: "work" }
+  process_summary: { label: "Steps and handoffs", page: "work" },
+  role_family: { label: "Role family", page: "roles" }
 };
 /* Optional on any finding (format 1.0, additive). When the sending app
    says what a finding is about, that decides its readout page; without
@@ -127,6 +128,8 @@ function frameCopy(src, country, code) {
   /* Each unit names its own SOP owners and dates; the list of SOPs is the
      unit's own too, so it starts empty. Structure figures are the unit's. */
   s.sops = []; s.structureOverride = {}; s.processFacts = {};
+  /* Typed role families travel as names to confirm: head-count and reason blank. */
+  s.roleFamilies = (src.roleFamilies || []).map(x => Object.assign({}, x, { headcount: null, reason_class: "", reason: "" }));
   if (s.valueChain) {
     (s.valueChain.stages || []).forEach(st => { st.note = ""; });
     (s.valueChain.levers || []).forEach(l => { l.share_pct = 0; l.figure = ""; delete l.value_at_stake; l.validated = false; });
@@ -267,7 +270,7 @@ function strongestFirst(list) {
    accountable on a decision. */
 function returnExtras(f) {
   const out = {};
-  if (f.kind !== "process_summary" && f.metrics && typeof f.metrics === "object") {
+  if (f.kind !== "process_summary" && f.kind !== "role_family" && f.metrics && typeof f.metrics === "object") {
     const m = {};
     STRUCT_METRICS.forEach(k => { const n = econNum(f.metrics[k]); if (n !== null) m[k] = n; });
     if (Object.keys(m).length) out.metrics = m;
@@ -279,6 +282,11 @@ function returnExtras(f) {
   if (f.controlled_copy === true || f.controlled_copy === false) out.controlled_copy = f.controlled_copy;
   /* Process summaries (2026-11-25): the owner role, and counts as numbers. */
   { const v = String(f.process_owner || "").trim().slice(0, 80); if (v) out.process_owner = v; }
+  if (f.kind === "role_family" && f.metrics && typeof f.metrics === "object") {
+    const m = {};
+    ["headcount", "job_titles"].forEach(k => { const n = econNum(f.metrics[k]); if (n !== null) m[k] = n; });
+    if (Object.keys(m).length) out.metrics = m;
+  }
   if (f.kind === "process_summary" && f.metrics && typeof f.metrics === "object") {
     const m = out.metrics || {};
     PROC_NUMBERS.forEach(k => { const n = econNum(f.metrics[k]); if (n !== null) m[k] = n; });
@@ -383,6 +391,7 @@ function readoutModel(home, frames) {
     structureAny: countries.some(c => c.structure),
     sopAny: countries.some(c => c.sops.n > 0),
     processAny: countries.some(c => c.processes.length > 0),
+    families: familyComparison(frames),
     sopOwnerDiffs: sopOwnerDifferences(frames),
     material: diffs.filter(d => d.material).length,
     roleGaps: roles.filter(r => r.anchor && r.gapIn.length),
@@ -804,4 +813,80 @@ function unitProcesses(state) {
     x.known = PROC_NUMBERS.some(k => typeof x.facts[k] === "number");
     return x;
   }).sort((a, b) => a.ref.localeCompare(b.ref, undefined, { numeric: true }));
+}
+
+/* ============================================================
+   Role families across units: which roles are common, which are unique,
+   and why (owner review, 2026-11-25)
+
+   Job titles differ between units, so roles are compared as families
+   ("Load control", "Pricing"). Org Modeling defines the families once for
+   the whole org file and gives each an `RF-nn` ID, so a family means the
+   same thing in every unit; it sends one `role_family` finding per family
+   per unit, with the head-count there (0 when nobody). The owner can also
+   type families, and correct any head-count or reason. A family typed in
+   the home unit is copied to new units with its head-count blank, to
+   confirm there. Why a family is unique uses the same three words as
+   every other difference: Required, Chosen, Inherited.
+   ============================================================ */
+const FAMILY_REASONS = ["required", "chosen", "inherited", "unknown"];
+function famKey(ref, name) { return /^RF-\d+$/.test(ref || "") ? ref : "n:" + String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
+function cleanFamily(x, i) {
+  const o = { id: String(x && x.id || ("rf_" + Date.now().toString(36) + (i || 0))).slice(0, 40) };
+  o.name = String((x || {}).name || "").trim().slice(0, 100);
+  o.ref = /^RF-\d{1,4}$/.test((x || {}).ref || "") ? x.ref : "";
+  o.headcount = econNum((x || {}).headcount);
+  o.reason_class = FAMILY_REASONS.indexOf((x || {}).reason_class) !== -1 ? x.reason_class : "";
+  o.reason = String((x || {}).reason || "").trim().slice(0, 300);
+  return o;
+}
+function ensureFamilies(state) {
+  state.roleFamilies = (Array.isArray(state.roleFamilies) ? state.roleFamilies : []).filter(x => x && typeof x === "object").map(cleanFamily).filter(x => x.name);
+  return state.roleFamilies;
+}
+/* One list per unit: typed families, then Org Modeling's, each with any
+   correction. A typed family with the same ID or name as an imported one
+   wins for the figures it gives. */
+function unitFamilies(state) {
+  const by = {};
+  (state.returns || []).forEach(r => (r.findings || []).forEach((f, i) => {
+    if (f.kind !== "role_family") return;
+    const o = f.owner_edit || {};
+    const k = famKey(f.ref, f.title);
+    const hc = typeof o.headcount === "number" ? o.headcount : (f.metrics && typeof f.metrics.headcount === "number" ? f.metrics.headcount : null);
+    by[k] = { key: k, ref: f.ref || "", name: f.title, headcount: hc, imported_headcount: f.metrics ? f.metrics.headcount : null,
+      job_titles: f.metrics && typeof f.metrics.job_titles === "number" ? f.metrics.job_titles : null,
+      reason_class: o.reason_class !== undefined ? o.reason_class : (f.reason_class || ""), reason: typeof o.reason === "string" ? o.reason : (f.detail || ""),
+      source: sourceAppName(r.source_app), return_id: r.id, index: i, edited: Object.keys(o).length > 0 };
+  }));
+  (state.roleFamilies || []).forEach(x => {
+    const k = famKey(x.ref, x.name), cur = by[k];
+    if (cur) {
+      if (x.headcount !== null) cur.headcount = x.headcount;
+      if (x.reason_class) cur.reason_class = x.reason_class;
+      if (x.reason) cur.reason = x.reason;
+      cur.typed_id = x.id;
+    } else by[k] = { key: k, ref: x.ref, name: x.name, headcount: x.headcount, reason_class: x.reason_class, reason: x.reason, source: "manual", id: x.id };
+  });
+  return Object.values(by).sort((a, b) => a.name.localeCompare(b.name));
+}
+/* Across units: present (head-count > 0), absent (0) or not known (blank).
+   Only units with any family figures take part. */
+function familyComparison(frames) {
+  const units = frames.map(f => ({ label: f.label, fams: unitFamilies(f.state) })).filter(u => u.fams.some(x => x.headcount !== null));
+  const all = {};
+  units.forEach(u => u.fams.forEach(x => {
+    const a = all[x.key] = all[x.key] || { key: x.key, ref: x.ref, name: x.name, per: {}, reasons: {} };
+    a.per[u.label] = x.headcount;
+    if (x.reason_class || x.reason) a.reasons[u.label] = { cls: x.reason_class, text: x.reason };
+  }));
+  const rows = Object.values(all).map(a => {
+    const present = units.filter(u => typeof a.per[u.label] === "number" && a.per[u.label] > 0).map(u => u.label);
+    const unknown = units.filter(u => typeof a.per[u.label] !== "number").map(u => u.label);
+    const status = present.length === units.length ? "common" : present.length === 1 ? "unique" : present.length === 0 ? "none" : "some";
+    return Object.assign(a, { present, unknown, status });
+  });
+  return { units: units.map(u => u.label), rows,
+    common: rows.filter(r => r.status === "common"), some: rows.filter(r => r.status === "some"), unique: rows.filter(r => r.status === "unique"),
+    unexplained: rows.filter(r => (r.status === "unique" || r.status === "some") && !r.present.concat(units.map(u => u.label)).some(l => r.reasons[l] && r.reasons[l].cls && r.reasons[l].cls !== "unknown")) };
 }
