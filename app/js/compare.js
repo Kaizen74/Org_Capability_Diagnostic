@@ -48,7 +48,8 @@ const FINDING_KINDS = {
   capacity: { label: "Capacity", page: "work" },
   role_reason: { label: "Why the role is there", page: "roles" },
   variation: { label: "Differs between countries", page: "work" },
-  sop: { label: "SOP and its owner", page: "work" }
+  sop: { label: "SOP and its owner", page: "work" },
+  process_summary: { label: "Steps and handoffs", page: "work" }
 };
 /* Optional on any finding (format 1.0, additive). When the sending app
    says what a finding is about, that decides its readout page; without
@@ -125,7 +126,7 @@ function frameCopy(src, country, code) {
   s.economics = blankEconomics(src.economics);
   /* Each unit names its own SOP owners and dates; the list of SOPs is the
      unit's own too, so it starts empty. Structure figures are the unit's. */
-  s.sops = []; s.structureOverride = {};
+  s.sops = []; s.structureOverride = {}; s.processFacts = {};
   if (s.valueChain) {
     (s.valueChain.stages || []).forEach(st => { st.note = ""; });
     (s.valueChain.levers || []).forEach(l => { l.share_pct = 0; l.figure = ""; delete l.value_at_stake; l.validated = false; });
@@ -266,7 +267,7 @@ function strongestFirst(list) {
    accountable on a decision. */
 function returnExtras(f) {
   const out = {};
-  if (f.metrics && typeof f.metrics === "object") {
+  if (f.kind !== "process_summary" && f.metrics && typeof f.metrics === "object") {
     const m = {};
     STRUCT_METRICS.forEach(k => { const n = econNum(f.metrics[k]); if (n !== null) m[k] = n; });
     if (Object.keys(m).length) out.metrics = m;
@@ -276,6 +277,13 @@ function returnExtras(f) {
   /* SOP findings (2026-11-25): roles and dates as text, counts as numbers. */
   ["owner_role", "updated_by", "version_date", "last_reviewed", "review_due"].forEach(k => { const v = String(f[k] || "").trim().slice(0, 80); if (v) out[k] = v; });
   if (f.controlled_copy === true || f.controlled_copy === false) out.controlled_copy = f.controlled_copy;
+  /* Process summaries (2026-11-25): the owner role, and counts as numbers. */
+  { const v = String(f.process_owner || "").trim().slice(0, 80); if (v) out.process_owner = v; }
+  if (f.kind === "process_summary" && f.metrics && typeof f.metrics === "object") {
+    const m = out.metrics || {};
+    PROC_NUMBERS.forEach(k => { const n = econNum(f.metrics[k]); if (n !== null) m[k] = n; });
+    if (Object.keys(m).length) out.metrics = m;
+  }
   ["steps_governed", "steps_departing"].forEach(k => { const n = econNum(f[k]); if (n !== null) out[k] = Math.round(n); });
   return out;
 }
@@ -356,6 +364,7 @@ function readoutModel(home, frames) {
       econ: (() => { const e = ensureEconomics(JSON.parse(JSON.stringify({ economics: f.state.economics }))); return econEntered(e) ? { e, r: econRatios(e), unit: (vc.currency || "") + "|" + (vc.value_unit || ""), currency: vc.currency || "", value_unit: vc.value_unit || "" } : null; })(),
       structure: unitStructure(f.state),
       sops: sopSummary(f.state),
+      processes: unitProcesses(f.state),
       pilots: Object.keys(f.state.pilots || {}).filter(cid => f.state.pilots[cid].decision === "pilot")
         .map(cid => { const p = f.state.pilots[cid]; return { ref: p.ref || "", name: p.name || "", kpi: p.kpi || "" }; })
     };
@@ -373,6 +382,7 @@ function readoutModel(home, frames) {
     econLabels: Array.from(new Set(countries.filter(c => c.econ).map(c => c.econ.e.volume_label).filter(Boolean))),
     structureAny: countries.some(c => c.structure),
     sopAny: countries.some(c => c.sops.n > 0),
+    processAny: countries.some(c => c.processes.length > 0),
     sopOwnerDiffs: sopOwnerDifferences(frames),
     material: diffs.filter(d => d.material).length,
     roleGaps: roles.filter(r => r.anchor && r.gapIn.length),
@@ -738,4 +748,60 @@ function ensureStructureOverride(state) {
   if (typeof o.note === "string" && o.note.trim()) out.note = o.note.trim().slice(0, 300);
   state.structureOverride = out;
   return out;
+}
+
+/* ============================================================
+   Value streams per unit: the process owner, and how many steps and
+   handoffs the work takes (owner review, 2026-11-25)
+
+   Keyed by the value stream's ID (VS-nn), which is the same in every unit,
+   so the same process lines up across units. Figures come from Process
+   Map Studio's `process_summary` findings, or are typed by the owner; a
+   typed figure wins and the app's is kept beside it. The process owner is
+   a role, named per unit (it may differ between units).
+   ============================================================ */
+const PROC_NUMBERS = ["steps", "decisions", "approvals", "handoffs", "roles", "rework_loops", "work_min", "wait_min"];
+
+function ensureProcessFacts(state) {
+  const src = state.processFacts && typeof state.processFacts === "object" && !Array.isArray(state.processFacts) ? state.processFacts : {};
+  const out = {};
+  Object.keys(src).forEach(ref => {
+    if (!/^VS-\d{1,4}$/.test(ref)) return;
+    const x = src[ref] && typeof src[ref] === "object" ? src[ref] : {};
+    const o = {};
+    PROC_NUMBERS.forEach(k => { const n = econNum(x[k]); if (n !== null) o[k] = n; });
+    ["process_owner", "note"].forEach(k => { if (typeof x[k] === "string" && x[k].trim()) o[k] = x[k].trim().slice(0, k === "note" ? 300 : 80); });
+    if (Object.keys(o).length) out[ref] = o;
+  });
+  state.processFacts = out;
+  return out;
+}
+
+/* Every value stream this unit has chosen or has figures for. */
+function unitProcesses(state) {
+  const typed = state.processFacts || {};
+  const by = {};
+  const get = ref => (by[ref] = by[ref] || { ref, name: "", imported: {}, typed: {}, facts: {}, process_owner: "", owner_from: "", source: "" });
+  Object.keys(state.pilots || {}).forEach(cid => {
+    const p = state.pilots[cid];
+    if (p && p.decision === "pilot" && /^VS-\d+$/.test(p.ref || "")) get(p.ref).name = p.name || "";
+  });
+  (state.returns || []).forEach(r => (r.findings || []).forEach(f => {
+    if (f.kind !== "process_summary") return;
+    const ref = (f.relates_to || []).find(x => /^VS-\d+$/.test(x));
+    if (!ref) return;
+    const x = get(ref);
+    if (!x.name) x.name = f.title || "";
+    PROC_NUMBERS.forEach(k => { if (f.metrics && typeof f.metrics[k] === "number") x.imported[k] = f.metrics[k]; });
+    if (f.process_owner) x.imported.process_owner = f.process_owner;
+    x.source = sourceAppName(r.source_app);
+  }));
+  Object.keys(typed).forEach(ref => { get(ref).typed = typed[ref]; });
+  return Object.values(by).map(x => {
+    PROC_NUMBERS.forEach(k => { const v = typeof x.typed[k] === "number" ? x.typed[k] : x.imported[k]; if (typeof v === "number") x.facts[k] = v; });
+    x.process_owner = x.typed.process_owner || x.imported.process_owner || "";
+    x.owner_from = x.typed.process_owner ? "typed" : x.imported.process_owner ? x.source : "";
+    x.known = PROC_NUMBERS.some(k => typeof x.facts[k] === "number");
+    return x;
+  }).sort((a, b) => a.ref.localeCompare(b.ref, undefined, { numeric: true }));
 }

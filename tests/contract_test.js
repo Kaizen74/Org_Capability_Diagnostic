@@ -1312,5 +1312,33 @@ checkOk("with no org file, typed figures alone fill the table", (() => { put("__
 check("typed structure figures conform", schema.validateState(tsH));
 checkOk("the contract refuses a negative or text structure figure", schema.validateState(Object.assign({}, tsH, { structureOverride: { layers: -1 } })).length === 1 && schema.validateState(Object.assign({}, tsH, { structureOverride: { layers: "five" } })).length === 1);
 
+// ---- 50. Value streams per unit: process owner, steps and handoffs ----
+const pHome = JSON.parse(JSON.stringify(sopHome)); pHome.processFacts = run("demoProcessFacts('Arden')"); put("__ph", pHome);
+check("a unit's value-stream figures conform", schema.validateState(pHome));
+const pA = run("unitProcesses(__ph)").find(x => x.ref === "VS-01");
+checkOk("typed figures and the process owner make a value stream's row", pA && pA.facts.handoffs === 9 && pA.process_owner === "Commercial lead" && pA.owner_from === "typed");
+const pBel = run("ensureRefs(buildDemoCountry(__ph, DEMO_COUNTRIES[0]))"); put("__pb", pBel);
+const pB = run("unitProcesses(__pb)").find(x => x.ref === "VS-01");
+checkOk("Process Map Studio's summary fills the row, owner included, and says where it came from",
+  pB && pB.facts.steps === 11 && pB.facts.handoffs === 6 && pB.facts.wait_min === 7200 && pB.process_owner === "Country manager" && pB.owner_from === "Process Map Studio" && pB.name);
+const pBt = JSON.parse(JSON.stringify(pBel)); pBt.processFacts = { "VS-01": { handoffs: 4, process_owner: "Head of commercial" } }; put("__pbt", pBt);
+const pT = run("unitProcesses(__pbt)").find(x => x.ref === "VS-01");
+checkOk("a typed figure or owner wins; the app's stays beside it", pT.facts.handoffs === 4 && pT.imported.handoffs === 6 && pT.facts.steps === 11 && pT.process_owner === "Head of commercial" && pT.imported.process_owner === "Country manager");
+checkOk("the contract refuses a value-stream key that is not a VS ID, or a text count",
+  schema.validateState(Object.assign({}, pHome, { processFacts: { "CAP-01": { steps: 3 } } })).length === 1 && schema.validateState(Object.assign({}, pHome, { processFacts: { "VS-01": { steps: "many" } } })).length === 1);
+checkOk("stored figures are cleaned on load: bad keys and values dropped",
+  (() => { put("__pfx", { processFacts: { "VS-02": { steps: "12", handoffs: -1, junk: 3, process_owner: " Ops lead " }, "bad": { steps: 1 } } }); const r = run("ensureProcessFacts(__pfx)"); return Object.keys(r).join() === "VS-02" && r["VS-02"].steps === 12 && r["VS-02"].handoffs === undefined && r["VS-02"].junk === undefined && r["VS-02"].process_owner === "Ops lead"; })());
+checkOk("a new unit starts with no value-stream figures and no process owner: each unit names its own", run("frameCopy(__ph, 'Dorne', 'DO')").processFacts && Object.keys(run("frameCopy(__ph, 'Dorne', 'DO')").processFacts).length === 0);
+const pkt = run("buildHandoffPacket(__ph)");
+check("the hand-off packet with a process owner still conforms", schema.validateHandoffPacket(pkt));
+const rawPS = { format: "compass-return", format_version: "1.0", source_app: "process-map-studio", engagement_key: "K", findings: [
+  { ref: "VS-01", kind: "process_summary", title: "Bid to contract renewal", relates_to: ["VS-01"], process_owner: "Ops lead", metrics: { steps: 9, handoffs: "4", layers: 3, wait_min: -5 } }] };
+put("__rps", rawPS);
+const rpsN = run("normaliseReturn(__rps)").findings[0];
+checkOk("a process summary keeps only its own numbers and its owner", JSON.stringify(rpsN.metrics) === JSON.stringify({ steps: 9, handoffs: 4 }) && rpsN.process_owner === "Ops lead");
+check("a process summary finding conforms", schema.validateReturn(run("normaliseReturn(__rps)")));
+const rmP = run("readoutModel(__ph, [{ id: 'a', label: 'Arden', state: __ph }, { id: 'b', label: 'Belmar', state: __pb }])");
+checkOk("the readout carries each unit's value streams", rmP.processAny && rmP.countries[0].processes.find(x => x.ref === "VS-01").facts.handoffs === 9 && rmP.countries[1].processes.find(x => x.ref === "VS-01").facts.handoffs === 6);
+
 console.log(failures ? `\n${failures} CONTRACT FAILURE(S)` : "\nAll contract checks passed.");
 process.exit(failures ? 1 : 0);

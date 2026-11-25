@@ -225,7 +225,7 @@ function csFindings() {
       <p class="ho-note">Each of the other three apps can send back what it found as a small file. Importing one never changes a score: it lists the findings here, and you decide which to cite on a cell. Import each file into the workspace of the country it describes.</p>
       <div class="cs-sources">${RETURN_SOURCES.map(s => `<div class="cs-source"><strong>${s.app}</strong><span>${s.gives}</span><em>${s.where}</em></div>`).join("")}</div>
       ${files ? `<div class="cs-files">${files}</div>` : `<div class="alert-empty" style="margin-top:12px">No findings file imported into this workspace yet.</div>`}
-    </div>${csStructureCard()}${csSopCard()}${groups}`;
+    </div>${csStructureCard()}${csProcessCard()}${csSopCard()}${groups}`;
 }
 
 /* ---------- This unit's structure figures: Org Modeling's, or typed ----------
@@ -243,6 +243,40 @@ function csStructureCard() {
       <input type="number" min="0" step="any" id="st-${k}" data-st="${k}" value="${typeof ov[k] === "number" ? ov[k] : ""}" placeholder="${typeof imp[k] === "number" ? imp[k] : "—"}">
       <span class="econ-from">${typeof ov[k] === "number" ? (typeof imp[k] === "number" && imp[k] !== ov[k] ? "typed · Org Modeling says " + imp[k] : "typed") : typeof imp[k] === "number" ? "from Org Modeling" : "not known"}</span></div>`).join("")}</div>
     <div class="econ-foot"><input type="text" id="st-note" value="${esc(ov.note || "")}" placeholder="Note: where typed figures come from"></div></div>`;
+}
+
+/* ---------- This unit's value streams: process owner, steps and handoffs ----------
+   Figures from Process Map Studio's process summary, or typed (for example
+   read off its leadership view). A typed figure wins; clear it to go back. */
+const PROC_EDIT = [["steps", "Steps"], ["decisions", "Decisions"], ["approvals", "Approvals"], ["handoffs", "Handoffs"],
+  ["roles", "Roles involved"], ["rework_loops", "Rework loops"], ["work_h", "Work time (hours)"], ["wait_h", "Waiting time (hours)"]];
+function setProcessOwner(ref, value) {
+  const v = String(value || "").trim().slice(0, 80);
+  const pf = state.processFacts[ref] = Object.assign({}, state.processFacts[ref] || {});
+  if (v) pf.process_owner = v; else delete pf.process_owner;
+  if (!Object.keys(pf).length) delete state.processFacts[ref];
+  state.changeLog.push({ at: nowIso(), cluster: ref, lens: "—", from: 0, to: 0, rationale: v ? "Process owner set: " + v : "Process owner cleared", by: state.actor || "You" });
+}
+function csProcessCard() {
+  const list = unitProcesses(state), who = state.country || state.workspaceName;
+  const hrs = m => typeof m === "number" ? Math.round(m / 60 * 10) / 10 : null;
+  const box = (x, k) => {
+    const mk = k === "work_h" ? "work_min" : k === "wait_h" ? "wait_min" : k;
+    const conv = v => (k === "work_h" || k === "wait_h") ? hrs(v) : v;
+    const t = conv(x.typed[mk]), im = conv(x.imported[mk]);
+    return `<div class="econ-f"><label for="pf-${esc(x.ref)}-${k}">${(PROC_EDIT.find(e => e[0] === k) || [])[1]}</label>
+      <input type="number" min="0" step="any" id="pf-${esc(x.ref)}-${k}" data-pf="${esc(x.ref)}|${k}" value="${t === null || t === undefined ? "" : t}" placeholder="${im === null || im === undefined ? "—" : im}">
+      <span class="econ-from">${t !== null && t !== undefined ? (im !== null && im !== undefined && im !== t ? "typed · " + esc(x.source || "file") + " says " + im : "typed") : im !== null && im !== undefined ? "from " + esc(x.source) : "not known"}</span></div>`;
+  };
+  const blocks = list.map(x => `<div class="pf-block"><h3><span class="ref-chip">${esc(x.ref)}</span> ${esc(x.name || "Value stream")}</h3>
+    <div class="econ-grid"><div class="econ-f pf-owner"><label for="pf-${esc(x.ref)}-owner">Process owner (role)</label>
+      <input type="text" id="pf-${esc(x.ref)}-owner" data-pf-owner="${esc(x.ref)}" value="${esc(x.typed.process_owner || "")}" placeholder="${esc(x.imported.process_owner || "role accountable end to end")}">
+      <span class="econ-from">${x.typed.process_owner ? (x.imported.process_owner && x.imported.process_owner !== x.typed.process_owner ? "typed · " + esc(x.source) + " says " + esc(x.imported.process_owner) : "typed") : x.imported.process_owner ? "from " + esc(x.source) : "⚑ no process owner named"}</span></div>
+      ${PROC_EDIT.map(([k]) => box(x, k)).join("")}</div></div>`).join("");
+  return `<div class="vc-tablewrap cs-unitcard" id="cs-proc">
+    <div class="sig-brief-head"><h2>Value streams: owner, steps and handoffs in ${esc(who)}</h2><span class="sig-meta">for readout page 5</span></div>
+    <p class="ho-note">One block per value stream this unit has chosen to map (Hand-off) or has figures for. A handoff is a step passing the work to a different role. Figures come from Process Map Studio's findings file when it carries them; type a figure to use your own, clear it to go back.</p>
+    ${blocks || `<div class="alert-empty">No value stream chosen in this unit yet. Choose one on Hand-off (Pilot now), or import Process Map Studio's findings.</div>`}</div>`;
 }
 
 /* ---------- This unit's SOPs: who owns them and who updates them ----------
@@ -353,6 +387,28 @@ function roStructure(m) {
     <p class="ro-foot">▲ highest · ▽ lowest. Counted by Org Modeling from each unit's org file; a manager's span counts direct reports in any unit.${missing.length ? " No org file imported for " + esc(missing.join(", ")) + "." : ""}</p>`;
 }
 
+/* Readout page 5: the same value stream in each unit, side by side. */
+function roProcesses(m) {
+  if (!m.processAny) return `<h3 class="ro-sub">Steps, handoffs and process owners</h3><p class="ro-empty">No value stream chosen or measured yet.</p>`;
+  const rows = [];
+  m.countries.forEach(c => c.processes.forEach(x => rows.push({ c, x })));
+  rows.sort((a, b) => a.x.ref.localeCompare(b.x.ref, undefined, { numeric: true }));
+  const ext = {};
+  ["steps", "handoffs"].forEach(k => {
+    const byRef = {};
+    rows.forEach(r => { if (typeof r.x.facts[k] === "number") (byRef[r.x.ref] = byRef[r.x.ref] || []).push(r.x.facts[k]); });
+    Object.keys(byRef).forEach(ref => { const v = byRef[ref]; if (v.length > 1 && Math.max(...v) !== Math.min(...v)) ext[ref + k] = { hi: Math.max(...v), lo: Math.min(...v) }; });
+  });
+  const num = (r, k) => { const v = r.x.facts[k]; if (typeof v !== "number") return `<span class="cs-none">—</span>`; const e = ext[r.x.ref + k]; return v + (e ? (v === e.hi ? ` <span class="ro-hi" title="Most">▲</span>` : v === e.lo ? ` <span class="ro-lo" title="Fewest">▽</span>` : "") : ""); };
+  const hrs = v => typeof v === "number" ? (Math.round(v / 60 * 10) / 10) + " h" : "—";
+  const body = rows.map(r => `<tr><td><span class="ref-chip">${esc(r.x.ref)}</span> ${esc(r.x.name)}</td><td><strong>${esc(r.c.label)}</strong></td>
+    <td>${r.x.process_owner ? esc(r.x.process_owner) : `<span class="am">⚑ none named</span>`}</td><td>${num(r, "steps")}</td>
+    <td>${typeof r.x.facts.decisions === "number" || typeof r.x.facts.approvals === "number" ? (r.x.facts.decisions || 0) + " / " + (r.x.facts.approvals || 0) : "—"}</td>
+    <td>${num(r, "handoffs")}</td><td>${typeof r.x.facts.roles === "number" ? r.x.facts.roles : "—"}</td><td>${hrs(r.x.facts.work_min)} / ${hrs(r.x.facts.wait_min)}</td></tr>`).join("");
+  return `<h3 class="ro-sub">Steps, handoffs and process owners</h3>
+    <table class="ro-econ"><thead><tr><th>Value stream</th><th></th><th>Process owner</th><th>Steps</th><th>Decisions / approvals</th><th>Handoffs</th><th>Roles</th><th>Work / waiting</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+
 /* Readout page 5: who owns and updates the SOPs, per unit. */
 function roSops(m) {
   if (!m.sopAny) return `<h3 class="ro-sub">Who owns and updates the SOPs</h3><p class="ro-empty">No SOPs listed. Add them per unit under Findings, or import Process Map Studio's findings.</p>`;
@@ -395,6 +451,10 @@ function csReadout(ctx) {
   const decs = m.finds.per.reduce((a, p) => a.concat(p.decisions), []);
   const noWho = decs.filter(f => !decisionView(f).accountable).length;
   if (noWho) gaps.push(noWho + " decision finding(s) do not say who is accountable. Add it in the findings register if you know it.");
+  const noSteps = m.countries.filter(c => c.tier !== "scored" && !c.processes.some(x => x.known)).map(c => c.label);
+  if (noSteps.length) gaps.push("No steps and handoffs for " + noSteps.join(", ") + ". Import Process Map Studio's findings or type them under Findings.");
+  const noOwner = m.countries.reduce((a, c) => a.concat(c.processes.filter(x => !x.process_owner).map(x => c.label + " " + x.ref)), []);
+  if (noOwner.length) gaps.push("No process owner named for " + noOwner.join(", ") + ".");
   const noSops = m.countries.filter(c => !c.sops.n && c.tier !== "scored").map(c => c.label);
   if (!m.sopAny) gaps.push("No SOPs listed for any unit, so page 5 cannot say who owns and updates them.");
   else if (noSops.length) gaps.push("No SOPs listed for " + noSops.join(", ") + ".");
@@ -444,8 +504,9 @@ function csReadout(ctx) {
     `<h3 class="ro-sub">Why the roles are there</h3>` +
     roPerCountry(m, p => p.people.filter(f => !(f.kind === "structural_baseline" && /^baseline\./.test(f.ref || "") && !f.reason_class)), 2, "No role findings imported. They come from Org Modeling and the Workbench.") );
 
-  const p5 = page(5, "How work really runs", "Where practice departs from the documents, what it costs, and who owns and updates the SOPs.",
-    roPerCountry(m, p => p.work.filter(f => f.kind !== "step" && f.kind !== "sop"), 3, "No process findings imported. They come from Process Map Studio.") +
+  const p5 = page(5, "How work really runs", "Steps, handoffs and who owns each process; where practice departs from the documents; who owns and updates the SOPs.",
+    roProcesses(m) +
+    roPerCountry(m, p => p.work.filter(f => f.kind !== "step" && f.kind !== "sop" && f.kind !== "process_summary"), 2, "No process findings imported. They come from Process Map Studio.") +
     roSops(m) +
     `<p class="ro-foot">Each line keeps the ID and grade it was given in the app that found it. Confirmed means verified at source; Indicated means supported but not verified; Hypothesis means still to test.</p>`);
 
@@ -523,6 +584,7 @@ function loadDemoCountries() {
     state.returns = demoReturns(DEMO_HOME_COUNTRY);
     if (!econEntered(state.economics)) state.economics = demoEconomics(DEMO_HOME_COUNTRY);
     if (!(state.sops || []).length) state.sops = demoSops(DEMO_HOME_COUNTRY);
+    if (!Object.keys(state.processFacts || {}).length) state.processFacts = demoProcessFacts(DEMO_HOME_COUNTRY);
     DEMO_COUNTRIES.forEach(spec => {
       const st = migrateState(buildDemoCountry(state, spec));
       st.workspaceId = wsNewId();
@@ -581,6 +643,19 @@ function bindCurrentEvents() {
     renderAll();
     toast("Cited on " + ref + ". The score is unchanged; open the cell to re-score if it warrants.");
   }));
+  /* Value streams: typed figures win; empty brings the app's back. */
+  document.querySelectorAll("[data-pf]").forEach(inp => inp.addEventListener("change", () => {
+    const [ref, k] = inp.dataset.pf.split("|");
+    const v = econNum(inp.value);
+    if (inp.value.trim() && v === null) { toast("Enter a number of zero or more."); renderView(); return; }
+    const mk = k === "work_h" ? "work_min" : k === "wait_h" ? "wait_min" : k;
+    const pf = state.processFacts[ref] = Object.assign({}, state.processFacts[ref] || {});
+    if (v === null) delete pf[mk]; else pf[mk] = (k === "work_h" || k === "wait_h") ? Math.round(v * 60) : v;
+    if (!Object.keys(pf).length) delete state.processFacts[ref];
+    state.changeLog.push({ at: nowIso(), cluster: ref, lens: "—", from: 0, to: 0, rationale: (v === null ? "Typed figure cleared: " : "Typed figure: ") + mk.replace(/_/g, " ") + (v === null ? "" : " " + v), by: state.actor || "You" });
+    saveState(); renderView();
+  }));
+  document.querySelectorAll("[data-pf-owner]").forEach(inp => inp.addEventListener("change", () => { setProcessOwner(inp.dataset.pfOwner, inp.value); saveState(); renderView(); }));
   /* Structure figures: typed wins; empty brings Org Modeling's back. */
   document.querySelectorAll("[data-st]").forEach(inp => inp.addEventListener("change", () => {
     const k = inp.dataset.st, v = econNum(inp.value);

@@ -228,6 +228,7 @@ function migrateState(s) {
   ensureEconomics(s);
   ensureSops(s);
   ensureStructureOverride(s);
+  ensureProcessFacts(s);
   if (!Array.isArray(s.signal_keywords)) {
     const preset = PRESETS.find(p => p.industry_id === s.industry_id);
     s.signal_keywords = preset ? [...preset.signal_keywords] : [];

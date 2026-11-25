@@ -476,7 +476,8 @@ function buildHandoffPacket(state) {
     const p = pilots[cl.id];
     if (!p || !p.decision) return;
     if (p.decision === "pilot") {
-      pilotList.push({ ref: p.ref, cluster_ref: cl.ref, name: p.name || cl.name, process_kpi: p.kpi || "", reason: p.reason || "" });
+      pilotList.push({ ref: p.ref, cluster_ref: cl.ref, name: p.name || cl.name, process_kpi: p.kpi || "", reason: p.reason || "",
+        process_owner: ((state.processFacts || {})[p.ref] || {}).process_owner || "" });
     } else {
       exclusions.push({ cluster_ref: cl.ref, name: cl.name, decision: p.decision, reason: p.reason || "" });
     }

@@ -1303,7 +1303,8 @@
       "cluster_ref": "CAP-04",
       "name": "Bid to contract renewal",
       "process_kpi": "Win rate on renewals; days from bid request to signed contract",
-      "reason": ""
+      "reason": "",
+      "process_owner": ""
     }
   ],
   "exclusions": [],

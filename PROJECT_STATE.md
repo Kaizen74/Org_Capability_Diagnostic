@@ -93,6 +93,11 @@ Owner approved A, B and D (2026-11-25) after a review of the five questions (dec
 - [x] F1 — SOP register per unit (typed by the owner, or from Process Map Studio's findings and correctable); readout page 5 table per unit; structure figures can be typed or corrected per unit.
 - [x] F2 — Checks (contract, browser, six printed pages, phone width), PRD refinements, shared format, guide, decisions, workflow board.
 
+## This session (2026-11-25, last) — process owner and steps and handoffs (C)
+
+- [x] G1 — Process owner per value stream per unit (Hand-off and Findings, one value; in the hand-off packet); steps, decisions, approvals, handoffs, roles, rework, work and waiting time per value stream, typed or from Process Map Studio's `process_summary`; readout page 5 table.
+- [x] G2 — Checks, PRD, shared format, guide, decisions, board.
+
 ## Done in this session (2026-11-25)
 
 1. Unit economics on each unit (Value Chain); ratios worked out; Org Modeling head-count and base-salary cost offered; readout page 1 table.

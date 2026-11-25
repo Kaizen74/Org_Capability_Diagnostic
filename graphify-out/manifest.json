@@ -1,8 +1,8 @@
 {
   "app/js/app.js": {
-    "mtime": 1795570601.794825,
-    "seen": 1795571062.7366498,
-    "ast_hash": "1b8ab21050cf4f34cbd9ffb81fe3e792",
+    "mtime": 1795571454.1761696,
+    "seen": 1795571767.8029804,
+    "ast_hash": "7d784268f6fe291ed629481ab544ce50",
     "semantic_hash": ""
   },
   "app/js/engine.js": {
@@ -24,15 +24,15 @@
     "semantic_hash": "0d27d5000acf09f445c49d1c3af40165"
   },
   "app/js/presets.js": {
-    "mtime": 1795570621.0542364,
-    "seen": 1795571062.7366645,
-    "ast_hash": "1fea40ba4698c10b1b9859525d90a054",
+    "mtime": 1795571474.747512,
+    "seen": 1795571767.802994,
+    "ast_hash": "b36089efa7929424069accf20c0629d1",
     "semantic_hash": ""
   },
   "app/js/schema.js": {
-    "mtime": 1795570601.793176,
-    "seen": 1795571062.7366655,
-    "ast_hash": "fa066751d7062faaf334dd30af33ee2f",
+    "mtime": 1795571454.1739502,
+    "seen": 1795571767.8029952,
+    "ast_hash": "75760047b627378ce35e9cc72618adfb",
     "semantic_hash": ""
   },
   "run_checks.sh": {
@@ -42,15 +42,15 @@
     "semantic_hash": "bd1e53be41f71afd352144d5014c7980"
   },
   "tests/contract_test.js": {
-    "mtime": 1795570644.7427225,
-    "seen": 1795571062.7366822,
-    "ast_hash": "77d7572c575c1db9dc25f2d1bfb75930",
+    "mtime": 1795571496.634716,
+    "seen": 1795571767.8030083,
+    "ast_hash": "108a76a48e7510c230601926acec5ba8",
     "semantic_hash": ""
   },
   "tests/e2e_mock_test.js": {
-    "mtime": 1795570835.6739917,
-    "seen": 1795571062.7366836,
-    "ast_hash": "7341890bae4234ebcd431b7d7477eb14",
+    "mtime": 1795571627.0229425,
+    "seen": 1795571767.8030093,
+    "ast_hash": "08eb894f545634e8d9bf66890622edc5",
     "semantic_hash": ""
   },
   ".claude/CLAUDE.md": {
@@ -78,9 +78,9 @@
     "semantic_hash": ""
   },
   "PROJECT_STATE.md": {
-    "mtime": 1795571129.461798,
-    "seen": 1795571236.7512944,
-    "ast_hash": "6386b12d130d2269c93aa68e0a3db310",
+    "mtime": 1795571732.6677468,
+    "seen": 1795571767.8030145,
+    "ast_hash": "3390014b8b112a4617157b0ee53228be",
     "semantic_hash": ""
   },
   "README.md": {
@@ -132,15 +132,15 @@
     "semantic_hash": ""
   },
   "app/js/handoff.js": {
-    "mtime": 1795231346.4194293,
-    "seen": 1795232657.0009408,
-    "ast_hash": "a2b045faa86c9a309383aa21fcb6cbd7",
+    "mtime": 1795571454.1769614,
+    "seen": 1795571767.802989,
+    "ast_hash": "6b8a20e8d57ac0fa81d56b036e72655c",
     "semantic_hash": ""
   },
   "app/js/stages.js": {
-    "mtime": 1795231981.4888706,
-    "seen": 1795232657.0009532,
-    "ast_hash": "8ec8aec4e49ca985ad269538fe71496d",
+    "mtime": 1795571454.1777458,
+    "seen": 1795571767.802996,
+    "ast_hash": "918728c933d038c052df9ad8116b9e05",
     "semantic_hash": ""
   },
   "app/js/workspaces.js": {
@@ -156,9 +156,9 @@
     "semantic_hash": ""
   },
   "app/js/compare.js": {
-    "mtime": 1795570544.208246,
-    "seen": 1795571062.736654,
-    "ast_hash": "5a94dbd7817220dd3b54e727595dda62",
+    "mtime": 1795571496.633692,
+    "seen": 1795571767.8029845,
+    "ast_hash": "0f4b0fde3cd42e822f681daad359dff5",
     "semantic_hash": ""
   },
   "docs/samples/meridian_compass_handoff.json": {
@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "app/js/current.js": {
-    "mtime": 1795570621.0546718,
-    "seen": 1795571062.736656,
-    "ast_hash": "2f4c8443dd803b3968e5daa71edf653a",
+    "mtime": 1795571454.180278,
+    "seen": 1795571767.8029864,
+    "ast_hash": "a005d764eeaa42d21811cdd7ebbb223d",
     "semantic_hash": ""
   },
   "docs/samples/meridian_exco_readout_demo.pdf": {
@@ -198,32 +198,32 @@
     "semantic_hash": ""
   },
   "docs/samples/countries/arden_compass_handoff.json": {
-    "mtime": 1795570937.8859978,
-    "seen": 1795571062.7366705,
-    "ast_hash": "fec3581f0cbb030d5d20362cbe64bb23",
+    "mtime": 1795571732.618045,
+    "seen": 1795571767.8029983,
+    "ast_hash": "195c2c04b479ae78690fdab9291c65d8",
     "semantic_hash": ""
   },
   "docs/samples/countries/belmar_compass_handoff.json": {
-    "mtime": 1795570937.8899977,
-    "seen": 1795571062.7366722,
-    "ast_hash": "ec67a2ee494a41d3d9d286fa9b4b2a76",
+    "mtime": 1795571732.622045,
+    "seen": 1795571767.8029997,
+    "ast_hash": "f8f5dc4dc703912e8aad0f11fe185a40",
     "semantic_hash": ""
   },
   "docs/samples/countries/belmar_return_org_modeling.json": {
-    "mtime": 1795570937.9059978,
-    "seen": 1795571062.7366736,
+    "mtime": 1795571732.646045,
+    "seen": 1795571767.803001,
     "ast_hash": "4e21eed1c60889c2662cf80dc31def26",
     "semantic_hash": ""
   },
   "docs/samples/countries/belmar_return_process_map_studio.json": {
-    "mtime": 1795570937.9059978,
-    "seen": 1795571062.7366748,
-    "ast_hash": "e8835240b7bc18d6434a70ef3d8a621d",
+    "mtime": 1795571732.646045,
+    "seen": 1795571767.803002,
+    "ast_hash": "e255622b7bb424cdd9e2354e1dc54819",
     "semantic_hash": ""
   },
   "docs/samples/countries/caldera_compass_handoff.json": {
-    "mtime": 1795570937.8899977,
-    "seen": 1795571062.7366767,
+    "mtime": 1795571732.626045,
+    "seen": 1795571767.803003,
     "ast_hash": "2953723bc280607e2c2d754b46ec9949",
     "semantic_hash": ""
   },

@@ -1310,14 +1310,16 @@
       "cluster_ref": "CAP-03",
       "name": "Roster to shift cover",
       "process_kpi": "Overtime and agency hours per 1,000 handled units",
-      "reason": "Carries the largest lever; rollout under way, bench thin."
+      "reason": "Carries the largest lever; rollout under way, bench thin.",
+      "process_owner": ""
     },
     {
       "ref": "VS-01",
       "cluster_ref": "CAP-04",
       "name": "Bid to contract renewal",
       "process_kpi": "Win rate on renewals; days from bid request to signed contract",
-      "reason": "Largest weak-and-owned exposure; three anchor seats absent."
+      "reason": "Largest weak-and-owned exposure; three anchor seats absent.",
+      "process_owner": ""
     }
   ],
   "exclusions": [

@@ -163,6 +163,18 @@ function validateState(s) {
       if (x.controlled !== undefined && x.controlled !== null && typeof x.controlled !== "boolean") errs.push("sops[" + i + "].controlled must be true, false or empty");
     });
   }
+  if (s.processFacts !== undefined && s.processFacts !== null) {
+    if (!_isObj(s.processFacts)) errs.push("processFacts must be an object keyed by value stream ID");
+    else Object.keys(s.processFacts).forEach(function (ref) {
+      var x = s.processFacts[ref];
+      if (!/^VS-\d{1,4}$/.test(ref)) errs.push("processFacts." + ref + ": key must be a VS-nn ID");
+      if (!_isObj(x)) { errs.push("processFacts." + ref + " must be an object"); return; }
+      Object.keys(x).forEach(function (k) {
+        var v = x[k];
+        if (k === "process_owner" || k === "note" ? !_isStr(v) : (typeof v !== "number" || !isFinite(v) || v < 0)) errs.push("processFacts." + ref + "." + k + " has the wrong type");
+      });
+    });
+  }
   if (s.structureOverride !== undefined && s.structureOverride !== null) {
     if (!_isObj(s.structureOverride)) errs.push("structureOverride must be an object");
     else Object.keys(s.structureOverride).forEach(function (k) {
@@ -450,6 +462,7 @@ function validateReturn(r) {
       if (f[k] !== undefined && !_isStr(f[k])) errs.push(w + "." + k + " must be a string");
     });
     if (f.controlled_copy !== undefined && typeof f.controlled_copy !== "boolean") errs.push(w + ".controlled_copy must be true or false");
+    if (f.process_owner !== undefined && !_isStr(f.process_owner)) errs.push(w + ".process_owner must be a string");
     ["steps_governed", "steps_departing"].forEach(function (k) {
       if (f[k] !== undefined && (typeof f[k] !== "number" || !isFinite(f[k]) || f[k] < 0)) errs.push(w + "." + k + " must be a number of zero or more");
     });

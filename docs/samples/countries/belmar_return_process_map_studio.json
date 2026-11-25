@@ -55,6 +55,31 @@
       "compared_with": "Arden"
     },
     {
+      "ref": "VS-01",
+      "kind": "process_summary",
+      "title": "Bid to contract renewal",
+      "detail": "Counted on the published map: 11 steps, 2 decisions, 2 approvals, 6 handoffs between 5 roles, 1 rework loop.",
+      "grade": "confirmed",
+      "figure": "11 steps, 6 handoffs",
+      "relates_to": [
+        "VS-01",
+        "CAP-04"
+      ],
+      "source_note": "Counted from the published map of VS-01.",
+      "topic": "way_of_working",
+      "process_owner": "Country manager",
+      "metrics": {
+        "steps": 11,
+        "decisions": 2,
+        "approvals": 2,
+        "handoffs": 6,
+        "roles": 5,
+        "rework_loops": 1,
+        "work_min": 840,
+        "wait_min": 7200
+      }
+    },
+    {
       "ref": "SOP-01",
       "kind": "sop",
       "title": "Load planning and sign-off",

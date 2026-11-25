@@ -539,6 +539,7 @@ function buildDemoCountry(home, spec) {
   s.returns = demoReturns(spec.country);
   s.economics = demoEconomics(spec.country);
   s.sops = demoSops(spec.country);
+  s.processFacts = demoProcessFacts(spec.country);
   return s;
 }
 
@@ -586,6 +587,10 @@ const DEMO_RETURNS = {
       { ref: "V1", kind: "variation", topic: "decision_right", reason_class: "inherited", compared_with: "Arden", grade: "indicated", figure: "", relates_to: ["VS-01", "CAP-04", "CAP-04.Process"],
         title: "Renewal pricing: approved by the country manager in Belmar, by the regional finance controller in Arden",
         detail: "Types: Different role. Step S-07 (Approve the renewal price). Reason: Belmar kept its pre-merger delegation of authority.", source_note: "Compared between the two published maps of VS-01; each side rests on 3 interviews." },
+      { ref: "VS-01", kind: "process_summary", topic: "way_of_working", grade: "confirmed", figure: "11 steps, 6 handoffs", relates_to: ["VS-01", "CAP-04"],
+        title: "Bid to contract renewal", detail: "Counted on the published map: 11 steps, 2 decisions, 2 approvals, 6 handoffs between 5 roles, 1 rework loop.",
+        process_owner: "Country manager", metrics: { steps: 11, decisions: 2, approvals: 2, handoffs: 6, roles: 5, rework_loops: 1, work_min: 840, wait_min: 7200 },
+        source_note: "Counted from the published map of VS-01." },
       { ref: "SOP-01", kind: "sop", topic: "way_of_working", grade: "confirmed", figure: "3 of 9 steps done differently", relates_to: ["CAP-01", "CAP-01.Process"],
         title: "Load planning and sign-off", detail: "The SOP still names the pre-merger roles; the shift supervisor keeps an annotated copy at the desk.",
         owner_role: "Station manager", updated_by: "Shift supervisor", version_date: "2019-04", last_reviewed: "2019-04", controlled_copy: false, steps_governed: 9, steps_departing: 3,
@@ -640,6 +645,12 @@ const DEMO_SOPS = {
     { title: "Load planning and sign-off", governs: "CAP-01", owner_role: "Chief load controller", updated_by: "Quality manager", version_date: "2025-10", last_reviewed: "2025-10", review_due: "2027-04", controlled: true }
   ]
 };
+/* Value-stream figures typed for the fictional demo (Arden reads them off
+   Process Map Studio's leadership view; Caldera has not mapped VS-01). */
+const DEMO_PROCESS = {
+  Arden: { "VS-01": { process_owner: "Commercial lead", steps: 14, decisions: 3, approvals: 3, handoffs: 9, roles: 6, rework_loops: 2, work_min: 1080, wait_min: 12960 } }
+};
+function demoProcessFacts(country) { return JSON.parse(JSON.stringify(DEMO_PROCESS[country] || {})); }
 function demoSops(country) { return (DEMO_SOPS[country] || []).map((x, i) => cleanSop(Object.assign({ id: "sop_demo_" + country.toLowerCase() + "_" + (i + 1) }, x))); }
 
 /* Unit economics for the fictional demo (amounts in $m). */

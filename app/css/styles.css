@@ -1277,3 +1277,6 @@ select.to-confirm { border-color: var(--amber); background: var(--amber-bg); col
 @media print {
   .ro-sopnotes li { font-size: 11px; padding: 2px 0; }
 }
+.pf-block { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 10px; }
+.pf-block h3 { font-size: 13.5px; margin: 0 0 4px 0; }
+.pf-owner input { border-color: var(--l3, #6C8CBE); }
