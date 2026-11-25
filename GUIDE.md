@@ -62,8 +62,9 @@ When you create one you choose what its rows are: **capability clusters** (the i
 |---|---|---|
 | Who decides, and who is accountable? | Readout page 3 | Import Process Map Studio's findings. On each decision finding in the findings register, check or fill in **on paper**, **decides in practice** and **accountable**. ⚑ marks a mismatch. |
 | How many steps and handoffs? | Process Map Studio (leadership view) | Not yet sent to the Compass. Quote it from Process Map Studio for now. |
-| How many spans and layers? | Readout page 4, table per unit | Import each unit's Org Modeling findings file. ▲ and ▽ mark the highest and lowest. |
+| How many spans and layers? | Readout page 4, table per unit | Import each unit's Org Modeling findings file, or type the figures under Current State → Findings → **Spans and layers**. A typed figure wins; Org Modeling's is shown beside it. ▲ and ▽ mark the highest and lowest. |
 | Which roles are common or unique, and why? | Readout page 4 | Anchor roles only, with Required, Chosen or Inherited. Roles outside the anchor list are not compared yet. |
+| Who owns and updates the SOPs? | Current State → Findings → **SOPs**; readout page 5 | Per unit, list the SOPs that govern the work: owner role, the role that updates it, version, last review, review due, controlled copy. Process Map Studio's SOPs appear there when its file carries them; correct them in place. ⚑ shows what needs attention; page 5 also names an SOP owned by different roles in different units. |
 | Revenue, cost and productivity | Value Chain → **Unit economics**; readout page 1 | Per unit, enter revenue, manpower cost, non-manpower cost, head-count and one volume measure for one period. Ratios are worked out. Org Modeling can fill head-count and base-salary cost; a typed figure always wins. Tick "validated" once Finance agrees. |
 
 Agree the period, the volume measure and what counts as manpower cost with Finance **before** adding units: they are copied to each new unit.

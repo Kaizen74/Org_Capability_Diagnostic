@@ -91,7 +91,7 @@ Owner approved A, B and D (2026-11-25) after a review of the five questions (dec
 ## This session (2026-11-25, later) — sixth question: who owns and updates the SOPs
 
 - [x] F1 — SOP register per unit (typed by the owner, or from Process Map Studio's findings and correctable); readout page 5 table per unit; structure figures can be typed or corrected per unit.
-- [ ] F2 — Checks (contract, browser, six printed pages, phone width), PRD refinements, shared format, guide, decisions, workflow board.
+- [x] F2 — Checks (contract, browser, six printed pages, phone width), PRD refinements, shared format, guide, decisions, workflow board.
 
 ## Done in this session (2026-11-25)
 
@@ -100,6 +100,7 @@ Owner approved A, B and D (2026-11-25) after a review of the five questions (dec
 3. On paper, decides in practice and accountable on readout page 3; the owner can fill or correct them in the findings register.
 4. PRDs: `docs/sibling_prds/PRD_org_modeling_structure_numbers.md` and `docs/sibling_prds/PRD_process_map_studio_accountability.md`. Samples rebuilt with the new fields.
 5. Not done, by owner choice: step and handoff counts per unit (C) and role families across units (E).
+6. Sixth question, who owns and updates the SOPs: an SOP register per unit (typed, or from Process Map Studio and correctable), compared on readout page 5; PRD for Process Map Studio extended (`sop` findings, `SOP-nn`). Spans and layers can now be typed per unit.
 
 ## Done in this session (2026-11-21)
 

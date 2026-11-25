@@ -40,9 +40,10 @@ An ID is a prefix and a number. The number is never reused inside a workspace, s
 | `I n` | Intent statement | Process Map Studio |
 | `H n` | Operating-model hypothesis | Org Modeling |
 | `V n` | Difference between two countries' published maps of the same process | Process Map Studio |
+| `SOP-nn` | An SOP or manual in an engagement's sources (added 2026-11-25) | Process Map Studio |
 | `T-nnn` | Task | Workbench |
 
-The last six are reserved so the Compass never mints a clashing prefix. Process Map Studio already gives discrepancies codes that are never reused (`X1`, `X2`…).
+The last seven are reserved so the Compass never mints a clashing prefix. Process Map Studio already gives discrepancies codes that are never reused (`X1`, `X2`…).
 
 ## 2. One evidence grammar
 
@@ -163,7 +164,12 @@ Each of the other three apps exports what it found as one small file:
 | `compared_with` *(optional)* | The other country a difference is measured against, e.g. `Arden`. |
 | `metrics` *(optional, `structural_baseline` only)* | Numbers behind a structure finding: `headcount`, `managers`, `manager_ratio_pct`, `layers`, `median_span`, `spans_within`, `spans_below`, `spans_above`, `single_report_managers`, `health_score`, `total_cost` (annual people cost in full currency units, base salary). Numbers of zero or more only; anything else is dropped. Without it, the Compass reads the numbers from the figure and detail wording. |
 | `on_paper`, `decided_by`, `accountable` *(optional, `decision_right` findings)* | Role names, at most 80 characters: the decider the documents name, the decider in practice, and the role holding A in the RACI ("X / Y" when two hold it). Never a person's name. |
+| `owner_role`, `updated_by`, `version_date`, `last_reviewed`, `review_due` *(optional, kind `sop`)* | The SOP's owner role, the role that keeps it current, and its dates as `YYYY`, `YYYY-MM` or `YYYY-MM-DD`. Roles only, never a person's name. |
+| `controlled_copy` *(optional, kind `sop`)* | `true` or `false`: whether the copy in use is the controlled one. |
+| `steps_governed`, `steps_departing` *(optional, kind `sop`)* | Numbers: steps on the published map that cite this SOP, and how many of those are done differently from it. |
 | `accountable_contested` *(optional)* | `true` when the sources disagree about who is accountable, or two roles hold A. Counts only when exactly `true`. |
+
+New kind (added 2026-11-25): **`sop`** from Process Map Studio, one per SOP or manual in the sources (ID `SOP-nn`), answering "who owns and updates the SOPs". The Compass lists it in that unit's SOP register, where the owner can correct it, and compares units on readout page 5.
 
 New kinds (added 2026-11-13, still format 1.0 because they are additive): **`role_reason`** from Org Modeling (why an anchor role exists, is thin, or is missing in this country) and **`variation`** from Process Map Studio (a difference between two countries' published maps of the same process, ID `Vn`).
 

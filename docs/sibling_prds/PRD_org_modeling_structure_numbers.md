@@ -59,6 +59,7 @@ Rules the Compass applies, so this app must respect them:
 - **Numbers only.** A string, a negative number or an unknown key is dropped on import, never trusted. Leave a key out rather than send `0` when it was not worked out.
 - Send **the same `metrics` object on each of the three `structural_baseline` findings** of a unit (`baseline.layers`, `baseline.spans`, `baseline.health`). The Compass merges them; repeating them is safe and keeps each finding self-contained.
 - Keep the existing `title`, `detail`, `figure` and `source_note` exactly as they are. Older Compass copies read the numbers from that wording, and people read it.
+- The owner can type over any of these figures in the Compass (for example from an HR system). The Compass keeps this app's figure beside the typed one and shows both, so send what you calculated; do not try to guess.
 - The Compass converts `total_cost` into the workspace's own unit (e.g. millions) and labels it "base salary only". **Say in `source_note` how the cost was made**, e.g. "People cost is the Salary column for 24 people and the grade table for 2."
 
 ## 4. What to build

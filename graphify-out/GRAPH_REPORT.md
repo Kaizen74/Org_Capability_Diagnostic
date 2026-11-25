@@ -1,17 +1,17 @@
 # Graph Report - Org_Capability_Diagnostic  (2026-11-25)
 
 ## Corpus Check
-- 41 files · ~150,533 words
+- 41 files · ~152,028 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 4 file(s) not represented in the graph (top: (none) 2, .css 1, .csv 1)
 
 ## Summary
-- 845 nodes · 1330 edges · 34 communities (29 shown, 5 thin omitted)
+- 846 nodes · 1331 edges · 34 communities (29 shown, 5 thin omitted)
 - Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 73 edges (avg confidence: 0.83)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `3eb794d7`
+- Built from commit: `7f66ad0e`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -56,12 +56,12 @@
 2. `toast()` - 33 edges
 3. `esc()` - 26 edges
 4. `nowIso()` - 17 edges
-5. `renderView()` - 16 edges
-6. `Project State — Capability Compass` - 16 edges
-7. `openClusterModal()` - 15 edges
-8. `validateState()` - 15 edges
-9. `Capability Compass — Plain-Language Guide` - 15 edges
-10. `_isStr()` - 14 edges
+5. `Project State — Capability Compass` - 16 edges
+6. `renderView()` - 16 edges
+7. `Capability Compass — Plain-Language Guide` - 15 edges
+8. `openClusterModal()` - 15 edges
+9. `validateState()` - 15 edges
+10. `cellAssessed()` - 14 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `How to resume` --references--> `renderAll()`  [INFERRED]
@@ -193,12 +193,12 @@ Cohesion: 0.13
 Nodes (14): 1. Why this change, 2. What this app already has (read on 2026-11-25; check it), 3. The shared language (fixed; do not redesign), 4.1 `metrics` on every exported `structural_baseline` finding, 4.2 People cost is base salary, said on screen, 4.3 A unit column, not only Country, 4.4 Tell me when the numbers would mislead, 4. What to build (+6 more)
 
 ### Community 33 - "PRD: Process Map Studio, who decides and who is accountable, sent to the Compass"
-Cohesion: 0.14
-Nodes (13): 1. Why this change, 2. What this app already has (read on 2026-11-25; check it), 3. The shared language (fixed; do not redesign), 4.1 Send the fields on every decision-rights finding, 4.2 The decider "on paper", 4.3 Show it on the RACI view, 4. What to build, 5. Rules that must hold (+5 more)
+Cohesion: 0.13
+Nodes (14): 1. Why this change, 2. What this app already has (read on 2026-11-25; check it), 3. The shared language (fixed; do not redesign), 4.1 Send the fields on every decision-rights finding, 4.2 The decider "on paper", 4.3 Show it on the RACI view, 4.4 Who owns and updates each SOP, 4. What to build (+6 more)
 
 ## Knowledge Gaps
 - **1 isolated node(s):** `RFC-4180`
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 492 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 493 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
 - **5 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
@@ -211,7 +211,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `contract_test.js` be split into smaller, more focused modules?**
   _Cohesion score 0.011363636363636364 - nodes in this community are weakly interconnected._
 - **Why does `idTravelled()` connect `app.js` to `engine.js`?**
-  _High betweenness centrality (0.108) - this node is a cross-community bridge._
+  _High betweenness centrality (0.107) - this node is a cross-community bridge._
 - **Should `engine.js` be split into smaller, more focused modules?**
   _Cohesion score 0.07542087542087542 - nodes in this community are weakly interconnected._
 - **Why does `openFrameReview()` connect `app.js` to `stages.js`?**
