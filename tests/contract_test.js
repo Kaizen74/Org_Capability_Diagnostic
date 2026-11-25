@@ -1206,5 +1206,56 @@ checkOk("nothing is ever deleted: a cluster no longer in the frame is only flagg
 checkOk("after bringing changes in, the ID counters stay ahead, so no ID is ever reused", fa.idSeq.CAP >= 7 && fa.idSeq.RL >= 20 && fa.idSeq.LV >= 8);
 checkOk("a unit's tier is checked by the contract", schema.validateState(Object.assign({}, fu, { unitTier: "maybe" })).length === 1);
 
+// ---- 48. Five EXCO questions: unit economics, structure, decision rights ----
+const ex = run("demoEconomics('Arden')");
+put("__ex", ex);
+const er = run("econRatios(__ex)");
+checkOk("ratios are worked out from the parts: total cost, manpower share, per head, per unit of volume",
+  er.total_cost === 319 && Math.abs(er.mp_share_cost - 168 / 319) < 1e-9 && Math.abs(er.mp_to_revenue - 168 / 410) < 1e-9 &&
+  Math.abs(er.revenue_per_head - 410 / 1240) < 1e-9 && Math.abs(er.volume_per_head - 500) < 1e-9 && Math.abs(er.cost_per_volume - 319 / 620000) < 1e-12);
+const erPart = run("econRatios(Object.assign(blankEconomics(), { revenue: 100, manpower_cost: 40 }))");
+checkOk("a missing part gives no ratio, never a zero", erPart.total_cost === null && erPart.mp_share_cost === null && erPart.revenue_per_head === null && Math.abs(erPart.mp_to_revenue - 0.4) < 1e-9);
+checkOk("a head-count of zero gives no per-head figure rather than infinity", run("econRatios(Object.assign(blankEconomics(), { revenue: 100, headcount: 0 }))").revenue_per_head === null);
+const exMessy = run("(() => { const s = { economics: { revenue: '1,200', headcount: -5, volume: 'lots', junk: 1, from: { revenue: 'x', evil: 3 } } }; return ensureEconomics(s); })()");
+checkOk("stored economics are cleaned on load: text numbers read, negatives and words dropped, unknown keys gone",
+  exMessy.revenue === 1200 && exMessy.headcount === null && exMessy.volume === null && exMessy.junk === undefined && exMessy.from.revenue === "x" && exMessy.from.evil === undefined);
+check("economics conform to the contract", schema.validateEconomics(ex));
+checkOk("the contract refuses a negative or text amount", schema.validateEconomics(Object.assign({}, ex, { revenue: -1 })).length === 1 && schema.validateEconomics(Object.assign({}, ex, { headcount: "many" })).length === 1);
+const exHome = JSON.parse(JSON.stringify(dHome)); exHome.economics = ex; put("__exh", exHome);
+const exCopy = run("frameCopy(__exh, 'Dorne', 'DO')");
+checkOk("a new unit keeps the period and the volume measure, with every number blank",
+  exCopy.economics.period === "FY2025" && exCopy.economics.volume_label === "tonnes handled" && ["revenue", "manpower_cost", "non_manpower_cost", "headcount", "volume"].every(k => exCopy.economics[k] === null) && exCopy.economics.validated === false);
+check("every demo unit with economics conforms", [].concat(...[exHome].concat(run("DEMO_COUNTRIES.map(spec => ensureRefs(buildDemoCountry(__exh, spec)))")).map(d => schema.validateState(d))));
+
+const rawEx = { format: "compass-return", format_version: "1.0", source_app: "org-modeling", engagement_key: "K", findings: [
+  { ref: "baseline.layers", kind: "structural_baseline", title: "Layers", figure: "5 layers", metrics: { headcount: 900, layers: 5, total_cost: 42000000, sneaky: 3, managers: -2, median_span: "7" } },
+  { ref: "X1", kind: "discrepancy", topic: "decision_right", title: "Pricing", on_paper: "Commercial lead", decided_by: "Finance controller", accountable: "Commercial lead", accountable_contested: "yes" }] };
+put("__rawEx", rawEx);
+const retEx = run("normaliseReturn(__rawEx)");
+check("a findings file with numbers and decision rights conforms", schema.validateReturn(retEx));
+checkOk("only known structure numbers are kept, and only numbers of zero or more",
+  JSON.stringify(retEx.findings[0].metrics) === JSON.stringify({ headcount: 900, layers: 5, median_span: 7, total_cost: 42000000 }));
+checkOk("decision fields are kept; 'contested' must be exactly true", retEx.findings[1].decided_by === "Finance controller" && retEx.findings[1].accountable === "Commercial lead" && retEx.findings[1].accountable_contested === undefined);
+const st1 = run("unitStructure({ returns: [__rawEx] })");
+checkOk("structure is read from the numbers when the file sends them", st1 && st1.metrics.headcount === 900 && st1.metrics.layers === 5 && st1.numeric === true);
+const belmar = run("ensureRefs(buildDemoCountry(__exh, DEMO_COUNTRIES[0]))"); put("__bel", belmar);
+const st2 = run("unitStructure(__bel)");
+checkOk("an older file without numbers is read from its wording", st2 && st2.metrics.headcount === 560 && st2.metrics.layers === 5 && st2.metrics.managers === 61 && st2.metrics.spans_within === 38 && st2.metrics.median_span === 6.5 && st2.metrics.single_report_managers === 9 && st2.numeric === false);
+checkOk("no structure findings means no structure, not zeros", run("unitStructure({ returns: [] })") === null);
+const exSug = run("econSuggestions(Object.assign({}, __exh, { valueChain: Object.assign({}, __exh.valueChain, { value_unit: 'm' }) }))");
+checkOk("Org Modeling's head-count and people cost are offered in the workspace's unit, marked as base salary",
+  exSug.headcount.value === 1240 && exSug.manpower_cost.value === 52.8 && /base salary/.test(exSug.manpower_cost.from));
+const dv = run("decisionView(__rawEx.findings[1])");
+checkOk("who decides vs who is accountable: a split and an off-paper decision are both flagged", dv.split === true && dv.offPaper === true && dv.edited === false);
+const dvEdit = run("decisionView(Object.assign({}, __rawEx.findings[1], { owner_edit: { accountable: 'Finance controller' } }))");
+checkOk("the owner's correction wins and is marked as entered by the owner", dvEdit.accountable === "Finance controller" && dvEdit.split === false && dvEdit.edited === true);
+check("a finding the owner corrected still conforms", schema.validateReturn(Object.assign({}, retEx, { findings: [Object.assign({}, retEx.findings[1], { owner_edit: { accountable: "X", accountable_contested: true } })] })));
+checkOk("the contract refuses a malformed correction", schema.validateReturn(Object.assign({}, retEx, { findings: [Object.assign({}, retEx.findings[1], { owner_edit: { accountable: 3 } })] })).length === 1);
+const rmEx = run("readoutModel(__exh, [{ id: 'a', label: 'Arden', state: __exh }, { id: 'b', label: 'Belmar', state: __bel }])");
+checkOk("the readout carries each unit's economics and structure", rmEx.econAny && rmEx.countries.every(c => c.econ) && rmEx.countries.every(c => c.structure) && rmEx.econSameMoney && rmEx.econLabels.join() === "tonnes handled");
+const blankU = run("frameCopy(__exh, 'Dorne', 'DO')"); put("__blankU", blankU);
+const rmEx2 = run("readoutModel(__exh, [{ id: 'a', label: 'Arden', state: __exh }, { id: 'd', label: 'Dorne', state: __blankU }])");
+checkOk("a unit with no economics is listed as missing, not shown as zero", rmEx2.econMissing.join() === "Dorne" && rmEx2.countries[1].econ === null);
+
 console.log(failures ? `\n${failures} CONTRACT FAILURE(S)` : "\nAll contract checks passed.");
 process.exit(failures ? 1 : 0);

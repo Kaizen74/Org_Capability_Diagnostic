@@ -537,6 +537,7 @@ function buildDemoCountry(home, spec) {
     s.pilots[cid] = { decision: spec.pilots[cid], reason: "", name: known.name || "", kpi: known.kpi || "" };
   });
   s.returns = demoReturns(spec.country);
+  s.economics = demoEconomics(spec.country);
   return s;
 }
 
@@ -545,7 +546,7 @@ const DEMO_RETURNS = {
   Arden: [
     { source_app: "process-map-studio", findings: [
       { ref: "X1", kind: "discrepancy", grade: "confirmed", figure: "6 days (median delay)", relates_to: ["VS-01", "CAP-04", "CAP-04.Process"],
-        topic: "decision_right",
+        topic: "decision_right", on_paper: "Commercial lead", decided_by: "Regional finance controller", accountable: "Commercial lead",
         title: "Renewal pricing is decided by the regional finance controller, not the commercial lead named in the policy",
         detail: "Types: Different role. Impact: adds about six working days to each renewal. Verdict: Risky drift.", source_note: "Rests on 2 documents, 5 interviews." },
       { ref: "X2", kind: "discrepancy", topic: "way_of_working", grade: "indicated", figure: "11 of 14 bids", relates_to: ["VS-01", "CAP-04", "CAP-04.Process"],
@@ -560,7 +561,8 @@ const DEMO_RETURNS = {
     ] },
     { source_app: "org-modeling", findings: [
       { ref: "baseline.layers", kind: "structural_baseline", topic: "role_presence", grade: "confirmed", figure: "5 layers", relates_to: ["CAP-05.Structure"],
-        title: "Layers in the reporting chain (Arden)", detail: "Counted from who reports to whom. The design criterion allows five, so Arden is at the limit.", source_note: "Computed from the uploaded org file." },
+        title: "Layers in the reporting chain (Arden)", detail: "Counted from who reports to whom. The design criterion allows five, so Arden is at the limit.", source_note: "Computed from the uploaded org file (1,240 people in Arden)",
+        metrics: { headcount: 1240, managers: 118, manager_ratio_pct: 9.5, layers: 5, median_span: 8, spans_within: 71, spans_below: 39, spans_above: 8, single_report_managers: 12, health_score: 68, total_cost: 52800000 } },
       { ref: "RL-011", kind: "role_reason", topic: "role_reason", reason_class: "inherited", grade: "indicated", figure: "0 people", relates_to: ["RL-011", "CAP-04", "CAP-04.People"],
         title: "Why Head of Pricing / Revenue Management is absent in Arden", detail: "Created for the 2024 tender season and never filled. The seat is on the chart; the work is done by finance.", source_note: "Stated in two interviews; headcount from the uploaded org file." }
     ] },
@@ -574,6 +576,7 @@ const DEMO_RETURNS = {
   Belmar: [
     { source_app: "process-map-studio", findings: [
       { ref: "X1", kind: "discrepancy", topic: "decision_right", grade: "confirmed", figure: "3 of 10 turns observed", relates_to: ["CAP-01", "CAP-01.Process"],
+        on_paper: "Certified load controller", decided_by: "Shift supervisor", accountable: "Certified load controller",
         title: "Load plans are signed off by the shift supervisor, not the certified load controller",
         detail: "Types: Different role, Skipped check. Impact: safety exposure on wide-body turns. Verdict: Risky drift.", source_note: "Rests on 1 document, 4 interviews, system records of 10 cases." },
       { ref: "X2", kind: "discrepancy", topic: "way_of_working", grade: "indicated", figure: "2 systems", relates_to: ["CAP-01", "CAP-01.Process"],
@@ -583,10 +586,15 @@ const DEMO_RETURNS = {
         title: "Renewal pricing: approved by the country manager in Belmar, by the regional finance controller in Arden",
         detail: "Types: Different role. Step S-07 (Approve the renewal price). Reason: Belmar kept its pre-merger delegation of authority.", source_note: "Compared between the two published maps of VS-01; each side rests on 3 interviews." },
       { ref: "X3", kind: "discrepancy", topic: "decision_right", grade: "indicated", figure: "", relates_to: ["CAP-03", "CAP-03.Process"],
+        on_paper: "Regional roster owner", decided_by: "Station manager", accountable: "Regional roster owner", accountable_contested: true,
         title: "Overtime is approved by the station manager without the regional roster owner",
         detail: "Types: Different role. Impact: roster decisions made twice. Verdict: Unexplained.", source_note: "Rests on 2 interviews." }
     ] },
     { source_app: "org-modeling", findings: [
+      { ref: "baseline.spans", kind: "structural_baseline", topic: "role_presence", grade: "confirmed", figure: "38 of 61 managers", relates_to: ["CAP-03.Structure"],
+        title: "Managers within their span benchmark (Belmar)", detail: "19 below, 4 above; 9 managers have one direct report. Median span 6.5.", source_note: "Computed from the uploaded org file (560 people in Belmar)" },
+      { ref: "baseline.layers", kind: "structural_baseline", topic: "role_presence", grade: "confirmed", figure: "5 layers", relates_to: ["CAP-03.Structure"],
+        title: "Layers in the reporting chain (Belmar)", detail: "Counted from who reports to whom.", source_note: "Computed from the uploaded org file (560 people in Belmar)" },
       { ref: "RL-007", kind: "role_reason", topic: "role_reason", reason_class: "chosen", compared_with: "Arden", grade: "confirmed", figure: "0 people", relates_to: ["RL-007", "CAP-03", "CAP-03.Structure"],
         title: "Why Head, Analytics & AI is absent in Belmar", detail: "Belmar buys analytics as a service rather than staffing a team: a deliberate decision taken in 2025 on cost grounds.", source_note: "Reason stated by the country manager; headcount from the uploaded org file." },
       { ref: "RL-004", kind: "role_reason", topic: "role_reason", reason_class: "inherited", compared_with: "Arden", grade: "indicated", figure: "0 people", relates_to: ["RL-004", "CAP-01", "CAP-01.People"],
@@ -596,6 +604,7 @@ const DEMO_RETURNS = {
   Caldera: [
     { source_app: "process-map-studio", findings: [
       { ref: "X1", kind: "discrepancy", topic: "decision_right", grade: "indicated", figure: "", relates_to: ["CAP-04", "CAP-04.Structure"],
+        on_paper: "Commercial lead", decided_by: "Operations director", accountable: "Operations director",
         title: "Commercial terms are approved by the operations director",
         detail: "Types: Different role. Impact: price follows capacity, not customer value. Verdict: Unexplained.", source_note: "Rests on 2 interviews." },
       { ref: "V1", kind: "variation", topic: "way_of_working", reason_class: "required", compared_with: "Arden", grade: "confirmed", figure: "+1 sign-off per turn", relates_to: ["CAP-01", "CAP-01.Process"],
@@ -607,10 +616,23 @@ const DEMO_RETURNS = {
     ] },
     { source_app: "org-modeling", findings: [
       { ref: "baseline.layers", kind: "structural_baseline", topic: "role_presence", reason_class: "inherited", compared_with: "Arden", grade: "confirmed", figure: "6 layers", relates_to: ["CAP-04.Structure"],
+        metrics: { headcount: 372, managers: 47, layers: 6, median_span: 5, spans_within: 22, single_report_managers: 11, health_score: 54 },
         title: "Commercial reports through an operations director in Caldera", detail: "One more layer than Arden and Belmar: the station and Commercial both report to an operations director. Unchanged since the acquisition.", source_note: "Computed from the uploaded org file." }
     ] }
   ]
 };
+/* Unit economics for the fictional demo (amounts in $m). */
+const DEMO_ECONOMICS = {
+  Arden: { revenue: 410, manpower_cost: 168, non_manpower_cost: 151, headcount: 1240, volume: 620000 },
+  Belmar: { revenue: 182, manpower_cost: 64, non_manpower_cost: 79, headcount: 560, volume: 301000 },
+  Caldera: { revenue: 121, manpower_cost: 55, non_manpower_cost: 44, headcount: 372, volume: 158000 }
+};
+function demoEconomics(country) {
+  const d = DEMO_ECONOMICS[country];
+  if (!d) return blankEconomics();
+  return Object.assign(blankEconomics({ period: "FY2025", volume_label: "tonnes handled" }), d,
+    { validated: country === "Arden", note: "Fictional demo figures. Manpower cost includes overtime and employer contributions.", from: {} });
+}
 function demoReturns(country) {
   const code = (DEMO_COUNTRIES.find(c => c.country === country) || {}).code || "";
   return (DEMO_RETURNS[country] || []).map((r, i) => Object.assign(normaliseReturn({

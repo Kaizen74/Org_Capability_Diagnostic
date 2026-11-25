@@ -118,6 +118,11 @@ function frameCopy(src, country, code) {
   });
   if (s.valueChain) {
     s.valueChain.revenue = ""; s.valueChain.as_of = "";
+  }
+  /* The period and the volume measure are frame, so every unit is measured
+     the same way; the numbers are the unit's own. */
+  s.economics = blankEconomics(src.economics);
+  if (s.valueChain) {
     (s.valueChain.stages || []).forEach(st => { st.note = ""; });
     (s.valueChain.levers || []).forEach(l => { l.share_pct = 0; l.figure = ""; delete l.value_at_stake; l.validated = false; });
   }
@@ -252,10 +257,25 @@ function strongestFirst(list) {
    Whatever the sending app wrote, only the agreed fields are kept, a
    grade outside the three is dropped rather than trusted, and nothing
    that could be a person's name or a key is carried by accident. */
+/* Optional fields, added 2026-11-25, kept only when the file sends them:
+   numbers behind a structural finding, and who decides and who is
+   accountable on a decision. */
+function returnExtras(f) {
+  const out = {};
+  if (f.metrics && typeof f.metrics === "object") {
+    const m = {};
+    STRUCT_METRICS.forEach(k => { const n = econNum(f.metrics[k]); if (n !== null) m[k] = n; });
+    if (Object.keys(m).length) out.metrics = m;
+  }
+  DECISION_FIELDS.forEach(k => { const v = String(f[k] || "").trim().slice(0, 80); if (v) out[k] = v; });
+  if (f.accountable_contested === true) out.accountable_contested = true;
+  return out;
+}
+
 function normaliseReturn(raw) {
   if (!raw || raw.format !== RETURN_FORMAT) throw new Error("This is not a findings file from one of the other apps (its format is not “compass-return”).");
   if (!/^1\./.test(String(raw.format_version || ""))) throw new Error("This findings file is version " + raw.format_version + "; this app reads version 1.");
-  const findings = (Array.isArray(raw.findings) ? raw.findings : []).map(f => ({
+  const findings = (Array.isArray(raw.findings) ? raw.findings : []).map(f => Object.assign({
     ref: String(f.ref || "").trim().slice(0, 40),
     kind: String(f.kind || "").trim().slice(0, 40),
     title: String(f.title || "").trim().slice(0, 300),
@@ -268,7 +288,7 @@ function normaliseReturn(raw) {
     reason_class: REASON_CLASSES[f.reason_class] ? f.reason_class : "",
     compared_with: String(f.compared_with || "").trim().slice(0, 60),
     cited: {}
-  })).filter(f => f.title);
+  }, returnExtras(f))).filter(f => f.title);
   if (!findings.length) throw new Error("The file contains no findings.");
   return {
     id: "ret_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
@@ -325,6 +345,8 @@ function readoutModel(home, frames) {
       money: valued ? { atRisk, stake, text: fmtMoney(f.state, atRisk), unit: (vc.currency || "") + "|" + (vc.value_unit || "") } : null,
       quickWins: f.state.clusters.reduce((a, cl) => a.concat(f.state.lenses.filter(l => (cl.cells[l.key] || {}).quick && cl.cells[l.key].quick.on)
         .map(l => ({ ref: (cl.ref || "") + "." + l.key, cluster: cl.name, lens: l.name, action: cl.cells[l.key].quick.action || "", owner: cl.cells[l.key].quick.owner || "" }))), []),
+      econ: (() => { const e = ensureEconomics(JSON.parse(JSON.stringify({ economics: f.state.economics }))); return econEntered(e) ? { e, r: econRatios(e), unit: (vc.currency || "") + "|" + (vc.value_unit || ""), currency: vc.currency || "", value_unit: vc.value_unit || "" } : null; })(),
+      structure: unitStructure(f.state),
       pilots: Object.keys(f.state.pilots || {}).filter(cid => f.state.pilots[cid].decision === "pilot")
         .map(cid => { const p = f.state.pilots[cid]; return { ref: p.ref || "", name: p.name || "", kpi: p.kpi || "" }; })
     };
@@ -336,6 +358,11 @@ function readoutModel(home, frames) {
     cmp, diffs, roles, finds, countries, byClass,
     /* A single total only when every country uses the same currency and unit. */
     moneyComparable: moneyUnits.size === 1 && countries.every(c => c.money),
+    econAny: countries.some(c => c.econ),
+    econMissing: countries.filter(c => !c.econ).map(c => c.label),
+    econSameMoney: new Set(countries.filter(c => c.econ).map(c => c.econ.unit)).size <= 1,
+    econLabels: Array.from(new Set(countries.filter(c => c.econ).map(c => c.econ.e.volume_label).filter(Boolean))),
+    structureAny: countries.some(c => c.structure),
     material: diffs.filter(d => d.material).length,
     roleGaps: roles.filter(r => r.anchor && r.gapIn.length),
     rolesDiffer: roles.filter(r => r.differs),
@@ -458,4 +485,138 @@ function applyFrameChanges(unit, home, keys) {
   unit.idSeq = unit.idSeq || {};
   Object.keys(home.idSeq || {}).forEach(p => { unit.idSeq[p] = Math.max(unit.idSeq[p] || 0, home.idSeq[p]); });
   return unit;
+}
+
+/* ============================================================
+   Five EXCO questions across units (owner review, 2026-11-25)
+
+   A. Unit economics: revenue, manpower and non-manpower cost,
+      head-count and one volume measure, entered by the owner per unit.
+      Ratios are worked out, never typed. Amounts are in the workspace's
+      currency and unit (Value Chain). Head-count and people cost can be
+      taken from an Org Modeling file, and the owner can always overwrite.
+   B. Structure: Org Modeling's structural findings, read as numbers.
+   D. Decision rights: on paper, who decides in practice, and who is
+      accountable, from Process Map Studio findings or typed by the owner.
+   ============================================================ */
+const ECON_AMOUNTS = ["revenue", "manpower_cost", "non_manpower_cost"];
+const ECON_NUMBERS = ECON_AMOUNTS.concat(["headcount", "volume"]);
+const STRUCT_METRICS = ["headcount", "managers", "manager_ratio_pct", "layers", "median_span", "spans_within",
+  "spans_below", "spans_above", "single_report_managers", "health_score", "total_cost"];
+const DECISION_FIELDS = ["on_paper", "decided_by", "accountable"];
+
+function econNum(v) {
+  if (v === null || v === undefined || v === "") return null;
+  const n = typeof v === "number" ? v : parseFloat(String(v).replace(/[, ]/g, ""));
+  return isFinite(n) && n >= 0 ? n : null;
+}
+function blankEconomics(prev) {
+  const p = prev || {};
+  return { period: String(p.period || ""), volume_label: String(p.volume_label || ""),
+    revenue: null, manpower_cost: null, non_manpower_cost: null, headcount: null, volume: null,
+    validated: false, note: "", from: {} };
+}
+/* Make any stored value safe to read: unknown keys dropped, numbers checked. */
+function ensureEconomics(state) {
+  const e = state.economics && typeof state.economics === "object" && !Array.isArray(state.economics) ? state.economics : {};
+  const out = blankEconomics(e);
+  ECON_NUMBERS.forEach(k => { out[k] = econNum(e[k]); });
+  out.validated = !!e.validated;
+  out.note = String(e.note || "").slice(0, 400);
+  out.from = {};
+  if (e.from && typeof e.from === "object") ECON_NUMBERS.forEach(k => { if (typeof e.from[k] === "string" && e.from[k]) out.from[k] = e.from[k].slice(0, 120); });
+  state.economics = out;
+  return out;
+}
+function econEntered(e) { return !!e && ECON_NUMBERS.some(k => e[k] !== null && e[k] !== undefined); }
+
+/* Every ratio needs both of its parts; a missing part gives null, never zero. */
+function econRatios(e) {
+  const v = k => (e && typeof e[k] === "number") ? e[k] : null;
+  const rev = v("revenue"), mp = v("manpower_cost"), nmp = v("non_manpower_cost"), hc = v("headcount"), vol = v("volume");
+  const div = (a, b) => (a !== null && b !== null && b > 0) ? a / b : null;
+  const total = (mp !== null && nmp !== null) ? mp + nmp : null;
+  return {
+    total_cost: total,
+    mp_share_cost: div(mp, total),
+    mp_to_revenue: div(mp, rev),
+    cost_to_revenue: div(total, rev),
+    revenue_per_head: div(rev, hc),
+    mp_cost_per_head: div(mp, hc),
+    volume_per_head: div(vol, hc),
+    cost_per_volume: div(total, vol)
+  };
+}
+
+/* Org Modeling sends a full amount (e.g. 41,200,000); the workspace keeps
+   amounts in its own unit (e.g. m). */
+function econScale(unit) {
+  const u = String(unit || "").trim().toLowerCase();
+  if (u === "k" || u === "thousand") return 1e3;
+  if (u === "m" || u === "mn" || u === "million") return 1e6;
+  if (u === "b" || u === "bn" || u === "billion") return 1e9;
+  return 1;
+}
+
+/* Org Modeling's structural numbers for this unit, from its latest file.
+   Read from the optional `metrics` object when present; otherwise from the
+   figure and detail text that files written before 2026-11-25 carry. */
+function parseStructureText(findings) {
+  const m = {};
+  const num = s => { const x = parseFloat(String(s).replace(/,/g, "")); return isFinite(x) ? x : null; };
+  findings.forEach(f => {
+    const fig = f.figure || "", det = f.detail || "", src = f.source_note || "";
+    const people = /\((\d[\d,]*) people/.exec(src);
+    if (people && m.headcount === undefined) m.headcount = num(people[1]);
+    if (f.ref === "baseline.layers") { const x = /(\d+)\s*layers?/.exec(fig); if (x) m.layers = num(x[1]); }
+    if (f.ref === "baseline.spans") {
+      const x = /(\d+)\s*of\s*(\d+)\s*managers/.exec(fig); if (x) { m.spans_within = num(x[1]); m.managers = num(x[2]); }
+      const b = /(\d+)\s*below,\s*(\d+)\s*above/.exec(det); if (b) { m.spans_below = num(b[1]); m.spans_above = num(b[2]); }
+      const one = /(\d+)\s*managers have one direct report/.exec(det); if (one) m.single_report_managers = num(one[1]);
+      const med = /Median span\s*([\d.]+)/.exec(det); if (med) m.median_span = num(med[1]);
+    }
+    if (f.ref === "baseline.health") { const x = /(\d+)\s*out of 100/.exec(fig); if (x) m.health_score = num(x[1]); }
+  });
+  return m;
+}
+function unitStructure(state) {
+  const rets = (state.returns || []).filter(r => (r.findings || []).some(f => f.kind === "structural_baseline"));
+  if (!rets.length) return null;
+  const ret = rets.slice().sort((a, b) => String(b.imported_at).localeCompare(String(a.imported_at)))[0];
+  const base = ret.findings.filter(f => f.kind === "structural_baseline");
+  const m = parseStructureText(base);
+  base.forEach(f => { if (f.metrics) STRUCT_METRICS.forEach(k => { if (typeof f.metrics[k] === "number") m[k] = f.metrics[k]; }); });
+  if (m.manager_ratio_pct === undefined && m.managers && m.headcount) m.manager_ratio_pct = Math.round(m.managers / m.headcount * 1000) / 10;
+  const known = STRUCT_METRICS.filter(k => typeof m[k] === "number");
+  if (!known.length) return null;
+  return { metrics: m, known, imported_at: ret.imported_at, numeric: base.some(f => f.metrics) };
+}
+
+/* What Org Modeling can fill in on the economics card, already in the
+   workspace's unit. People cost is base salary only: on-costs are not in it. */
+function econSuggestions(state) {
+  const st = unitStructure(state);
+  if (!st) return {};
+  const out = {};
+  if (typeof st.metrics.headcount === "number") out.headcount = { value: st.metrics.headcount, from: "Org Modeling file (head-count)" };
+  if (typeof st.metrics.total_cost === "number") {
+    const scale = econScale((state.valueChain || {}).value_unit);
+    out.manpower_cost = { value: Math.round(st.metrics.total_cost / scale * 100) / 100, from: "Org Modeling file (base salary only)" };
+  }
+  return out;
+}
+
+/* Decision rights on one finding: what the sending app said, unless the
+   owner has typed over it. */
+function decisionView(f) {
+  const o = f.owner_edit || {};
+  const pick = k => (typeof o[k] === "string" && o[k].trim()) ? o[k].trim() : (f[k] || "");
+  const d = { on_paper: pick("on_paper"), decided_by: pick("decided_by"), accountable: pick("accountable"),
+    contested: o.accountable_contested !== undefined ? !!o.accountable_contested : !!f.accountable_contested,
+    edited: DECISION_FIELDS.some(k => typeof o[k] === "string" && o[k].trim()) };
+  const norm = s => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  d.split = !!(d.decided_by && d.accountable && norm(d.decided_by) !== norm(d.accountable));
+  d.offPaper = !!(d.decided_by && d.on_paper && norm(d.decided_by) !== norm(d.on_paper));
+  d.known = !!(d.on_paper || d.decided_by || d.accountable);
+  return d;
 }

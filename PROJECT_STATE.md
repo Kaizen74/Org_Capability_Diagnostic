@@ -80,6 +80,14 @@ Owner approved seven changes after reviewing a real SG Hub workspace (2026-11-21
 - [x] R4 — Diagnostic question relabel (no preset solutions seeded); quick-win candidates on cells, listed on readout page 6.
 - [x] R5 — Workflow board, guide, decisions; full mock test plus a check on a copy of the owner's workspace (not committed).
 
+## This session (2026-11-25) — answer five EXCO questions across units
+
+Owner approved A, B and D (2026-11-25) after a review of the five questions (decision rights, steps and handoffs, spans and layers, common and unique roles, finance and productivity). Spend cap: few large increments.
+- [x] E1 — Unit economics on each unit (revenue, manpower and non-manpower cost, head-count, one volume measure; derived ratios; estimate until validated; head-count and people cost can be taken from an Org Modeling file, always overridable). Readout page 1 table.
+- [x] E2 — Structure table on readout page 4 from Org Modeling's structural findings (numbers read from an optional `metrics` object, else from the figure text).
+- [x] E3 — Accountable beside who decides on readout page 3 (optional `accountable` and `accountable_contested` on findings; owner can enter or correct it).
+- [ ] E4 — Contract and browser checks, HANDOFF_FORMAT, GUIDE, DECISIONS, workflow board; PRDs for Org Modeling and Process Map Studio.
+
 ## Done in this session (2026-11-21)
 
 1. Not scored is not Level 1, everywhere; picking a level scores a cell; Clear score; already-scored cells marked on load.

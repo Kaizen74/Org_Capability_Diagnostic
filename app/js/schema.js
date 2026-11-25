@@ -151,6 +151,7 @@ function validateState(s) {
       if (!_isObj(pr) || !_isStr(pr.ref) || !/^VS-\d{1,4}$/.test(pr.ref)) errs.push("pilotRefs." + cid + ": ref must be a VS-nn ID");
     });
   }
+  if (s.economics !== undefined && s.economics !== null) errs = errs.concat(validateEconomics(s.economics));
   if (s.comparison !== undefined && s.comparison !== null) errs = errs.concat(validateComparison(s.comparison));
   if (s.returns !== undefined && !_isArr(s.returns)) errs.push("returns must be an array");
   (_isArr(s.returns) ? s.returns : []).forEach(function (r, i) {
@@ -423,8 +424,40 @@ function validateReturn(r) {
     if (f.reason_class !== undefined && f.reason_class !== "" && REASON_CLASS_KEYS.indexOf(f.reason_class) === -1)
       errs.push(w + ": reason_class must be empty or one of " + REASON_CLASS_KEYS.join("/"));
     if (f.compared_with !== undefined && !_isStr(f.compared_with)) errs.push(w + ": compared_with must be a string");
+    ["on_paper", "decided_by", "accountable"].forEach(function (k) {
+      if (f[k] !== undefined && !_isStr(f[k])) errs.push(w + "." + k + " must be a string");
+    });
+    if (f.accountable_contested !== undefined && typeof f.accountable_contested !== "boolean") errs.push(w + ".accountable_contested must be true or false");
+    if (f.metrics !== undefined) {
+      if (!_isObj(f.metrics)) errs.push(w + ".metrics must be an object");
+      else Object.keys(f.metrics).forEach(function (k) {
+        if (typeof f.metrics[k] !== "number" || !isFinite(f.metrics[k]) || f.metrics[k] < 0) errs.push(w + ".metrics." + k + " must be a number of zero or more");
+      });
+    }
+    if (f.owner_edit !== undefined) {
+      if (!_isObj(f.owner_edit)) errs.push(w + ".owner_edit must be an object");
+      else Object.keys(f.owner_edit).forEach(function (k) {
+        var v = f.owner_edit[k];
+        if (k === "accountable_contested" ? typeof v !== "boolean" : !_isStr(v)) errs.push(w + ".owner_edit." + k + " has the wrong type");
+      });
+    }
   });
   if (/"apiKey"|"api_key"|sk-ant-/.test(JSON.stringify(r))) errs.push("return file must not contain an API key");
+  return errs;
+}
+
+/* Unit economics (2026-11-25): amounts, head-count and volume are numbers
+   of zero or more, or null when not entered. */
+function validateEconomics(e) {
+  var errs = [];
+  if (!_isObj(e)) return ["economics must be an object"];
+  ["revenue", "manpower_cost", "non_manpower_cost", "headcount", "volume"].forEach(function (k) {
+    var v = e[k];
+    if (v !== null && v !== undefined && (typeof v !== "number" || !isFinite(v) || v < 0)) errs.push("economics." + k + " must be a number of zero or more, or empty");
+  });
+  ["period", "volume_label", "note"].forEach(function (k) { if (e[k] !== undefined && !_isStr(e[k])) errs.push("economics." + k + " must be a string"); });
+  if (e.validated !== undefined && typeof e.validated !== "boolean") errs.push("economics.validated must be true or false");
+  if (e.from !== undefined && !_isObj(e.from)) errs.push("economics.from must be an object");
   return errs;
 }
 
@@ -457,6 +490,7 @@ function directionToLeading(direction) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     COMPASS_SCHEMA_VERSION: COMPASS_SCHEMA_VERSION,
+    validateEconomics: validateEconomics,
     SIGNAL_DIRECTIONS: SIGNAL_DIRECTIONS,
     LEADING_SIGNALS: LEADING_SIGNALS,
     DOC_KINDS: DOC_KINDS,

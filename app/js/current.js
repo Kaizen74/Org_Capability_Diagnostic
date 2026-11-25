@@ -184,7 +184,17 @@ function csFindingRow(f) {
   return `<tr><td><span class="ref-chip">${esc(f.ref || "—")}</span><span class="cs-sub">${esc(kind.label)}</span></td>
     <td><strong>${esc(f.title)}</strong> ${whyChip(f)}${f.detail ? `<div class="cs-detail">${esc(f.detail)}</div>` : ""}${f.source_note ? `<div class="cs-src">${esc(f.source_note)}</div>` : ""}</td>
     <td>${f.grade ? `<span class="grade-pill g-${f.grade}">${esc(gradeMeta(f.grade).label)}</span>` : `<span class="cs-none">No grade</span>`}${f.figure ? `<div class="cs-fig">${esc(f.figure)}</div>` : ""}</td>
-    <td>${cite || `<span class="cs-none">${(f.relates_to || []).length ? esc(f.relates_to.join(", ")) : "Not tied to a cell"}</span>`}</td></tr>`;
+    <td>${cite || `<span class="cs-none">${(f.relates_to || []).length ? esc(f.relates_to.join(", ")) : "Not tied to a cell"}</span>`}${findingPage(f) === "decisions" ? decisionEditor(f) : ""}</td></tr>`;
+}
+
+/* Who decides and who is accountable, as the sending app said, with room
+   for the owner to correct or fill it. A typed value wins and is marked. */
+function decisionEditor(f) {
+  const d = decisionView(f), o = f.owner_edit || {};
+  const inp = (k, label, ph) => `<label>${label}<input type="text" data-cs-dec="${esc(f.return_id)}|${f._i}|${k}" value="${esc(o[k] !== undefined ? o[k] : (f[k] || ""))}" placeholder="${ph}"></label>`;
+  return `<details class="cs-dec"${d.known ? "" : ""}><summary>${d.known ? "Who decides · accountable" : "Add who decides · accountable"}${d.edited ? " (edited)" : ""}</summary>
+    ${inp("on_paper", "On paper", "role the documents name")}${inp("decided_by", "Decides in practice", "role that actually decides")}${inp("accountable", "Accountable", "role answerable for the outcome")}
+    <label class="cs-dec-c"><input type="checkbox" data-cs-dec="${esc(f.return_id)}|${f._i}|accountable_contested" ${d.contested ? "checked" : ""}> Sources disagree on who is accountable</label></details>`;
 }
 
 function csFindings() {
@@ -228,10 +238,80 @@ function roFindingList(list, n, empty) {
     ${list.length > n ? `<p class="ro-more">and ${list.length - n} more in the findings register</p>` : ""}`;
 }
 
-function roPerCountry(m, pick, n, emptyFor) {
+function roDecisionList(list, n, empty) {
+  if (!list.length) return `<p class="ro-empty">${empty}</p>`;
+  const top = strongestFirst(list).slice(0, n);
+  return `<ul class="ro-finds">${top.map(f => {
+    const d = decisionView(f);
+    const who = d.known ? `<span class="ro-who"><span>On paper: <strong>${esc(d.on_paper || "not stated")}</strong></span><span>Decides: <strong>${esc(d.decided_by || "not stated")}</strong>${d.offPaper ? " ⚑" : ""}</span><span>Accountable: <strong>${esc(d.accountable || "not stated")}</strong>${d.contested ? " (sources disagree)" : ""}${d.split ? " ⚑ not the one who decides" : ""}</span>${d.edited ? `<em>entered by the owner</em>` : ""}</span>` : "";
+    return `<li>${f.grade ? `<span class="grade-pill g-${f.grade}">${esc(gradeMeta(f.grade).label)}</span>` : ""}
+      <strong>${esc(f.title)}</strong>${f.figure ? ` <span class="ro-fig">${esc(f.figure)}</span>` : ""} ${whyChip(f)}${who}<span class="ref-chip">${esc(f.ref || "")}</span></li>`;
+  }).join("")}</ul>${list.length > n ? `<p class="ro-more">and ${list.length - n} more in the findings register</p>` : ""}`;
+}
+
+/* Readout page 1: each unit's economics side by side. Amounts are only
+   lined up when every unit uses the same currency and unit. */
+function roEconomics(m, frames) {
+  if (!m.econAny) return "";
+  const cols = m.countries;
+  const st = id => (frames.find(f => f.id === id) || {}).state || state;
+  const colsE = [
+    ["Revenue", c => econFmt(c.econ.e.revenue, "money", st(c.id))],
+    ["Manpower cost", c => econFmt(c.econ.e.manpower_cost, "money", st(c.id))],
+    ["Non-manpower cost", c => econFmt(c.econ.e.non_manpower_cost, "money", st(c.id))],
+    ["Manpower share of cost", c => econFmt(c.econ.r.mp_share_cost, "pct")],
+    ["Manpower ÷ revenue", c => econFmt(c.econ.r.mp_to_revenue, "pct")],
+    ["Head-count", c => econFmt(c.econ.e.headcount, "num")],
+    ["Revenue per head", c => econFmt(c.econ.r.revenue_per_head, "moneyper", st(c.id))],
+    ["Manpower cost per head", c => econFmt(c.econ.r.mp_cost_per_head, "moneyper", st(c.id))],
+    ["Volume per head", c => econFmt(c.econ.r.volume_per_head, "num")],
+    ["Cost per unit of volume", c => econFmt(c.econ.r.cost_per_volume, "moneyper", st(c.id))]
+  ];
+  const notes = [];
+  if (!m.econSameMoney) notes.push("The units use different currencies or units, so amounts and amounts per head cannot be compared directly. Percentages and volume per head can.");
+  if (m.econLabels.length > 1) notes.push("The units measure volume differently (" + m.econLabels.join(", ") + "), so volume per head and cost per unit are not comparable.");
+  const est = cols.filter(c => c.econ && !c.econ.e.validated).map(c => c.label);
+  const periods = Array.from(new Set(cols.filter(c => c.econ).map(c => c.econ.e.period || "period not stated")));
+  if (periods.length > 1) notes.push("The units report different periods (" + periods.join(", ") + ").");
+  return `<h3 class="ro-sub">Cost and productivity${periods.length === 1 ? " · " + esc(periods[0]) : ""}</h3>
+    <table class="ro-econ"><thead><tr><th></th>${colsE.map(x => `<th>${x[0]}${x[0] === "Volume per head" && m.econLabels.length === 1 ? " (" + esc(m.econLabels[0]) + ")" : ""}</th>`).join("")}</tr></thead>
+    <tbody>${cols.map(c => `<tr><td><strong>${esc(c.label)}</strong>${c.econ && !c.econ.e.validated ? ` <span class="est-tag">est.</span>` : ""}</td>${c.econ ? colsE.map(x => `<td>${x[1](c)}</td>`).join("") : `<td colspan="${colsE.length}"><span class="cs-none">not entered</span></td>`}</tr>`).join("")}</tbody></table>
+    <p class="ro-foot">${notes.map(esc).join(" ")} ${est.length ? "Estimates until finance validates them: " + esc(est.join(", ")) + "." : "Validated by finance."}</p>`;
+}
+
+/* Readout page 4: spans and layers per unit, from Org Modeling. The highest
+   and lowest are marked with a symbol, not colour alone. */
+const STRUCT_COLS = [["headcount", "Head-count"], ["managers", "Managers"], ["manager_ratio_pct", "Managers %"], ["layers", "Layers"],
+  ["median_span", "Median span"], ["spans_within", "Spans within benchmark"], ["single_report_managers", "One-report managers"], ["health_score", "Health /100"]];
+function roStructure(m) {
+  if (!m.structureAny) return `<p class="ro-empty">No structure figures imported. Import each unit's Org Modeling findings file to see head-count, layers and spans side by side.</p>`;
+  const cols = STRUCT_COLS.filter(([k]) => m.countries.some(c => c.structure && typeof c.structure.metrics[k] === "number"));
+  const ext = {};
+  cols.forEach(([k]) => {
+    const vals = m.countries.filter(c => c.structure && typeof c.structure.metrics[k] === "number").map(c => c.structure.metrics[k]);
+    if (vals.length > 1 && Math.max(...vals) !== Math.min(...vals)) ext[k] = { hi: Math.max(...vals), lo: Math.min(...vals) };
+  });
+  const fmtv = (k, v) => k === "manager_ratio_pct" ? v + "%" : k === "spans_within" ? v : (Math.round(v * 100) / 100).toLocaleString("en-US");
+  const val = (c, k) => {
+    if (!c.structure) return `<span class="cs-none">—</span>`;
+    const v = c.structure.metrics[k];
+    if (typeof v !== "number") return `<span class="cs-none">—</span>`;
+    const e = ext[k];
+    const mark = e ? (v === e.hi ? ` <span class="ro-hi" title="Highest">▲</span>` : v === e.lo ? ` <span class="ro-lo" title="Lowest">▽</span>` : "") : "";
+    const of = k === "spans_within" && typeof c.structure.metrics.managers === "number" ? " of " + c.structure.metrics.managers : "";
+    return fmtv(k, v) + of + mark;
+  };
+  const missing = m.countries.filter(c => !c.structure && c.tier !== "scored").map(c => c.label);
+  return `<h3 class="ro-sub">Spans and layers</h3>
+    <table class="ro-econ"><thead><tr><th></th>${cols.map(([, l]) => `<th>${l}</th>`).join("")}</tr></thead>
+    <tbody>${m.countries.map(c => `<tr><td><strong>${esc(c.label)}</strong></td>${cols.map(([k]) => `<td>${val(c, k)}</td>`).join("")}</tr>`).join("")}</tbody></table>
+    <p class="ro-foot">▲ highest · ▽ lowest. Counted by Org Modeling from each unit's org file; a manager's span counts direct reports in any unit.${missing.length ? " No org file imported for " + esc(missing.join(", ")) + "." : ""}</p>`;
+}
+
+function roPerCountry(m, pick, n, emptyFor, list) {
   const tierOf = id => (m.countries.find(c => c.id === id) || {}).tier;
   return `<div class="ro-cols">${m.finds.per.map(p => `<div class="ro-col"><h4>${esc(p.label)}</h4>${
-    !pick(p).length && tierOf(p.id) === "scored" ? `<p class="ro-empty">Scored only: not mapped, by design.</p>` : roFindingList(pick(p), n, emptyFor)}</div>`).join("")}</div>`;
+    !pick(p).length && tierOf(p.id) === "scored" ? `<p class="ro-empty">Scored only: not mapped, by design.</p>` : (list || roFindingList)(pick(p), n, emptyFor)}</div>`).join("")}</div>`;
 }
 
 function csReadout(ctx) {
@@ -252,6 +332,11 @@ function csReadout(ctx) {
   const noFinds = m.finds.per.filter(p => !p.total && (m.countries.find(c => c.id === p.id) || {}).tier !== "scored").map(p => p.label);
   if (noFinds.length) gaps.push("No findings imported for " + noFinds.join(", ") + ", so pages 3 to 5 are thin there.");
   if (!(cmp.verdict || "").trim()) gaps.push("The one-line verdict on page 1 is not written.");
+  if (!m.econAny) gaps.push("No unit economics entered (Value Chain → Unit economics), so page 1 shows no cost or productivity.");
+  else if (m.econMissing.length) gaps.push("Unit economics not entered for " + m.econMissing.join(", ") + ".");
+  const decs = m.finds.per.reduce((a, p) => a.concat(p.decisions), []);
+  const noWho = decs.filter(f => !decisionView(f).accountable).length;
+  if (noWho) gaps.push(noWho + " decision finding(s) do not say who is accountable. Add it in the findings register if you know it.");
 
   const tiles = m.countries.map(c => `<div class="ro-tile">
       <h4>${esc(c.label)} <span class="ref-chip">${esc(c.key)}</span></h4>
@@ -268,7 +353,8 @@ function csReadout(ctx) {
       <p class="ro-quote">${(cmp.verdict || "").trim() ? esc(cmp.verdict) : "<em>Not written yet.</em>"}</p></div>
     <div class="ro-tiles">${tiles}</div>
     <p class="ro-foot">${total !== null ? `Across the countries: ≈ ${esc(fmtMoney(frames[0].state, total))} at risk (estimate, same currency and unit).` : (m.countries.filter(c => c.money).length > 1 ? "Money at risk is shown per country and not added up: the countries use different currencies or units." : "")}
-      Money at risk is an estimate until finance validates the amount on each lever.</p>`);
+      Money at risk is an estimate until finance validates the amount on each lever.</p>
+    ${roEconomics(m, frames)}`);
 
   const classCount = k => m.byClass[k].length;
   const p2 = page(2, "Where the countries differ", "Same capabilities, same scale. Wide gaps are flagged.",
@@ -279,16 +365,23 @@ function csReadout(ctx) {
       ${DIFF_CLASSES.map(k => `<div class="ro-count ask-${k.key}"><strong>${classCount(k.key)}</strong><span>${k.label}</span></div>`).join("")}
       <div class="ro-count"><strong>${classCount("unclassified")}</strong><span>still to classify</span></div></div>`);
 
-  const p3 = page(3, "Who really decides", "Where decisions are made in practice, against where the documents say they are made.",
-    roPerCountry(m, p => p.decisions, 4, "No decision-rights findings imported. They come from Process Map Studio, where a step is decided by a different role from the one on paper.") +
-    `<p class="ro-foot">Source: Process Map Studio and Org Modeling findings that concern who decides, owns or approves. Strongest evidence first.</p>`);
+  const splitN = decs.filter(f => decisionView(f).split).length, offN = decs.filter(f => decisionView(f).offPaper).length;
+  const p3 = page(3, "Who really decides, and who is accountable", "Where decisions are made in practice, against where the documents say they are made, and who answers for the outcome.",
+    (decs.length ? `<div class="ro-counts"><div class="ro-count"><strong>${decs.length}</strong><span>decision findings</span></div>
+      <div class="ro-count"><strong>${offN}</strong><span>decided by a different role from the one on paper</span></div>
+      <div class="ro-count"><strong>${splitN}</strong><span>the one who decides is not the one accountable</span></div></div>` : "") +
+    roPerCountry(m, p => p.decisions, 4, "No decision-rights findings imported. They come from Process Map Studio, where a step is decided by a different role from the one on paper.", roDecisionList) +
+    `<p class="ro-foot">Source: Process Map Studio and Org Modeling findings that concern who decides, owns or approves, with any correction you made in the findings register. ⚑ marks a mismatch. Strongest evidence first.</p>`);
 
   const roleRows = m.roles.filter(r => r.differs || (r.anchor && r.gapIn.length));
+  /* The structure table shares the page, so fewer role rows keep it to one printed page. */
+  const roleCap = m.structureAny ? 3 : 5;
   const p4 = page(4, "Which roles exist where, and why", "The anchor roles the model depends on, country by country.",
-    (roleRows.length ? csRoleTable(frames, roleRows.slice(0, 5)) + (roleRows.length > 5 ? `<p class="ro-more">and ${roleRows.length - 5} more roles that differ or are missing, on the Compare tab</p>` : "") : `<p class="ro-empty">${m.roles.length ? "Every listed role has the same status in every country." : "No roles are listed yet."}</p>`) +
+    (roleRows.length ? csRoleTable(frames, roleRows.slice(0, roleCap)) + (roleRows.length > roleCap ? `<p class="ro-more">and ${roleRows.length - roleCap} more roles that differ or are missing, on the Compare tab</p>` : "") : `<p class="ro-empty">${m.roles.length ? "Every listed role has the same status in every country." : "No roles are listed yet."}</p>`) +
     (m.roleGaps.length ? `<p class="ro-call">⚑ ${m.roleGaps.length} anchor role${m.roleGaps.length > 1 ? "s are" : " is"} absent or thin somewhere: ${esc(m.roleGaps.slice(0, 3).map(r => r.title + " (" + r.gapIn.join(", ") + ")").join("; "))}${m.roleGaps.length > 3 ? "; and " + (m.roleGaps.length - 3) + " more" : ""}</p>` : "") +
+    roStructure(m) +
     `<h3 class="ro-sub">Why the roles are there</h3>` +
-    roPerCountry(m, p => p.people, 2, "No structure or role findings imported. They come from Org Modeling and the Workbench.") );
+    roPerCountry(m, p => p.people.filter(f => !(f.kind === "structural_baseline" && /^baseline\./.test(f.ref || "") && !f.reason_class)), 2, "No role findings imported. They come from Org Modeling and the Workbench.") );
 
   const p5 = page(5, "How work really runs", "Where practice departs from the documents, and what it costs.",
     roPerCountry(m, p => p.work.filter(f => f.kind !== "step"), 4, "No process findings imported. They come from Process Map Studio.") +
@@ -366,6 +459,7 @@ function loadDemoCountries() {
     /* Keep whatever has been added to, or left out of, the comparison by hand. */
     state.comparison = Object.assign(demoComparison(), { with: state.comparison.with || [], skip: state.comparison.skip || [] });
     state.returns = demoReturns(DEMO_HOME_COUNTRY);
+    if (!econEntered(state.economics)) state.economics = demoEconomics(DEMO_HOME_COUNTRY);
     DEMO_COUNTRIES.forEach(spec => {
       const st = migrateState(buildDemoCountry(state, spec));
       st.workspaceId = wsNewId();
@@ -423,6 +517,21 @@ function bindCurrentEvents() {
     state.changeLog.push({ at: nowIso(), cluster: cl.name, lens: at.lensKey, from: cell.level, to: cell.level, rationale: "Evidence cited from " + sourceAppName(ret.source_app) + (f.ref ? " (" + f.ref + ")" : "") + ": " + f.title, by: state.actor || "You" });
     renderAll();
     toast("Cited on " + ref + ". The score is unchanged; open the cell to re-score if it warrants.");
+  }));
+  document.querySelectorAll("[data-cs-dec]").forEach(inp => inp.addEventListener("change", () => {
+    const [rid, i, k] = inp.dataset.csDec.split("|");
+    const ret = (state.returns || []).find(x => x.id === rid);
+    const f = ret && ret.findings[+i];
+    if (!f) return;
+    const o = Object.assign({}, f.owner_edit || {});
+    if (k === "accountable_contested") o[k] = inp.checked;
+    else {
+      const v = inp.value.trim().slice(0, 80);
+      if (v && v !== (f[k] || "")) o[k] = v; else delete o[k];
+    }
+    if (Object.keys(o).length) f.owner_edit = o; else delete f.owner_edit;
+    state.changeLog.push({ at: nowIso(), cluster: "Findings", lens: "—", from: 0, to: 0, rationale: "Decision rights edited on " + (f.ref || "a finding") + ": " + f.title, by: state.actor || "You" });
+    saveState();
   }));
   ["verdict", "asks"].forEach(k => {
     const el = $("ro-" + k);

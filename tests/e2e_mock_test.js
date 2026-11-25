@@ -1322,12 +1322,12 @@ function check(name, cond) {
   await page.waitForTimeout(400);
   check("the readout is six pages, in the order an executive asks the questions",
     (await page.locator(".ro-page .ro-head h2").allTextContents()).join("|") ===
-    "Where we stand|Where the countries differ|Who really decides|Which roles exist where, and why|How work really runs|What we ask you to decide");
+    "Where we stand|Where the countries differ|Who really decides, and who is accountable|Which roles exist where, and why|How work really runs|What we ask you to decide");
   check("page 1 puts each country on the same scale with its own key",
     await page.locator(".ro-tile").count() === 3 && (await page.locator(".ro-tile").nth(2).textContent()).includes("MERIDIANCA") &&
     (await page.locator(".ro-tile").nth(2).textContent()).includes("83% of cells scored"));
   check("money at risk is totalled only because the three countries share a currency, and is called an estimate",
-    /Across the countries: ≈ \$\d+m at risk \(estimate, same currency and unit\)/.test(await page.locator(".ro-page").first().locator(".ro-foot").textContent()));
+    /Across the countries: ≈ \$\d+m at risk \(estimate, same currency and unit\)/.test(await page.locator(".ro-page").first().locator(".ro-foot").first().textContent()));
   check("the readout says what would weaken it before it is printed",
     (await page.locator(".cs-warn").textContent()).includes("Only partly scored: Caldera"));
   check("page 3 lists who really decides, per country, strongest evidence first",
@@ -1368,7 +1368,7 @@ function check(name, cond) {
     (await page.locator(".cs-chip.on em").textContent()) === "open now" && (await page.locator(".cs-chip.on").first().textContent()).includes("Belmar"));
   await page.click('[data-cs-tab="findings"]');
   await page.waitForTimeout(300);
-  check("each country keeps its own findings", await page.locator(".cs-file").count() === 2 && await page.locator(".cs-find tbody tr").count() === 6);
+  check("each country keeps its own findings", await page.locator(".cs-file").count() === 2 && await page.locator(".cs-find tbody tr").count() === 8);
   check("a finding says why it is so, and against which country, in words",
     (await page.locator(".cs-find tbody tr", { hasText: "V1" }).first().textContent()).includes("Inherited") &&
     (await page.locator(".cs-find tbody tr", { hasText: "V1" }).first().textContent()).includes("vs Arden"));
@@ -1471,6 +1471,56 @@ function check(name, cond) {
   check("Clear score returns a cell to Not scored, logged, and the totals follow",
     await page.evaluate(() => { const c = state.clusters.find(x => x.id === "food").cells.Culture; return c.status === "Not yet assessed" && state.changeLog.slice(-1)[0].rationale === "Score cleared"; }) &&
     await page.locator('.cell.unscored[data-cluster="food"][data-lens="Culture"]').count() === 1);
+  /* ---- Five EXCO questions: economics, structure, decision rights (2026-11-25) ---- */
+  await page.click('.tab[data-view="valuechain"]');
+  await page.waitForTimeout(300);
+  check("the Value Chain shows this unit's economics with worked-out ratios",
+    await page.locator("#econ-card").count() === 1 && (await page.locator("#econ-card").textContent()).includes("Unit economics: Belmar") &&
+    (await page.locator("#econ-card .econ-ratios").textContent()).includes("Revenue per head") &&
+    (await page.locator("#econ-card .econ-ratios").textContent()).includes("44.8%"));
+  check("when Org Modeling agrees with the typed figure, nothing is offered", await page.locator("[data-econ-use]").count() === 0);
+  await page.fill("#econ-headcount", "500");
+  await page.locator("#econ-headcount").dispatchEvent("change");
+  await page.waitForTimeout(300);
+  check("when it differs, Org Modeling's head-count is offered, not imposed",
+    await page.locator('[data-econ-use="headcount"]').count() === 1 && await page.evaluate(() => state.economics.headcount === 500));
+  await page.click('[data-econ-use="headcount"]');
+  await page.waitForTimeout(300);
+  check("using it fills the figure and says where it came from",
+    await page.evaluate(() => state.economics.headcount === 560 && /Org Modeling/.test(state.economics.from.headcount)) &&
+    (await page.locator("#econ-card").textContent()).includes("from Org Modeling file"));
+  await page.fill("#econ-headcount", "555");
+  await page.locator("#econ-headcount").dispatchEvent("change");
+  await page.waitForTimeout(300);
+  check("a typed figure overrides it and clears the source note", await page.evaluate(() => state.economics.headcount === 555 && !state.economics.from.headcount));
+  await page.fill("#econ-headcount", "-5");
+  await page.locator("#econ-headcount").dispatchEvent("change");
+  await page.waitForTimeout(300);
+  check("a negative head-count is refused and the old figure kept", await page.evaluate(() => state.economics.headcount === 555));
+  await page.fill("#econ-headcount", "560");
+  await page.locator("#econ-headcount").dispatchEvent("change");
+  await page.waitForTimeout(300);
+
+  await page.click('.tab[data-view="current"]');
+  await page.click('[data-cs-tab="findings"]');
+  await page.waitForTimeout(300);
+  const decEd = page.locator(".cs-dec").first();
+  check("decision findings can be given or corrected: who decides and who is accountable", await page.locator(".cs-dec").count() >= 1);
+  await decEd.locator("summary").click();
+  const accIn = decEd.locator('input[data-cs-dec$="|accountable"]');
+  await accIn.fill("Regional finance controller");
+  await accIn.dispatchEvent("change");
+  await page.waitForTimeout(300);
+  check("the correction is stored beside the app's own value and logged",
+    await page.evaluate(() => { const f = state.returns.flatMap(r => r.findings).find(x => x.owner_edit && x.owner_edit.accountable); return !!f && !!f.accountable && f.accountable !== f.owner_edit.accountable && /Decision rights edited/.test(state.changeLog.slice(-1)[0].rationale); }));
+  await page.click('[data-cs-tab="readout"]');
+  await page.waitForTimeout(400);
+  const p1t = await page.locator(".ro-page").nth(0).textContent(), p3t = await page.locator(".ro-page").nth(2).textContent(), p4t = await page.locator(".ro-page").nth(3).textContent();
+  check("page 1 lines up cost and productivity for every unit", p1t.includes("Cost and productivity") && p1t.includes("Manpower share of cost") && await page.locator(".ro-page").nth(0).locator(".ro-econ tbody tr").count() === 3);
+  check("page 3 shows on paper, who decides and who is accountable, with mismatches counted and flagged",
+    p3t.includes("who is accountable") && p3t.includes("Accountable:") && p3t.includes("not the one who decides") && p3t.includes("entered by the owner") && p3t.includes("sources disagree"));
+  check("page 4 lines up head-count, layers and spans per unit, highest and lowest marked",
+    p4t.includes("Spans and layers") && p4t.includes("Layers") && p4t.includes("▲") && p4t.includes("1,240") && p4t.includes("560"));
   await page.click('.tab[data-view="current"]');
   await page.click('[data-cs-tab="readout"]');
   await page.waitForTimeout(400);
